@@ -90,6 +90,8 @@ model Transaction {
   category    String?
   description String?
   date        String   // Storing as YYYY-MM-DD strings often used in UI
+  receipt_url String?  // URL bukti struk/nota
+  source      String?  // manual, telegram_bot, etc.
   createdAt   DateTime @default(now())
 }
 
@@ -169,6 +171,22 @@ model AppSettings {
   midtrans_server_key   String?
   midtrans_client_key   String?
   midtrans_environment  String? @default("sandbox")
+  gemini_api_key        String? // API Key untuk AI OCR struk
+}
+
+model TelegramSettings {
+  id                    String  @id @default(uuid())
+  mosque_id             String  @unique
+  bot_token             String? // Token Bot dari @BotFather
+  chat_id               String? // Chat ID grup/channel untuk notifikasi
+  notify_transactions   Boolean @default(true)  // Notif transaksi keuangan
+  notify_activities     Boolean @default(true)  // Notif kegiatan baru
+  notify_announcements  Boolean @default(true)  // Notif pengumuman
+  notify_donations      Boolean @default(true)  // Notif donasi masuk
+  bot_enabled           Boolean @default(false) // Apakah bot aktif
+  gemini_api_key        String? // API Key Gemini untuk OCR struk (opsional, override global)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model PlanFeatures {

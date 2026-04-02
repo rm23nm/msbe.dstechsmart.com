@@ -9,11 +9,36 @@ const fs = require("fs");
 const { PrismaClient } = require("@prisma/client");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
+const telegramService = require("./telegram-bot");
 
 const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey123";
+
+// ============================
+// AUTO-START TELEGRAM BOTS
+// ============================
+async function initAllTelegramBots() {
+  try {
+    const settings = await prisma.telegramSettings.findMany({ where: { bot_enabled: true } });
+    const appSettings = await prisma.appSettings.findFirst();
+    const globalGeminiKey = appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+    
+    for (const setting of settings) {
+      if (setting.bot_token) {
+        const geminiKey = setting.gemini_api_key || globalGeminiKey;
+        const serverUrl = process.env.SERVER_BASE_URL || `http://localhost:${PORT}`;
+        telegramService.initTelegramBot(setting.mosque_id, setting.bot_token, prisma, geminiKey, serverUrl);
+      }
+    }
+    if (settings.length > 0) {
+      console.log(`[Telegram] ${settings.length} bot(s) berhasil diinisialisasi`);
+    }
+  } catch (e) {
+    console.log("[Telegram] Belum ada bot yang dikonfigurasi");
+  }
+}
 
 app.use(cors());
 app.use(express.json());
@@ -618,6 +643,284 @@ app.post("/api/ai/analyze", authenticateToken, async (req, res) => {
   }
 });
 
+
+/* ==================
+   TELEGRAM INTEGRATION ENDPOINTS
+================== */
+
+// GET - Ambil pengaturan Telegram masjid
+app.get("/api/telegram/settings", authenticateToken, async (req, res) => {
+  try {
+    const mosqueId = req.query.mosque_id;
+    if (!mosqueId) return res.status(400).json({ error: "mosque_id wajib diisi" });
+
+    let settings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+    if (!settings) {
+      // Buat default settings jika belum ada
+      settings = await prisma.telegramSettings.create({
+        data: { mosque_id: mosqueId }
+      });
+    }
+    // Sembunyikan bot_token untuk keamanan
+    const safeSettings = { ...settings, bot_token: settings.bot_token ? "****" + settings.bot_token.slice(-4) : null };
+    res.json(safeSettings);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Simpan / update pengaturan Telegram masjid
+app.post("/api/telegram/settings", authenticateToken, async (req, res) => {
+  try {
+    const { mosque_id, bot_token, chat_id, notify_transactions, notify_activities, 
+            notify_announcements, notify_donations, bot_enabled, gemini_api_key } = req.body;
+    
+    if (!mosque_id) return res.status(400).json({ error: "mosque_id wajib diisi" });
+
+    const existing = await prisma.telegramSettings.findUnique({ where: { mosque_id } });
+    
+    // Jika bot_token berisi **** (masked), jangan update token
+    const isTokenMasked = bot_token && bot_token.includes("****");
+    
+    const data = {
+      chat_id: chat_id || null,
+      notify_transactions: notify_transactions ?? true,
+      notify_activities: notify_activities ?? true,
+      notify_announcements: notify_announcements ?? true,
+      notify_donations: notify_donations ?? true,
+      bot_enabled: bot_enabled ?? false,
+      gemini_api_key: gemini_api_key || null,
+    };
+
+    if (!isTokenMasked && bot_token) {
+      data.bot_token = bot_token;
+    }
+
+    let settings;
+    if (existing) {
+      settings = await prisma.telegramSettings.update({ where: { mosque_id }, data });
+    } else {
+      settings = await prisma.telegramSettings.create({ data: { mosque_id, ...data } });
+    }
+
+    // Reload bot jika aktif
+    const currentSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id } });
+    if (currentSettings?.bot_enabled && currentSettings?.bot_token) {
+      const appSettings = await prisma.appSettings.findFirst();
+      const globalGeminiKey = appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+      const geminiKey = currentSettings.gemini_api_key || globalGeminiKey;
+      const serverUrl = process.env.SERVER_BASE_URL || `http://localhost:${PORT}`;
+      telegramService.initTelegramBot(mosque_id, currentSettings.bot_token, prisma, geminiKey, serverUrl);
+    } else if (!currentSettings?.bot_enabled) {
+      telegramService.stopTelegramBot(mosque_id);
+    }
+
+    res.json({ success: true, settings });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Test koneksi bot Telegram
+app.post("/api/telegram/test-bot", authenticateToken, async (req, res) => {
+  try {
+    const { bot_token, mosque_id } = req.body;
+    
+    // Jika token masked, ambil dari database
+    let token = bot_token;
+    if (!token || token.includes("****")) {
+      const settings = await prisma.telegramSettings.findUnique({ where: { mosque_id } });
+      token = settings?.bot_token;
+    }
+    
+    if (!token) return res.status(400).json({ error: "Bot token belum dikonfigurasi" });
+    
+    const result = await telegramService.testBotConnection(token);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Test kirim notifikasi ke chat
+app.post("/api/telegram/test-send", authenticateToken, async (req, res) => {
+  try {
+    const { mosque_id, chat_id } = req.body;
+    
+    const settings = await prisma.telegramSettings.findUnique({ where: { mosque_id } });
+    if (!settings?.bot_token) return res.status(400).json({ error: "Bot token belum dikonfigurasi" });
+    if (!chat_id && !settings?.chat_id) return res.status(400).json({ error: "Chat ID belum dikonfigurasi" });
+    
+    const targetChatId = chat_id || settings.chat_id;
+    const result = await telegramService.testSendNotification(settings.bot_token, targetChatId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - Kirim notifikasi manual ke Telegram
+app.post("/api/telegram/send-notification", authenticateToken, async (req, res) => {
+  try {
+    const { mosque_id, message } = req.body;
+    if (!mosque_id || !message) return res.status(400).json({ error: "mosque_id dan message wajib diisi" });
+    
+    const settings = await prisma.telegramSettings.findUnique({ where: { mosque_id } });
+    if (!settings?.bot_token || !settings?.chat_id) {
+      return res.status(400).json({ error: "Telegram belum dikonfigurasi untuk masjid ini" });
+    }
+    
+    const result = await telegramService.sendTelegramNotification(settings.bot_token, settings.chat_id, message);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST - OCR analisis gambar struk (upload via web)
+app.post("/api/telegram/analyze-receipt", authenticateToken, upload.single("receipt"), async (req, res) => {
+  try {
+    const mosqueId = req.body.mosque_id || req.query.mosque_id;
+    
+    // Ambil Gemini API key
+    let geminiKey = null;
+    if (mosqueId) {
+      const telegramSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+      geminiKey = telegramSettings?.gemini_api_key;
+    }
+    if (!geminiKey) {
+      const appSettings = await prisma.appSettings.findFirst();
+      geminiKey = appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+    }
+    
+    if (!geminiKey) {
+      return res.status(400).json({ error: "Gemini API Key belum dikonfigurasi. Tambahkan di pengaturan Telegram atau Pengaturan Aplikasi." });
+    }
+    
+    let imagePath;
+    if (req.file) {
+      imagePath = req.file.path;
+    } else if (req.body.image_url) {
+      imagePath = req.body.image_url;
+    } else {
+      return res.status(400).json({ error: "Upload gambar atau sertakan image_url" });
+    }
+    
+    const result = await telegramService.analyzeReceiptWithAI(imagePath, geminiKey);
+    
+    // Generate URL file jika upload
+    if (req.file) {
+      const protocol = req.protocol;
+      const host = req.get("host");
+      result.receipt_url = `${protocol}://${host}/uploads/${req.file.filename}`;
+    }
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ==================
+   OVERRIDE ENTITIES - Tambah notifikasi Telegram saat create
+================== */
+
+// Untuk Transaction - kirim notifikasi setelah create
+app.post("/api/transactions/create", authenticateToken, async (req, res) => {
+  try {
+    const result = await prisma.transaction.create({ data: req.body });
+    
+    // Kirim notifikasi Telegram
+    try {
+      const mosqueId = req.body.mosque_id;
+      const telegramSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+      if (telegramSettings?.bot_token && telegramSettings?.chat_id && telegramSettings?.notify_transactions && telegramSettings?.bot_enabled) {
+        const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+        const message = telegramService.buildTransactionMessage(mosque, result);
+        await telegramService.sendTelegramNotification(telegramSettings.bot_token, telegramSettings.chat_id, message);
+      }
+    } catch (notifErr) {
+      console.error("[Telegram Notif Transaction]", notifErr.message);
+    }
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Untuk Activity - kirim notifikasi setelah create
+app.post("/api/activities/create", authenticateToken, async (req, res) => {
+  try {
+    const result = await prisma.activity.create({ data: req.body });
+    
+    // Kirim notifikasi Telegram
+    try {
+      const mosqueId = req.body.mosque_id;
+      const telegramSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+      if (telegramSettings?.bot_token && telegramSettings?.chat_id && telegramSettings?.notify_activities && telegramSettings?.bot_enabled) {
+        const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+        const message = telegramService.buildActivityMessage(mosque, result, "baru");
+        await telegramService.sendTelegramNotification(telegramSettings.bot_token, telegramSettings.chat_id, message);
+      }
+    } catch (notifErr) {
+      console.error("[Telegram Notif Activity]", notifErr.message);
+    }
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Untuk Announcement - kirim notifikasi setelah create
+app.post("/api/announcements/create", authenticateToken, async (req, res) => {
+  try {
+    const result = await prisma.announcement.create({ data: req.body });
+    
+    // Kirim notifikasi Telegram
+    try {
+      const mosqueId = req.body.mosque_id;
+      const telegramSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+      if (telegramSettings?.bot_token && telegramSettings?.chat_id && telegramSettings?.notify_announcements && telegramSettings?.bot_enabled) {
+        const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+        const message = telegramService.buildAnnouncementMessage(mosque, result);
+        await telegramService.sendTelegramNotification(telegramSettings.bot_token, telegramSettings.chat_id, message);
+      }
+    } catch (notifErr) {
+      console.error("[Telegram Notif Announcement]", notifErr.message);
+    }
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Untuk Donation - kirim notifikasi setelah create
+app.post("/api/donations/create", authenticateToken, async (req, res) => {
+  try {
+    const result = await prisma.donation.create({ data: req.body });
+    
+    // Kirim notifikasi Telegram
+    try {
+      const mosqueId = req.body.mosque_id;
+      const telegramSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+      if (telegramSettings?.bot_token && telegramSettings?.chat_id && telegramSettings?.notify_donations && telegramSettings?.bot_enabled) {
+        const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+        const message = telegramService.buildDonationMessage(mosque, result);
+        await telegramService.sendTelegramNotification(telegramSettings.bot_token, telegramSettings.chat_id, message);
+      }
+    } catch (notifErr) {
+      console.error("[Telegram Notif Donation]", notifErr.message);
+    }
+    
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* ==================
    Frontend Serving
 ================== */
@@ -628,6 +931,8 @@ app.use((req, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Self-Hosted Backend running on http://localhost:${PORT}`);
+  // Auto-start semua Telegram bot yang aktif
+  await initAllTelegramBots();
 });

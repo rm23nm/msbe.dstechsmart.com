@@ -153,3 +153,80 @@ smartApi.entities.Attendance = {
     return data;
   }
 };
+
+// Override Transaction.create to use notification-enabled endpoint
+const _origTransactionCreate = smartApi.entities.Transaction.create;
+smartApi.entities.Transaction.create = async (payload) => {
+  try {
+    const { data } = await apiClient.post("/transactions/create", payload);
+    return data;
+  } catch (e) {
+    return _origTransactionCreate(payload);
+  }
+};
+
+// Override Activity.create to use notification-enabled endpoint  
+const _origActivityCreate = smartApi.entities.Activity.create;
+smartApi.entities.Activity.create = async (payload) => {
+  try {
+    const { data } = await apiClient.post("/activities/create", payload);
+    return data;
+  } catch (e) {
+    return _origActivityCreate(payload);
+  }
+};
+
+// Override Announcement.create to use notification-enabled endpoint
+const _origAnnouncementCreate = smartApi.entities.Announcement.create;
+smartApi.entities.Announcement.create = async (payload) => {
+  try {
+    const { data } = await apiClient.post("/announcements/create", payload);
+    return data;
+  } catch (e) {
+    return _origAnnouncementCreate(payload);
+  }
+};
+
+// Override Donation.create to use notification-enabled endpoint
+const _origDonationCreate = smartApi.entities.Donation.create;
+smartApi.entities.Donation.create = async (payload) => {
+  try {
+    const { data } = await apiClient.post("/donations/create", payload);
+    return data;
+  } catch (e) {
+    return _origDonationCreate(payload);
+  }
+};
+
+// Tambah TelegramSettings entity
+smartApi.telegram = {
+  getSettings: async (mosqueId) => {
+    const { data } = await apiClient.get(`/telegram/settings?mosque_id=${mosqueId}`);
+    return data;
+  },
+  saveSettings: async (payload) => {
+    const { data } = await apiClient.post("/telegram/settings", payload);
+    return data;
+  },
+  testBot: async (mosqueId, botToken) => {
+    const { data } = await apiClient.post("/telegram/test-bot", { mosque_id: mosqueId, bot_token: botToken });
+    return data;
+  },
+  testSend: async (mosqueId, chatId) => {
+    const { data } = await apiClient.post("/telegram/test-send", { mosque_id: mosqueId, chat_id: chatId });
+    return data;
+  },
+  sendNotification: async (mosqueId, message) => {
+    const { data } = await apiClient.post("/telegram/send-notification", { mosque_id: mosqueId, message });
+    return data;
+  },
+  analyzeReceipt: async (mosqueId, file) => {
+    const formData = new FormData();
+    formData.append("receipt", file);
+    formData.append("mosque_id", mosqueId);
+    const { data } = await apiClient.post("/telegram/analyze-receipt", formData, {
+      headers: { "Content-Type": "multipart/form-data" }
+    });
+    return data;
+  }
+};

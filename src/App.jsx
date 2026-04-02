@@ -39,6 +39,7 @@ import Absensi from './pages/Absensi';
 import AbsensiPublic from './pages/AbsensiPublic';
 import KonfirmasiDonasi from './pages/KonfirmasiDonasi';
 import CariMasjid from './pages/CariMasjid';
+import TelegramIntegration from './pages/TelegramIntegration';
 
 function isPublicPath(pathname) {
   return (
@@ -127,6 +128,7 @@ const AuthenticatedApp = () => {
         <Route path="/ai-analitik" element={<AIAnalitik />} />
         <Route path="/donasi-masjid" element={<KonfirmasiDonasi />} />
         <Route path="/absensi" element={<Absensi />} />
+        <Route path="/telegram" element={<TelegramIntegration />} />
         <Route path="*" element={<PageNotFound />} />
       </Route>
     </Routes>
