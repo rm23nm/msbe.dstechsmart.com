@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { formatDate } from "@/lib/formatCurrency";
 import PageHeader from "../components/PageHeader";
@@ -37,16 +37,16 @@ export default function Pengumuman() {
 
   async function loadData() {
     setDataLoading(true);
-    const anns = await base44.entities.Announcement.filter({ mosque_id: currentMosque.id }, '-created_date', 50);
+    const anns = await smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id }, '-created_date', 50);
     setAnnouncements(anns);
     setDataLoading(false);
   }
 
   async function handleSave(data) {
     if (editItem) {
-      await base44.entities.Announcement.update(editItem.id, data);
+      await smartApi.entities.Announcement.update(editItem.id, data);
     } else {
-      await base44.entities.Announcement.create({ ...data, mosque_id: currentMosque.id });
+      await smartApi.entities.Announcement.create({ ...data, mosque_id: currentMosque.id });
     }
     setShowForm(false);
     setEditItem(null);
@@ -54,7 +54,7 @@ export default function Pengumuman() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Announcement.delete(id);
+    await smartApi.entities.Announcement.delete(id);
     loadData();
   }
 

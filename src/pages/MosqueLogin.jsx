@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { base44 } from '@/api/apiClient';
+import { smartApi } from '@/api/apiClient';
 import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
 import { Landmark } from "lucide-react";
 
@@ -26,12 +26,12 @@ export default function MosqueLogin() {
     async function loadMosque() {
       try {
         let mosqueData = null;
-        const bySlug = await base44.entities.Mosque.filter({ slug: id });
+        const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
         if (bySlug?.length > 0) {
           mosqueData = bySlug[0];
         } else {
           try {
-            const byId = await base44.entities.Mosque.filter({ id: id });
+            const byId = await smartApi.entities.Mosque.filter({ id: id });
             if (byId?.length > 0) mosqueData = byId[0];
           } catch (_) {}
         }
@@ -50,7 +50,7 @@ export default function MosqueLogin() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await base44.auth.login(email, password);
+      const resp = await smartApi.auth.login(email, password);
       if (resp.requires_2fa) {
         setRequires2FA(true);
         setLoading(false);
@@ -74,7 +74,7 @@ export default function MosqueLogin() {
     setLoading(true);
     setError(null);
     try {
-      const resp = await base44.auth.verify2FA(email, twoFactorToken);
+      const resp = await smartApi.auth.verify2FA(email, twoFactorToken);
       const userRole = resp.user?.role;
       let targetUrl = "/dashboard";
       if (userRole === "admin") targetUrl = "/admin";

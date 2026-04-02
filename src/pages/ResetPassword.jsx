@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { base44 } from '@/api/apiClient';
+import { smartApi } from '@/api/apiClient';
 import { useLocation, Link, useNavigate } from 'react-router-dom';
 
 export default function ResetPassword() {
@@ -32,7 +32,7 @@ export default function ResetPassword() {
     setSuccess(null);
     
     try {
-      const res = await base44.auth.resetPassword(token, password);
+      const res = await smartApi.auth.resetPassword(token, password);
       setSuccess(res.message || "Password berhasil diubah.");
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {

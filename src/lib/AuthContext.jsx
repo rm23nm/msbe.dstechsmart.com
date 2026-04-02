@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import { base44 } from '@/api/apiClient';
-import { appParams } from '@/lib/app-params';
+import { smartApi } from '@/api/apiClient';
 
 const AuthContext = createContext();
 
@@ -8,9 +7,9 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(true);
+  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
   const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState(null); // Contains only { id, public_settings }
+  const [appPublicSettings, setAppPublicSettings] = useState(null);
 
   useEffect(() => {
     checkAppState();
@@ -22,48 +21,57 @@ export const AuthProvider = ({ children }) => {
   };
 
   const checkUserAuth = async () => {
+    setIsLoadingAuth(true);
+    setAuthError(null);
+
+    // Cek apakah ada token di localStorage sebelum request ke server
+    const token = localStorage.getItem("token");
+    if (!token) {
+      // Tidak ada token = belum login, ini BUKAN error
+      setIsLoadingAuth(false);
+      setIsAuthenticated(false);
+      setUser(null);
+      setAuthError({ type: "auth_required", message: "Please login" });
+      return;
+    }
+
     try {
-      // Now check if the user is authenticated
-      setIsLoadingAuth(true);
-      const currentUser = await base44.auth.me();
+      const currentUser = await smartApi.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      console.error('User auth check failed:', error);
+      // Token ada tapi tidak valid / expired
+      localStorage.removeItem("token");
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
-      
-      // Force requirement of auth if fetching me() fails
-      setAuthError({
-        type: 'auth_required',
-        message: 'Authentication required'
-      });
+      setUser(null);
+      setAuthError({ type: "auth_required", message: "Session expired, please login again" });
     }
   };
 
   const logout = (shouldRedirect = true) => {
     setUser(null);
     setIsAuthenticated(false);
-    
+    localStorage.removeItem("token");
+
     if (shouldRedirect) {
-      // Use the SDK's logout method which handles token cleanup and redirect
-      base44.auth.logout(window.location.href);
-    } else {
-      // Just remove the token without redirect
-      base44.auth.logout();
+      window.location.href = "/login";
     }
   };
 
   const navigateToLogin = () => {
-    // Use the SDK's redirectToLogin method
-    base44.auth.redirectToLogin(window.location.href);
+    const currentPath = window.location.pathname;
+    const isAlreadyOnLogin = currentPath === "/login" || currentPath === "/";
+    if (!isAlreadyOnLogin) {
+      window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
       isLoadingAuth,
       isLoadingPublicSettings,
       authError,

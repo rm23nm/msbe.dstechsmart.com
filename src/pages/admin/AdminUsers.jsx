@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { formatDate } from "@/lib/formatCurrency";
 import PageHeader from "../../components/PageHeader";
 import EmptyState from "../../components/EmptyState";
@@ -26,7 +26,7 @@ export default function AdminUsers() {
 
   async function loadData() {
     setLoading(true);
-    const data = await base44.entities.User.list('-created_date');
+    const data = await smartApi.entities.User.list('-created_date');
     setUsers(data);
     setLoading(false);
   }
@@ -34,7 +34,7 @@ export default function AdminUsers() {
   async function handleInvite() {
     if (!inviteEmail) return;
     setInviting(true);
-    await base44.users.inviteUser(inviteEmail, "user");
+    await smartApi.users.inviteUser(inviteEmail, "user");
     toast.success(`Undangan dikirim ke ${inviteEmail}`);
     setInviteEmail("");
     setShowInvite(false);
@@ -44,7 +44,7 @@ export default function AdminUsers() {
   async function handleResetPassword(email) {
     setResetLoading(email);
     try {
-      await base44.integrations.Core.SendEmail({
+      await smartApi.integrations.Core.SendEmail({
         to: email,
         subject: "Reset Password - MasjidKu",
         body: `Halo,\n\nAnda menerima email ini karena admin MasjidKu meminta reset password untuk akun Anda.\n\nUntuk mereset password, silakan buka halaman login MasjidKu dan klik tombol "Lupa Password", lalu masukkan email Anda: ${email}\n\nJika Anda tidak meminta reset password, abaikan email ini.\n\nSalam,\nTim MasjidKu`

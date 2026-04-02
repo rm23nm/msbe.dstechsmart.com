@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "@/components/PageHeader";
 import { formatCurrency } from "@/lib/formatCurrency";
@@ -19,11 +19,11 @@ export default function AnalitikDashboard() {
   useEffect(() => {
     if (!currentMosque?.id) return;
     Promise.all([
-      base44.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 200),
-      base44.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100),
-      base44.entities.MosqueMember.filter({ mosque_id: currentMosque.id }),
-      base44.entities.Announcement.filter({ mosque_id: currentMosque.id }),
-      base44.entities.Asset.filter({ mosque_id: currentMosque.id }),
+      smartApi.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 200),
+      smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100),
+      smartApi.entities.MosqueMember.filter({ mosque_id: currentMosque.id }),
+      smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id }),
+      smartApi.entities.Asset.filter({ mosque_id: currentMosque.id }),
     ]).then(([txns, acts, mems, anns, ast]) => {
       setTransactions(txns);
       setActivities(acts);

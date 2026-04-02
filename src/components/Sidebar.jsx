@@ -4,7 +4,7 @@ import {
   Building2, CreditCard, BarChart3, LogOut, ChevronDown, Landmark,
   Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck
 } from "lucide-react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/useLanguage";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -49,12 +49,14 @@ export default function Sidebar({ onClose }) {
   const [mosqueOpen, setMosqueOpen] = useState(true);
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    smartApi.auth.me().then(setUser).catch(() => {});
   }, []);
 
   const adminMenuItems = getAdminMenuItems(t);
   const mosqueMenuItems = getMosqueMenuItems(t);
-  const isAdmin = true; // Mock Demo
+  const isAdmin = user?.role === "superadmin" || user?.role === "admin";
+  const isMosqueAdmin = isAdmin || user?.role === "mosque_admin" || user?.role === "pengurus";
+  const roleLabel = user?.role === "superadmin" ? "Super Admin" : user?.role === "mosque_admin" ? "Pengurus" : user?.role === "user" ? "Jamaah" : (user?.role || "...");
 
   return (
     <div className="h-full bg-sidebar text-sidebar-foreground flex flex-col">
@@ -137,9 +139,9 @@ export default function Sidebar({ onClose }) {
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{user?.full_name || "Pengguna"}</p>
-            <p className="text-xs text-sidebar-foreground/50 truncate">{user?.email || ""}</p>
+            <p className="text-xs text-sidebar-foreground/50 truncate">{roleLabel} • {user?.email || ""}</p>
           </div>
-          <button onClick={() => base44.auth.logout()} className="text-sidebar-foreground/50 hover:text-sidebar-foreground">
+          <button onClick={() => { localStorage.removeItem("token"); window.location.href = "/login"; }} className="text-sidebar-foreground/50 hover:text-red-400 transition-colors" title="Keluar">
             <LogOut className="h-4 w-4" />
           </button>
         </div>

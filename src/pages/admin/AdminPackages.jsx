@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import PageHeader from "../../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -36,14 +36,19 @@ export default function AdminPackages() {
 
   async function loadPlans() {
     setLoading(true);
-    const data = await base44.entities.PlanFeatures.list();
+    const data = await smartApi.entities.PlanFeatures.list();
     const planMap = {};
     PLANS.forEach(p => {
       const existing = data.find(d => d.plan === p);
+      let featuresArr = [];
+      if (existing?.features) {
+        try { featuresArr = JSON.parse(existing.features); } 
+        catch (_) { featuresArr = existing.features ? existing.features.split(',').map(f => f.trim()).filter(Boolean) : []; }
+      }
       planMap[p] = {
         id: existing?.id,
         plan: p,
-        features: existing?.features || [],
+        features: Array.isArray(featuresArr) ? featuresArr : [],
         description: existing?.description || "",
         price: existing?.price || 0,
         max_mosques: existing?.max_mosques !== undefined ? existing.max_mosques : -1,
@@ -58,10 +63,14 @@ export default function AdminPackages() {
     setSaving(true);
     try {
       const plan = plans[planKey];
+      const payload = {
+        ...plan,
+        features: JSON.stringify(plan.features || []), // Simpan sebagai JSON string
+      };
       if (plan.id) {
-        await base44.entities.PlanFeatures.update(plan.id, plan);
+        await smartApi.entities.PlanFeatures.update(plan.id, payload);
       } else {
-        await base44.entities.PlanFeatures.create(plan);
+        await smartApi.entities.PlanFeatures.create(payload);
       }
       toast.success(`Paket ${planKey} berhasil disimpan`);
       await loadPlans();

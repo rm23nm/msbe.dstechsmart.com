@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { formatCurrency } from "@/lib/formatCurrency";
 import StatCard from "../components/StatCard";
@@ -26,9 +26,9 @@ export default function Dashboard() {
   async function loadData() {
     setDataLoading(true);
     const [txns, acts, anns] = await Promise.all([
-      base44.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 50),
-      base44.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 10),
-      base44.entities.Announcement.filter({ mosque_id: currentMosque.id, status: 'published' }, '-created_date', 5),
+      smartApi.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 50),
+      smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 10),
+      smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id, status: 'published' }, '-created_date', 5),
     ]);
     setTransactions(txns);
     setActivities(acts);

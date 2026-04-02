@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
@@ -42,7 +42,7 @@ export default function Aset() {
 
   const load = async () => {
     if (!mosque?.id) return;
-    const data = await base44.entities.Asset.filter({ mosque_id: mosque.id });
+    const data = await smartApi.entities.Asset.filter({ mosque_id: mosque.id });
     setAssets(data);
   };
 
@@ -57,8 +57,8 @@ export default function Aset() {
 
   const handleSave = async () => {
     const data = { ...form, mosque_id: mosque.id };
-    if (editing?.id) await base44.entities.Asset.update(editing.id, data);
-    else await base44.entities.Asset.create(data);
+    if (editing?.id) await smartApi.entities.Asset.update(editing.id, data);
+    else await smartApi.entities.Asset.create(data);
     setOpen(false);
     toast.success("Aset tersimpan");
     load();
@@ -66,7 +66,7 @@ export default function Aset() {
 
   const handleDelete = async (id) => {
     if (!confirm("Hapus aset ini?")) return;
-    await base44.entities.Asset.delete(id);
+    await smartApi.entities.Asset.delete(id);
     toast.success("Aset dihapus");
     load();
   };
@@ -254,7 +254,7 @@ export default function Aset() {
                   <Upload className="h-4 w-4" /> Upload Foto
                   <input type="file" accept="image/*" className="hidden" onChange={async e => {
                     const file = e.target.files[0]; if (!file) return;
-                    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                    const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
                     setForm(p => ({ ...p, photo_url: file_url }));
                   }} />
                 </label>

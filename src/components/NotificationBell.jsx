@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { Bell, Check, X, Heart, Megaphone, Calendar, TrendingUp } from "lucide-react";
 
@@ -10,111 +10,112 @@ const typeConfig = {
   finance: { icon: TrendingUp, color: "text-amber-500", bg: "bg-amber-50" },
 };
 
-function getNotifPrefs() {
-  try { return JSON.parse(localStorage.getItem("notif_prefs") || "{}"); } catch { return {}; }
-}
-
 export default function NotificationBell() {
   const { currentMosque } = useMosqueContext();
   const [notifs, setNotifs] = useState([]);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
-  const prefs = getNotifPrefs();
+  const lastCheckRef = useRef(new Date());
+  const seenIdsRef = useRef(new Set());
 
+  // Poll for new data every 30 seconds (replaces .subscribe())
   useEffect(() => {
     if (!currentMosque?.id) return;
-    const unsubs = [];
 
-    // Real-time donation notifications
-    if (prefs.donation !== false) {
-      const unsub = base44.entities.Donation.subscribe((event) => {
-        if (event.data?.mosque_id !== currentMosque.id) return;
-        if (event.type === "create") {
-          addNotif({
-            id: `don-${event.id}-${Date.now()}`,
-            type: "donation",
-            title: "Donasi Baru Masuk",
-            message: `${event.data.donor_name || "Anonim"} — Rp ${Number(event.data.amount || 0).toLocaleString("id-ID")} (${event.data.category})`,
-            time: new Date(),
-          });
-        } else if (event.type === "update" && event.data?.status === "confirmed") {
-          addNotif({
-            id: `don-conf-${event.id}-${Date.now()}`,
-            type: "donation",
-            title: "Donasi Dikonfirmasi",
-            message: `Donasi dari ${event.data.donor_name || "Anonim"} telah dikonfirmasi`,
-            time: new Date(),
-          });
+    async function poll() {
+      try {
+        const [donations, announcements, activities] = await Promise.all([
+          smartApi.entities.Donation.filter({ mosque_id: currentMosque.id }),
+          smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id }),
+          smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }),
+        ]);
+
+        const newNotifs = [];
+
+        // Check for new donations
+        donations.slice(0, 5).forEach(d => {
+          const key = `don-${d.id}`;
+          if (!seenIdsRef.current.has(key) && seenIdsRef.current.size > 0) {
+            newNotifs.push({
+              id: `${key}-${Date.now()}`,
+              type: "donation",
+              title: "Donasi Baru Masuk",
+              message: `${d.donor_name || "Anonim"} — Rp ${Number(d.amount || 0).toLocaleString("id-ID")} (${d.category || "Donasi"})`,
+              time: new Date(),
+            });
+          }
+          seenIdsRef.current.add(key);
+        });
+
+        // Check for new/published announcements
+        announcements.slice(0, 5).forEach(a => {
+          const key = `ann-${a.id}`;
+          if (!seenIdsRef.current.has(key) && seenIdsRef.current.size > 0 && a.status === "published") {
+            newNotifs.push({
+              id: `${key}-${Date.now()}`,
+              type: "announcement",
+              title: "Pengumuman Baru",
+              message: a.title,
+              time: new Date(),
+            });
+          }
+          seenIdsRef.current.add(key);
+        });
+
+        // Check for new activities
+        activities.slice(0, 5).forEach(a => {
+          const key = `act-${a.id}`;
+          if (!seenIdsRef.current.has(key) && seenIdsRef.current.size > 0) {
+            newNotifs.push({
+              id: `${key}-${Date.now()}`,
+              type: "activity",
+              title: "Kegiatan Baru Ditambahkan",
+              message: `${a.title} — ${a.date || ""}`,
+              time: new Date(),
+            });
+          }
+          seenIdsRef.current.add(key);
+        });
+
+        if (newNotifs.length > 0) {
+          setNotifs(prev => [...newNotifs, ...prev].slice(0, 20));
         }
-      });
-      unsubs.push(unsub);
+      } catch (err) {
+        // Polling gagal — mungkin belum login / koneksi bermasalah, diam saja
+      }
     }
 
-    // Real-time announcement notifications
-    if (prefs.announcement !== false) {
-      const unsub = base44.entities.Announcement.subscribe((event) => {
-        if (event.data?.mosque_id !== currentMosque.id) return;
-        if (event.type === "create" && event.data?.status === "published") {
-          addNotif({
-            id: `ann-${event.id}-${Date.now()}`,
-            type: "announcement",
-            title: "Pengumuman Baru",
-            message: event.data.title,
-            time: new Date(),
-          });
-        }
-      });
-      unsubs.push(unsub);
-    }
+    // Jalankan pertama kali untuk mengisi seenIds (tanpa generate notif)
+    poll();
 
-    // Real-time activity notifications
-    if (prefs.activity !== false) {
-      const unsub = base44.entities.Activity.subscribe((event) => {
-        if (event.data?.mosque_id !== currentMosque.id) return;
-        if (event.type === "create") {
-          addNotif({
-            id: `act-${event.id}-${Date.now()}`,
-            type: "activity",
-            title: "Kegiatan Baru Ditambahkan",
-            message: `${event.data.title} — ${event.data.date}`,
-            time: new Date(),
-          });
-        }
-      });
-      unsubs.push(unsub);
-    }
-
-    return () => unsubs.forEach(u => u());
+    // Polling setiap 30 detik
+    const interval = setInterval(poll, 30000);
+    return () => clearInterval(interval);
   }, [currentMosque?.id]);
 
-  // Monthly finance reminder on first visit of the month
+  // Pengingat laporan keuangan bulanan (hari 1-3 setiap bulan)
   useEffect(() => {
-    if (prefs.finance === false) return;
-    const key = `fin_remind_${new Date().toISOString().slice(0,7)}`;
+    const key = `fin_remind_${new Date().toISOString().slice(0, 7)}`;
     if (!localStorage.getItem(key)) {
       localStorage.setItem(key, "1");
       const day = new Date().getDate();
       if (day >= 1 && day <= 3) {
-        addNotif({
+        setNotifs(prev => [{
           id: `fin-${Date.now()}`,
           type: "finance",
           title: "Pengingat Laporan Bulanan",
           message: "Waktunya membuat laporan keuangan bulan lalu. Klik untuk melihat laporan.",
           time: new Date(),
           link: "/laporan-keuangan",
-        });
+        }, ...prev]);
       }
     }
   }, []);
 
-  function addNotif(n) {
-    setNotifs(prev => [n, ...prev].slice(0, 20));
-  }
-
   function clearAll() { setNotifs([]); }
   function dismiss(id) { setNotifs(prev => prev.filter(n => n.id !== id)); }
 
-  // Close on outside click
+  // Tutup saat klik di luar
   useEffect(() => {
     function handler(e) { if (ref.current && !ref.current.contains(e.target)) setOpen(false); }
     document.addEventListener("mousedown", handler);
@@ -128,6 +129,7 @@ export default function NotificationBell() {
       <button
         onClick={() => setOpen(o => !o)}
         className="relative p-2 rounded-lg hover:bg-muted transition-colors"
+        title="Notifikasi"
       >
         <Bell className="h-5 w-5 text-muted-foreground" />
         {unread > 0 && (
@@ -143,7 +145,7 @@ export default function NotificationBell() {
             <span className="font-semibold text-sm">Notifikasi</span>
             {unread > 0 && (
               <button onClick={clearAll} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
-                <Check className="h-3 w-3" /> Tandai semua
+                <Check className="h-3 w-3" /> Tandai semua dibaca
               </button>
             )}
           </div>
@@ -166,7 +168,7 @@ export default function NotificationBell() {
                       <p className="text-xs font-semibold">{n.title}</p>
                       <p className="text-xs text-muted-foreground leading-relaxed">{n.message}</p>
                       <p className="text-[10px] text-muted-foreground mt-1">
-                        {n.time.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                        {n.time?.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
                     <button onClick={() => dismiss(n.id)} className="text-muted-foreground hover:text-foreground flex-shrink-0">

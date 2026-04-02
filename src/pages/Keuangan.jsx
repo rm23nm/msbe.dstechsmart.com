@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { formatCurrency } from "@/lib/formatCurrency";
 import PageHeader from "../components/PageHeader";
@@ -30,16 +30,16 @@ export default function Keuangan() {
 
   async function loadData() {
     setDataLoading(true);
-    const txns = await base44.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 200);
+    const txns = await smartApi.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 200);
     setTransactions(txns);
     setDataLoading(false);
   }
 
   async function handleSave(data) {
     if (editItem) {
-      await base44.entities.Transaction.update(editItem.id, data);
+      await smartApi.entities.Transaction.update(editItem.id, data);
     } else {
-      await base44.entities.Transaction.create({ ...data, mosque_id: currentMosque.id });
+      await smartApi.entities.Transaction.create({ ...data, mosque_id: currentMosque.id });
     }
     setShowForm(false);
     setEditItem(null);
@@ -47,7 +47,7 @@ export default function Keuangan() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Transaction.delete(id);
+    await smartApi.entities.Transaction.delete(id);
     loadData();
   }
 

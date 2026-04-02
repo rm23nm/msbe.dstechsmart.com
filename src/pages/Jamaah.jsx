@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { useLanguage } from "@/lib/useLanguage";
 import PageHeader from "../components/PageHeader";
@@ -50,16 +50,16 @@ export default function Jamaah() {
 
   async function loadData() {
     setDataLoading(true);
-    const mems = await base44.entities.MosqueMember.filter({ mosque_id: currentMosque.id }, "user_name");
+    const mems = await smartApi.entities.MosqueMember.filter({ mosque_id: currentMosque.id }, "user_name");
     setMembers(mems);
     setDataLoading(false);
   }
 
   async function handleSave(data) {
     if (editItem) {
-      await base44.entities.MosqueMember.update(editItem.id, data);
+      await smartApi.entities.MosqueMember.update(editItem.id, data);
     } else {
-      await base44.entities.MosqueMember.create({ ...data, mosque_id: currentMosque.id, status: "active" });
+      await smartApi.entities.MosqueMember.create({ ...data, mosque_id: currentMosque.id, status: "active" });
     }
     setShowForm(false);
     setEditItem(null);
@@ -68,7 +68,7 @@ export default function Jamaah() {
 
   async function handleDelete(id) {
     if (!confirm(t("deleteConfirm"))) return;
-    await base44.entities.MosqueMember.delete(id);
+    await smartApi.entities.MosqueMember.delete(id);
     loadData();
   }
 
@@ -81,7 +81,7 @@ export default function Jamaah() {
     let sent = 0;
     for (const m of targets) {
       if (broadcastMsg.channel === "email" && m.user_email) {
-        await base44.integrations.Core.SendEmail({
+        await smartApi.integrations.Core.SendEmail({
           to: m.user_email,
           subject: broadcastMsg.subject || "Pengumuman Masjid",
           body: broadcastMsg.body,
@@ -103,7 +103,7 @@ export default function Jamaah() {
 
   async function handleResetPassword(m) {
     if (!m.user_email) return;
-    await base44.integrations.Core.SendEmail({
+    await smartApi.integrations.Core.SendEmail({
       to: m.user_email,
       subject: "Reset Password - MasjidKu",
       body: `Halo ${m.user_name || ""},\n\nAdmin masjid meminta reset password untuk akun Anda.\n\nSilakan buka halaman login dan klik "Lupa Password", lalu masukkan email: ${m.user_email}\n\nJazakallah khairan,\nTim ${currentMosque?.name}`,

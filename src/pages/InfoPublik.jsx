@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { formatCurrency, formatDate } from "@/lib/formatCurrency";
 import { isPaidPlan } from "@/components/PlanGate";
@@ -67,11 +67,11 @@ export default function InfoPublik() {
 
   async function loadData() {
     const [txns, acts, anns, prayers, jumat] = await Promise.all([
-      base44.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 100),
-      base44.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 5),
-      base44.entities.Announcement.filter({ mosque_id: currentMosque.id, status: 'published' }, '-created_date', 3),
-      base44.entities.PrayerTime.filter({ mosque_id: currentMosque.id }, '-created_date', 1),
-      base44.entities.JumatOfficer.filter({ mosque_id: currentMosque.id }, '-jumat_date', 1),
+      smartApi.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 100),
+      smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 5),
+      smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id, status: 'published' }, '-created_date', 3),
+      smartApi.entities.PrayerTime.filter({ mosque_id: currentMosque.id }, '-created_date', 1),
+      smartApi.entities.JumatOfficer.filter({ mosque_id: currentMosque.id }, '-jumat_date', 1),
     ]);
     setTransactions(txns);
     setActivities(acts.filter(a => a.status === 'upcoming'));
@@ -86,16 +86,16 @@ export default function InfoPublik() {
   }
 
   async function savePrayerTimes() {
-    if (prayerTimesId) await base44.entities.PrayerTime.update(prayerTimesId, { ...prayerForm, mosque_id: currentMosque.id });
-    else { const c = await base44.entities.PrayerTime.create({ ...prayerForm, mosque_id: currentMosque.id }); setPrayerTimesId(c.id); }
+    if (prayerTimesId) await smartApi.entities.PrayerTime.update(prayerTimesId, { ...prayerForm, mosque_id: currentMosque.id });
+    else { const c = await smartApi.entities.PrayerTime.create({ ...prayerForm, mosque_id: currentMosque.id }); setPrayerTimesId(c.id); }
     setPrayerTimes(prayerForm);
     setShowPrayerForm(false);
     toast.success("Jadwal shalat disimpan!");
   }
 
   async function saveJumatOfficer() {
-    if (jumatOfficerId) await base44.entities.JumatOfficer.update(jumatOfficerId, { ...jumatForm, mosque_id: currentMosque.id });
-    else { const c = await base44.entities.JumatOfficer.create({ ...jumatForm, mosque_id: currentMosque.id }); setJumatOfficerId(c.id); }
+    if (jumatOfficerId) await smartApi.entities.JumatOfficer.update(jumatOfficerId, { ...jumatForm, mosque_id: currentMosque.id });
+    else { const c = await smartApi.entities.JumatOfficer.create({ ...jumatForm, mosque_id: currentMosque.id }); setJumatOfficerId(c.id); }
     setJumatOfficer(jumatForm);
     setShowJumatForm(false);
     toast.success("Petugas Jumat disimpan!");

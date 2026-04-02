@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { Clock, Navigation, Wallet, Calendar, Megaphone, CheckCircle2 } from "lucide-react";
 
 const PRAYER_LABELS = [
@@ -78,7 +78,7 @@ function Slideshow({ mosque }) {
       return (
         <div className="relative w-full h-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
           <iframe 
-            src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0`}
+            src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=1&loop=1&playlist=${ytId}&controls=0&rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&cc_load_policy=0&playsinline=1`}
             className="w-full h-full pointer-events-none" 
             allow="autoplay" 
             title="Video" 
@@ -174,18 +174,18 @@ export default function PublicTV() {
       let m = null;
       if (id) {
         try {
-          const bySlug = await base44.entities.Mosque.filter({ slug: id });
+          const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
           if (bySlug?.length > 0) m = bySlug[0];
         } catch (_) {}
 
         if (!m) {
           try {
-            const byId = await base44.entities.Mosque.filter({ id: id });
+            const byId = await smartApi.entities.Mosque.filter({ id: id });
             if (byId?.length > 0) m = byId[0];
           } catch (_) {}
         }
       } else {
-        const all = await base44.entities.Mosque.list();
+        const all = await smartApi.entities.Mosque.list();
         m = all.find(mos => mos.status === 'active') || all[0] || null;
       }
 
@@ -194,11 +194,11 @@ export default function PublicTV() {
       setLoading(false);
 
       const [prayers, jumat, acts, anns, txns] = await Promise.all([
-        base44.entities.PrayerTime.filter({ mosque_id: m.id }, '-created_date', 1),
-        base44.entities.JumatOfficer.filter({ mosque_id: m.id }, '-jumat_date', 1),
-        base44.entities.Activity.filter({ mosque_id: m.id }, '-date', 10),
-        base44.entities.Announcement.filter({ mosque_id: m.id, status: 'published' }, '-created_date', 5),
-        base44.entities.Transaction.filter({ mosque_id: m.id }, '-date', 200),
+        smartApi.entities.PrayerTime.filter({ mosque_id: m.id }, '-created_date', 1),
+        smartApi.entities.JumatOfficer.filter({ mosque_id: m.id }, '-jumat_date', 1),
+        smartApi.entities.Activity.filter({ mosque_id: m.id }, '-date', 10),
+        smartApi.entities.Announcement.filter({ mosque_id: m.id, status: 'published' }, '-created_date', 5),
+        smartApi.entities.Transaction.filter({ mosque_id: m.id }, '-date', 200),
       ]);
 
       if (prayers.length) setPrayerTimes(prayers[0]);
@@ -262,12 +262,34 @@ export default function PublicTV() {
   const activePrayer = getActivePrayerOverlay(prayerTimes, currentTime, mosque.tv_prayer_overlay_duration || 15);
 
   return (
-    <div ref={containerRef} className="w-screen h-screen overflow-hidden flex flex-col bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950 text-white font-sans relative selection:bg-emerald-500/30">
-      
-      {/* Background Decorative */}
-      <div className="absolute inset-0 z-0 opacity-[0.03] mix-blend-overlay" style={{backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83zM0 54.627l.83-.83 54.627-54.627.83.83z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")', backgroundSize: '100px'}} />
-      <div className="absolute -top-[30%] -right-[10%] w-[70%] h-[70%] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute -bottom-[30%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
+    <div
+      ref={containerRef}
+      className="w-screen h-screen overflow-hidden flex flex-col text-white font-sans relative selection:bg-emerald-500/30"
+      style={mosque.tv_background_url ? {} : {}}
+    >
+      {/* ── BACKGROUND LAYER ── */}
+      {mosque.tv_background_url ? (
+        // Foto masjid sebagai background
+        <>
+          <div
+            className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${mosque.tv_background_url})` }}
+          />
+          {/* Overlay gelap agar teks tetap terbaca */}
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-black/75 via-black/60 to-black/80" />
+          {/* Aksen warna hijau di sudut */}
+          <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none z-0" />
+          <div className="absolute -bottom-[20%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none z-0" />
+        </>
+      ) : (
+        // Default: gradient slate/emerald
+        <>
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950" />
+          <div className="absolute inset-0 z-0 opacity-[0.03] mix-blend-overlay" style={{backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83zM0 54.627l.83-.83 54.627-54.627.83.83z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E")', backgroundSize: '100px'}} />
+          <div className="absolute -top-[30%] -right-[10%] w-[70%] h-[70%] rounded-full bg-emerald-500/10 blur-[120px] pointer-events-none z-0" />
+          <div className="absolute -bottom-[30%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none z-0" />
+        </>
+      )}
 
       {/* FULLSCREEN PRAYER OVERLAY */}
       {activePrayer && (

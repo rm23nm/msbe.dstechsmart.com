@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ export default function JamaahForm({ item, onSave, onCancel }) {
           <Upload className="h-4 w-4" /> Upload Foto
           <input type="file" accept="image/*" className="hidden" onChange={async e => {
             const file = e.target.files[0]; if (!file) return;
-            const { file_url } = await base44.integrations.Core.UploadFile({ file });
+            const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
             setForm(p => ({ ...p, photo_url: file_url }));
           }} />
         </label>

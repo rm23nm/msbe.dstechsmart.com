@@ -13,19 +13,22 @@ model User {
   password               String
   full_name              String?
   phone                  String?
-  role                   String    @default("user") // admin, user
+  role                   String    @default("user") // superadmin, admin, mosque_admin, pengurus, user
   current_mosque_id      String?
   reset_password_token   String?
   reset_password_expires DateTime?
-  two_factor_secret      String?
+  two_factor_secret      String?   // Secret untuk TOTP (Google Authenticator)
   two_factor_enabled     Boolean   @default(false)
+  two_factor_method      String?   @default("totp") // totp, whatsapp, sms
+  otp_code               String?   // OTP sementara untuk WA/SMS
+  otp_expires            DateTime? // Waktu expired OTP
   created_at             DateTime  @default(now())
 }
 
 model Mosque {
   id                String   @id @default(uuid())
   name              String
-  slug              String   @unique
+  slug              String?  @unique
   address           String?
   description       String?
   logo_url          String?
@@ -59,6 +62,11 @@ model Mosque {
   tv_video_url       String?
   tv_prayer_overlay_text String? @default("Mohon matikan handphone. Luruskan dan rapatkan shaf.")
   tv_prayer_overlay_duration Int @default(15)
+  tv_background_url  String?  // Foto background layar TV (opsional)
+  subscription_plan   String?  @default("trial")   // trial, basic, pro, enterprise
+  subscription_status String?  @default("trial")   // trial, active, expired, cancelled
+  subscription_start  DateTime?
+  subscription_end    DateTime?
   created_at        DateTime @default(now())
 }
 
@@ -146,16 +154,42 @@ model JumatOfficer {
 }
 
 model AppSettings {
-  id    String  @id @default(uuid())
-  logo  String?
-  name  String?
-  theme String?
+  id                    String  @id @default(uuid())
+  logo                  String? // Legacy field
+  name                  String? // Legacy field
+  theme                 String? // Legacy field
+  app_name              String? @default("MasjidKu Smart")
+  app_tagline           String?
+  logo_url              String?
+  primary_color         String?
+  hero_image_url        String?
+  contact_email         String?
+  contact_phone         String?
+  whatsapp_number       String?
+  midtrans_server_key   String?
+  midtrans_client_key   String?
+  midtrans_environment  String? @default("sandbox")
 }
 
 model PlanFeatures {
   id          String  @id @default(uuid())
-  name        String
-  price       Float
-  features    String  // JSON string or comma separated
+  name        String? // Legacy field
+  plan        String  @unique // trial, monthly, yearly
+  price       Float   @default(0)
+  description String?
+  features    String  @default("[]") // JSON array string
   is_popular  Boolean @default(false)
+  max_mosques Int     @default(-1)
+  storage_gb  Int     @default(-1)
+}
+
+model Attendance {
+  id             String   @id @default(uuid())
+  activity_id    String
+  mosque_id      String
+  member_name    String
+  member_email   String?
+  member_phone   String?
+  checked_in_at  DateTime @default(now())
+  createdAt      DateTime @default(now())
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { base44 } from '@/api/apiClient';
+import { smartApi } from '@/api/apiClient';
 import { Link } from 'react-router-dom';
 
 export default function ForgotPassword() {
@@ -16,7 +16,7 @@ export default function ForgotPassword() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await base44.auth.forgotPassword(email);
+      const res = await smartApi.auth.forgotPassword(email);
       setSuccess(res.message || "Tautan reset kata sandi telah dikirim ke email & nomor telepon pemulihan Anda.");
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Gagal mengirim permintaan.");

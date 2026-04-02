@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { formatCurrency, formatDate } from "@/lib/formatCurrency";
 import PageHeader from "../../components/PageHeader";
 import StatCard from "../../components/StatCard";
@@ -23,10 +23,10 @@ export default function AdminReports() {
 
   async function loadData() {
     const [m, u, t, mem] = await Promise.all([
-      base44.entities.Mosque.list(),
-      base44.entities.User.list(),
-      base44.entities.Transaction.list('-date', 1000),
-      base44.entities.MosqueMember.list(),
+      smartApi.entities.Mosque.list(),
+      smartApi.entities.User.list(),
+      smartApi.entities.Transaction.list('-date', 1000),
+      smartApi.entities.MosqueMember.list(),
     ]);
     setMosques(m); setUsers(u); setTransactions(t); setMembers(mem);
     setLoading(false);

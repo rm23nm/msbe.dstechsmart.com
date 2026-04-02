@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -21,14 +21,14 @@ export default function Absensi() {
   }, [currentMosque]);
 
   async function loadActivities() {
-    const acts = await base44.entities.Activity.filter({ mosque_id: currentMosque.id }, "-date", 20);
+    const acts = await smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, "-date", 20);
     setActivities(acts);
   }
 
   async function openActivity(activity) {
     setSelectedActivity(activity);
     setLoadingAttendance(true);
-    const data = await base44.entities.Attendance.filter({ activity_id: activity.id }, "-checked_in_at", 100);
+    const data = await smartApi.entities.Attendance.filter({ activity_id: activity.id }, "-checked_in_at", 100);
     setAttendances(data);
     setLoadingAttendance(false);
   }

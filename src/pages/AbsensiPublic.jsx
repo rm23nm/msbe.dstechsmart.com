@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,11 +22,11 @@ export default function AbsensiPublic() {
   async function loadData() {
     try {
       // Load mosque
-      const mosques = await base44.entities.Mosque.filter({ id: mosqueId });
+      const mosques = await smartApi.entities.Mosque.filter({ id: mosqueId });
       if (mosques?.length > 0) setMosque(mosques[0]);
 
       // Load activities filtered by mosque_id, then find the specific one
-      const acts = await base44.entities.Activity.filter({ mosque_id: mosqueId }, "-date", 100);
+      const acts = await smartApi.entities.Activity.filter({ mosque_id: mosqueId }, "-date", 100);
       const found = acts?.find(a => a.id === activityId);
       if (found) setActivity(found);
     } catch (e) {
@@ -39,7 +39,7 @@ export default function AbsensiPublic() {
     e.preventDefault();
     if (!form.member_name.trim()) return;
     setSubmitting(true);
-    await base44.entities.Attendance.create({
+    await smartApi.entities.Attendance.create({
       activity_id: activityId,
       mosque_id: mosqueId,
       member_name: form.member_name,

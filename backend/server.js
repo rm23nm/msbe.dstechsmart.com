@@ -58,13 +58,51 @@ app.post("/api/auth/login", async (req, res) => {
 
   try {
     const user = await prisma.user.findUnique({ where: { email: identifier } });
-    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+    if (!user) return res.status(401).json({ error: "Email atau password salah" });
 
     const match = await bcrypt.compare(password, user.password);
-    if (!match) return res.status(401).json({ error: "Invalid password" });
+    if (!match) return res.status(401).json({ error: "Email atau password salah" });
 
     if (user.two_factor_enabled) {
-      return res.json({ requires_2fa: true, email: user.email });
+      const method = user.two_factor_method || "totp";
+      
+      // Jika method WA/SMS, generate dan kirim OTP otomatis
+      if (method === "whatsapp" || method === "sms") {
+        if (!user.phone) {
+          return res.status(400).json({ error: "Nomor telepon belum diatur. Tambah nomor HP di Pengaturan Profil." });
+        }
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 menit
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { otp_code: otp, otp_expires: expires }
+        });
+        
+        // Kirim via WhatsApp link (buka di server-side log dan kirim WA link jika ada nomor)
+        const phone = user.phone.replace(/[^0-9]/g, "").replace(/^0/, "62");
+        const waMsg = `[MasjidKu Smart] Kode OTP login Anda adalah: *${otp}*\n\nBerlaku selama 10 menit. Jangan bagikan kode ini kepada siapapun.`;
+        const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`;
+        
+        console.log(`\n=== OTP ${method.toUpperCase()} LOGIN ===`);
+        console.log(`User    : ${user.email}`);
+        console.log(`Phone   : ${user.phone}`);
+        console.log(`OTP     : ${otp}`);
+        console.log(`Expired : ${expires.toLocaleString('id-ID')}`);
+        console.log(`WA URL  : ${waUrl}`);
+        console.log(`=================================\n`);
+        
+        return res.json({
+          requires_2fa: true,
+          method,
+          email: user.email,
+          phone_hint: user.phone.replace(/(.{3}).*(.{3})/, "$1****$2"),
+          wa_url: method === "whatsapp" ? waUrl : null, // Frontend bisa tampilkan link WA
+          otp_debug: process.env.NODE_ENV !== "production" ? otp : undefined // Hanya tampil di dev
+        });
+      }
+      
+      // Default: TOTP
+      return res.json({ requires_2fa: true, method: "totp", email: user.email });
     }
 
     const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET_KEY, { expiresIn: "7d" });
@@ -159,6 +197,41 @@ app.post("/api/auth/reset-password", async (req, res) => {
     });
 
     res.json({ message: "Password berhasil direset. Silakan login menggunakan kata sandi baru." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint untuk verifikasi OTP WA/SMS
+app.post("/api/auth/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) return res.status(400).json({ error: "Email dan OTP wajib diisi" });
+
+  try {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(401).json({ error: "Pengguna tidak ditemukan" });
+
+    if (!user.otp_code || !user.otp_expires) {
+      return res.status(400).json({ error: "Tidak ada OTP aktif untuk akun ini. Silakan login ulang." });
+    }
+
+    if (new Date() > new Date(user.otp_expires)) {
+      return res.status(400).json({ error: "Kode OTP sudah kedaluwarsa. Silakan login ulang." });
+    }
+
+    if (user.otp_code !== String(otp).trim()) {
+      return res.status(401).json({ error: "Kode OTP tidak valid" });
+    }
+
+    // OTP valid — hapus OTP lama, buat JWT token
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { otp_code: null, otp_expires: null }
+    });
+
+    const jwtToken = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET_KEY, { expiresIn: "7d" });
+    const { password: _, ...userData } = user;
+    res.json({ user: { ...userData, otp_code: undefined, otp_expires: undefined }, token: jwtToken });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -329,6 +402,34 @@ app.post("/api/integrations/core/uploadfile", authenticateToken, upload.single("
    Dynamic Entity CRUD Endpoints (Replaces Base44)
 ================== */
 
+// ✅ Public absensi endpoint — no authentication required
+app.post("/api/attendance", async (req, res) => {
+  try {
+    const { activity_id, mosque_id, member_name, member_email, member_phone } = req.body;
+    if (!activity_id || !member_name) return res.status(400).json({ error: "activity_id dan member_name wajib diisi" });
+    const result = await prisma.attendance.create({
+      data: { activity_id, mosque_id, member_name, member_email: member_email || null, member_phone: member_phone || null }
+    });
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ Public endpoint GET Attendance by activity_id (for admin viewing)
+app.get("/api/attendance", async (req, res) => {
+  try {
+    const { activity_id, mosque_id } = req.query;
+    const where = {};
+    if (activity_id) where.activity_id = activity_id;
+    if (mosque_id) where.mosque_id = mosque_id;
+    const data = await prisma.attendance.findMany({ where, orderBy: { checked_in_at: "desc" }, take: 200 });
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/api/entities/:model", async (req, res) => {
   const modelName = req.params.model;
   const prismaModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
@@ -393,6 +494,125 @@ app.delete("/api/entities/:model/:id", authenticateToken, async (req, res) => {
   try {
     const result = await prisma[prismaModel].delete({ where: { id: req.params.id } });
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ==================
+   AI Analysis Endpoint (Local Statistical Analysis)
+================== */
+app.post("/api/ai/analyze", authenticateToken, async (req, res) => {
+  try {
+    const { mosque_id } = req.body;
+    if (!mosque_id) return res.status(400).json({ error: "mosque_id wajib diisi" });
+
+    const mosque = await prisma.mosque.findUnique({ where: { id: mosque_id } });
+    if (!mosque) return res.status(404).json({ error: "Masjid tidak ditemukan" });
+
+    const now = new Date();
+    const thisMonthStr = now.toISOString().slice(0, 7);
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthStr = lastMonthDate.toISOString().slice(0, 7);
+
+    const [transactions, activities, donations, members] = await Promise.all([
+      prisma.transaction.findMany({ where: { mosque_id }, orderBy: { date: "desc" }, take: 500 }),
+      prisma.activity.findMany({ where: { mosque_id }, orderBy: { date: "desc" } }),
+      prisma.donation.findMany({ where: { mosque_id }, orderBy: { createdAt: "desc" } }),
+      prisma.mosqueMember.findMany({ where: { mosque_id } }),
+    ]);
+
+    const sum = (arr, type) => arr.filter(t => t.type === type).reduce((s, t) => s + (t.amount || 0), 0);
+    const fmt = (n) => "Rp " + (n || 0).toLocaleString("id-ID");
+
+    const thisTxs = transactions.filter(t => t.date && t.date.startsWith(thisMonthStr));
+    const lastTxs = transactions.filter(t => t.date && t.date.startsWith(lastMonthStr));
+
+    const thisIncome = sum(thisTxs, "income");
+    const thisExpense = sum(thisTxs, "expense");
+    const lastIncome = sum(lastTxs, "income");
+    const lastExpense = sum(lastTxs, "expense");
+    const totalIncome = sum(transactions, "income");
+    const totalExpense = sum(transactions, "expense");
+
+    const incomeChange = lastIncome > 0 ? ((thisIncome - lastIncome) / lastIncome * 100).toFixed(1) : 0;
+    const expenseChange = lastExpense > 0 ? ((thisExpense - lastExpense) / lastExpense * 100).toFixed(1) : 0;
+
+    const categoryMap = {};
+    transactions.forEach(t => {
+      const cat = t.category || "Lainnya";
+      if (!categoryMap[cat]) categoryMap[cat] = { income: 0, expense: 0, count: 0 };
+      categoryMap[cat][t.type] += t.amount || 0;
+      categoryMap[cat].count++;
+    });
+
+    const topCategories = Object.entries(categoryMap)
+      .sort((a, b) => (b[1].income + b[1].expense) - (a[1].income + a[1].expense))
+      .slice(0, 5);
+
+    const upcomingActs = activities.filter(a => a.status === "upcoming");
+    const completedActs = activities.filter(a => a.status === "completed");
+    const confirmedDonations = donations.filter(d => d.status === "confirmed" || d.status === "completed");
+    const pendingDonations = donations.filter(d => d.status === "pending");
+    const activeMembers = members.filter(m => m.status === "active");
+
+    let report = `# 📊 Laporan Analisis Keuangan\n`;
+    report += `**${mosque.name}** — ${now.toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}\n\n`;
+    report += `## 📈 Ringkasan Eksekutif\n\n`;
+    report += `Masjid **${mosque.name}** memiliki total **${transactions.length} transaksi** keuangan dengan saldo keseluruhan sebesar **${fmt(totalIncome - totalExpense)}**. `;
+    report += `Bulan ini tercatat pemasukan **${fmt(thisIncome)}**${incomeChange != 0 ? ` (${incomeChange > 0 ? "+" : ""}${incomeChange}% vs bulan lalu)` : ""} dan pengeluaran **${fmt(thisExpense)}**. `;
+    report += `Jamaah aktif berjumlah **${activeMembers.length} anggota** dari total ${members.length} terdaftar.\n\n`;
+
+    report += `## 💰 Keuangan Bulan Ini vs Bulan Lalu\n\n`;
+    report += `| Kategori | Bulan Ini | Bulan Lalu | Tren |\n`;
+    report += `|---|---|---|---|\n`;
+    report += `| Pemasukan | ${fmt(thisIncome)} | ${fmt(lastIncome)} | ${incomeChange > 0 ? "🟢 +" : incomeChange < 0 ? "🔴 " : "⚪ "}${Math.abs(incomeChange)}% |\n`;
+    report += `| Pengeluaran | ${fmt(thisExpense)} | ${fmt(lastExpense)} | ${expenseChange < 0 ? "🟢 -" : expenseChange > 0 ? "🔴 +" : "⚪ "}${Math.abs(expenseChange)}% |\n`;
+    report += `| Saldo | ${fmt(thisIncome - thisExpense)} | ${fmt(lastIncome - lastExpense)} | — |\n\n`;
+
+    report += `## 📂 Breakdown Kategori (Top 5)\n\n`;
+    report += `| Kategori | Pemasukan | Pengeluaran | Transaksi |\n`;
+    report += `|---|---|---|---|\n`;
+    topCategories.forEach(([cat, val]) => {
+      report += `| ${cat} | ${fmt(val.income)} | ${fmt(val.expense)} | ${val.count} |\n`;
+    });
+    report += "\n";
+
+    report += `## 🎯 Kegiatan\n\n`;
+    report += `- **Mendatang:** ${upcomingActs.length} kegiatan\n`;
+    report += `- **Selesai:** ${completedActs.length} kegiatan\n`;
+    if (upcomingActs.length > 0) {
+      report += `- **Jadwal terdekat:** ${upcomingActs.slice(0, 3).map(a => `${a.title} (${a.date})`).join(", ")}\n`;
+    }
+    report += "\n";
+
+    report += `## 🤝 Donasi\n\n`;
+    report += `- **Total:** ${donations.length} donasi\n`;
+    report += `- **Dikonfirmasi:** ${confirmedDonations.length} (${fmt(confirmedDonations.reduce((s, d) => s + (d.amount || 0), 0))})\n`;
+    report += `- **Menunggu konfirmasi:** ${pendingDonations.length}\n\n`;
+
+    report += `## ⚠️ Perhatian & Risiko\n\n`;
+    const risks = [];
+    if (thisIncome < lastIncome * 0.8 && lastIncome > 0) risks.push("🔴 Pemasukan bulan ini turun signifikan (>20%) dibanding bulan lalu");
+    if (thisExpense > thisIncome * 0.9 && thisIncome > 0) risks.push("🔴 Pengeluaran mendekati atau melebihi pemasukan bulan ini");
+    if (pendingDonations.length > 5) risks.push(`🟡 Ada ${pendingDonations.length} donasi yang belum dikonfirmasi`);
+    if (activeMembers.length < 5) risks.push("🟡 Jumlah anggota aktif sangat sedikit");
+    if (upcomingActs.length === 0) risks.push("🟡 Tidak ada kegiatan yang dijadwalkan");
+    if (risks.length === 0) risks.push("✅ Tidak ada risiko signifikan yang terdeteksi");
+    risks.forEach(r => { report += `- ${r}\n`; });
+    report += "\n";
+
+    report += `## 💡 Rekomendasi\n\n`;
+    const recs = [];
+    if (thisIncome < lastIncome && lastIncome > 0) recs.push("Evaluasi sumber pemasukan dan rencanakan kampanye donasi atau kegiatan fundraising");
+    if (pendingDonations.length > 0) recs.push(`Segera konfirmasi ${pendingDonations.length} donasi yang masih pending`);
+    if (upcomingActs.length < 3) recs.push("Tambahkan program kegiatan masjid yang lebih beragam");
+    recs.push("Pastikan laporan keuangan bulanan dipublikasikan ke jamaah");
+    recs.push("Aktifkan fitur donasi online untuk memudahkan jamaah berdonasi");
+    recs.push("Gunakan fitur Pengumuman untuk transparansi keuangan");
+    recs.slice(0, 6).forEach((r, i) => { report += `${i + 1}. ${r}\n`; });
+
+    res.json({ report });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

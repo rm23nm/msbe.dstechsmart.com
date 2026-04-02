@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
@@ -15,9 +15,9 @@ export default function JamaahDashboard() {
 
   useEffect(() => {
     if (!mosque?.id) return;
-    base44.entities.Transaction.filter({ mosque_id: mosque.id }, '-date', 50).then(setTransactions);
-    base44.entities.Activity.filter({ mosque_id: mosque.id }, '-date', 10).then(data => setActivities(data.filter(a => a.status === 'upcoming')));
-    base44.entities.Announcement.filter({ mosque_id: mosque.id, status: "published" }, '-created_date', 5).then(setAnnouncements);
+    smartApi.entities.Transaction.filter({ mosque_id: mosque.id }, '-date', 50).then(setTransactions);
+    smartApi.entities.Activity.filter({ mosque_id: mosque.id }, '-date', 10).then(data => setActivities(data.filter(a => a.status === 'upcoming')));
+    smartApi.entities.Announcement.filter({ mosque_id: mosque.id, status: "published" }, '-created_date', 5).then(setAnnouncements);
   }, [mosque?.id]);
 
   const totalIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + (t.amount || 0), 0);

@@ -6,7 +6,7 @@ import { defineConfig } from 'vite'
 import path from "path"
 
 export default defineConfig({
-  logLevel: 'error', // Suppress warnings, only show errors
+  logLevel: 'info',
   plugins: [
     react(),
   ],
@@ -14,5 +14,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  server: {
+    host: '0.0.0.0',     // Bind ke semua interface (IPv4 + IPv6)
+    port: 5173,
+    strictPort: false,   // Coba port lain jika 5173 sudah terpakai
+    open: true,          // Otomatis buka browser
   },
 });

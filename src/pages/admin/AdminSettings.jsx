@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ export default function AdminSettings() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    base44.entities.AppSettings.list().then(data => {
+    smartApi.entities.AppSettings.list().then(data => {
       if (data.length > 0) {
         setSettings(data[0]);
         setForm({ ...data[0] });
@@ -30,9 +30,9 @@ export default function AdminSettings() {
   const handleSave = async () => {
     setSaving(true);
     if (settings?.id) {
-      await base44.entities.AppSettings.update(settings.id, form);
+      await smartApi.entities.AppSettings.update(settings.id, form);
     } else {
-      const created = await base44.entities.AppSettings.create(form);
+      const created = await smartApi.entities.AppSettings.create(form);
       setSettings(created);
     }
     setSaving(false);
@@ -71,7 +71,7 @@ export default function AdminSettings() {
               <Upload className="h-4 w-4" /> Upload Logo
               <input type="file" accept="image/*" className="hidden" onChange={async e => {
                 const file = e.target.files[0]; if (!file) return;
-                const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
                 setForm(f => ({ ...f, logo_url: file_url }));
               }} />
             </label>
@@ -91,7 +91,7 @@ export default function AdminSettings() {
                 <Upload className="h-4 w-4" /> Upload Hero
                 <input type="file" accept="image/*" className="hidden" onChange={async e => {
                   const file = e.target.files[0]; if (!file) return;
-                  const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                  const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
                   setForm(f => ({ ...f, hero_image_url: file_url }));
                 }} />
               </label>

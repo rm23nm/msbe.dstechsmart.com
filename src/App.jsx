@@ -38,6 +38,7 @@ import Donasi from './pages/Donasi';
 import Absensi from './pages/Absensi';
 import AbsensiPublic from './pages/AbsensiPublic';
 import KonfirmasiDonasi from './pages/KonfirmasiDonasi';
+import CariMasjid from './pages/CariMasjid';
 
 function isPublicPath(pathname) {
   return (
@@ -52,6 +53,7 @@ function isPublicPath(pathname) {
     pathname.startsWith('/donasi/') ||
     pathname.startsWith('/absensi/') ||
     pathname === '/landing' ||
+    pathname === '/cari-masjid' ||
     pathname === '/info-publik'
   );
 }
@@ -72,6 +74,7 @@ const AuthenticatedApp = () => {
         <Route path="/masjid/:id/login" element={<MosqueLogin />} />
         <Route path="/masjid/:id/register" element={<MosqueRegister />} />
         <Route path="/landing" element={<Landing />} />
+        <Route path="/cari-masjid" element={<CariMasjid />} />
         <Route path="/tv" element={<PublicTV />} />
         <Route path="/tv/:id" element={<PublicTV />} />
         <Route path="/donasi" element={<Donasi />} />

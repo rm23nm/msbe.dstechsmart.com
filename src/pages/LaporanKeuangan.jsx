@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import jsPDF from "jspdf";
 import PageHeader from "@/components/PageHeader";
@@ -22,7 +22,7 @@ export default function LaporanKeuangan() {
 
   useEffect(() => {
     if (!mosque?.id) return;
-    base44.entities.Transaction.filter({ mosque_id: mosque.id }, '-date', 500).then(setTransactions);
+    smartApi.entities.Transaction.filter({ mosque_id: mosque.id }, '-date', 500).then(setTransactions);
   }, [mosque?.id]);
 
   function getFilteredTxs() {

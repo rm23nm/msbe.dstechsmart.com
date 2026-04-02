@@ -12,8 +12,8 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// Mock/Polyfill base44 API SDK methods mapped to our own Node.js backend
-export const base44 = {
+// Smart App API client — semua request diarahkan ke self-hosted Node.js backend
+export const smartApi = {
   auth: {
     login: async (identifier, password) => {
       const { data } = await apiClient.post("/auth/login", { identifier, password });
@@ -24,6 +24,13 @@ export const base44 = {
     },
     verify2FA: async (email, token) => {
       const { data } = await apiClient.post("/auth/verify-2fa", { email, token });
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+      return data;
+    },
+    verifyOTP: async (email, otp) => {
+      const { data } = await apiClient.post("/auth/verify-otp", { email, otp });
       if (data.token) {
         localStorage.setItem("token", data.token);
       }
@@ -84,17 +91,22 @@ export const base44 = {
           headers: { "Content-Type": "multipart/form-data" }
         });
         return data;
+      },
+      // SendEmail stub — currently opens WhatsApp as fallback (no SMTP configured)
+      SendEmail: async ({ to, subject, body }) => {
+        console.warn("[SendEmail] SMTP not configured. To:", to, "Subject:", subject);
+        return { success: false, message: "Email not configured" };
       }
     }
   },
   entities: {}
 };
 
-// Dinamically create all entities that match Base44
+// Dinamically create all entities that match smartApi
 const models = ["User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures"];
 
 models.forEach(model => {
-  base44.entities[model] = {
+  smartApi.entities[model] = {
     list: async () => {
       const { data } = await apiClient.get(`/entities/${model}`);
       return data;
@@ -122,3 +134,22 @@ models.forEach(model => {
     }
   };
 });
+
+// Override Attendance with public endpoint (no auth required for QR scan form)
+smartApi.entities.Attendance = {
+  create: async (payload) => {
+    const { data } = await apiClient.post("/attendance", payload);
+    return data;
+  },
+  filter: async (filterObj) => {
+    const params = new URLSearchParams();
+    if (filterObj?.activity_id) params.append("activity_id", filterObj.activity_id);
+    if (filterObj?.mosque_id) params.append("mosque_id", filterObj.mosque_id);
+    const { data } = await apiClient.get(`/attendance?${params.toString()}`);
+    return data;
+  },
+  list: async () => {
+    const { data } = await apiClient.get("/attendance");
+    return data;
+  }
+};

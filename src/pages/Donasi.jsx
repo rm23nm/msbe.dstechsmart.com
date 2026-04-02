@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,15 +44,15 @@ export default function Donasi() {
     try {
       let found = null;
       if (id) {
-        const byId = await base44.entities.Mosque.filter({ id });
+        const byId = await smartApi.entities.Mosque.filter({ id });
         if (byId?.length) {
           found = byId[0];
         } else {
-          const bySlug = await base44.entities.Mosque.filter({ slug: id });
+          const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
           if (bySlug?.length) found = bySlug[0];
         }
       } else {
-        const all = await base44.entities.Mosque.list();
+        const all = await smartApi.entities.Mosque.list();
         found = all.find(m => m.status === 'active') || all[0] || null;
       }
       if (found) setMosque(found);
@@ -65,7 +65,7 @@ export default function Donasi() {
     const file = e.target.files[0];
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+    const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
     setForm(f => ({ ...f, proof_url: file_url }));
     setUploading(false);
     toast.success("Bukti transfer berhasil diupload");
@@ -81,7 +81,7 @@ export default function Donasi() {
     setSubmitting(true);
     try {
       // Create donation record
-      const donation = await base44.entities.Donation.create({
+      const donation = await smartApi.entities.Donation.create({
         ...form,
         mosque_id: mosque.id,
         amount: Number(form.amount),
@@ -94,7 +94,7 @@ export default function Donasi() {
         const orderId = `${mosque.id}-${donation.id}-${Date.now()}`;
         
         // Create payment record
-        const payment = await base44.entities.Payment.create({
+        const payment = await smartApi.entities.Payment.create({
           mosque_id: mosque.id,
           transaction_type: "donation",
           reference_id: donation.id,

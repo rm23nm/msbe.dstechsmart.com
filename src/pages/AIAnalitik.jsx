@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi, apiClient } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,9 @@ export default function AIAnalitik() {
   useEffect(() => {
     if (!currentMosque?.id) return;
     Promise.all([
-      base44.entities.Transaction.filter({ mosque_id: currentMosque.id }, "-date", 200),
-      base44.entities.Activity.filter({ mosque_id: currentMosque.id }, "-date", 50),
-      base44.entities.Donation.filter({ mosque_id: currentMosque.id }, "-created_date", 100),
+      smartApi.entities.Transaction.filter({ mosque_id: currentMosque.id }, "-date", 200),
+      smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, "-date", 50),
+      smartApi.entities.Donation.filter({ mosque_id: currentMosque.id }, "-created_date", 100),
     ]).then(([txs, acts, dons]) => {
       setTransactions(txs);
       setActivities(acts);
@@ -115,12 +115,13 @@ Buat laporan dengan struktur berikut (gunakan emoji yang relevan):
 ## 🗓️ Agenda Prioritas
 (Saran kegiatan/tindakan untuk bulan depan berdasarkan data)`;
 
-    const result = await base44.integrations.Core.InvokeLLM({
-      prompt,
-      model: "claude_sonnet_4_6",
-    });
-
-    setReport(result);
+    try {
+      const { data } = await apiClient.post("/ai/analyze", { mosque_id: currentMosque.id });
+      setReport(data.report);
+    } catch (err) {
+      console.error("AI analyze error:", err);
+      setReport("Terjadi kesalahan saat menganalisis data. Pastikan backend berjalan.");
+    }
     setGenerating(false);
   }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -28,19 +28,19 @@ export default function KonfirmasiDonasi() {
   }, [currentMosque]);
 
   async function loadData() {
-    const data = await base44.entities.Donation.filter({ mosque_id: currentMosque.id }, '-created_date', 100);
+    const data = await smartApi.entities.Donation.filter({ mosque_id: currentMosque.id }, '-created_date', 100);
     setDonations(data);
   }
 
   async function confirm(donation) {
-    const user = await base44.auth.me();
-    await base44.entities.Donation.update(donation.id, {
+    const user = await smartApi.auth.me();
+    await smartApi.entities.Donation.update(donation.id, {
       status: 'confirmed',
       confirmed_by: user.email,
       confirmed_at: new Date().toISOString()
     });
     // Auto-create transaction
-    await base44.entities.Transaction.create({
+    await smartApi.entities.Transaction.create({
       mosque_id: currentMosque.id,
       type: 'income',
       category: donation.category,
@@ -54,7 +54,7 @@ export default function KonfirmasiDonasi() {
   }
 
   async function reject(donation) {
-    await base44.entities.Donation.update(donation.id, { status: 'rejected' });
+    await smartApi.entities.Donation.update(donation.id, { status: 'rejected' });
     toast.success("Donasi ditolak");
     loadData();
   }

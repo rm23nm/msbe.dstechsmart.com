@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import { useAuth } from "@/lib/AuthContext";
 import PageHeader from "../components/PageHeader";
@@ -26,7 +26,7 @@ export default function Pengaturan() {
 
   const handleSetup2FA = async () => {
     try {
-      const data = await base44.auth.generate2FA();
+      const data = await smartApi.auth.generate2FA();
       setSetup2FAData(data);
     } catch (error) {
       toast.error("Gagal menyiapkan 2FA");
@@ -35,7 +35,7 @@ export default function Pengaturan() {
 
   const handleEnable2FA = async () => {
     try {
-      await base44.auth.enable2FA(twoFactorToken);
+      await smartApi.auth.enable2FA(twoFactorToken);
       toast.success("2FA berhasil diaktifkan");
       setSetup2FAData(null);
       setTwoFactorToken("");
@@ -47,7 +47,7 @@ export default function Pengaturan() {
 
   const handleDisable2FA = async () => {
     try {
-      await base44.auth.disable2FA(twoFactorToken);
+      await smartApi.auth.disable2FA(twoFactorToken);
       toast.success("2FA berhasil dinonaktifkan");
       setTwoFactorToken("");
       await checkAppState();
@@ -89,6 +89,7 @@ export default function Pengaturan() {
         tv_video_url: currentMosque.tv_video_url || "",
         tv_prayer_overlay_text: currentMosque.tv_prayer_overlay_text || "Mohon matikan handphone. Luruskan dan rapatkan shaf.",
         tv_prayer_overlay_duration: currentMosque.tv_prayer_overlay_duration || 15,
+        tv_background_url: currentMosque.tv_background_url || "",
       });
     }
   }, [currentMosque]);
@@ -99,7 +100,7 @@ export default function Pengaturan() {
     const cleanForm = { ...form };
     if (cleanForm.logo_url?.startsWith('data:')) cleanForm.logo_url = currentMosque.logo_url || '';
     if (cleanForm.cover_image_url?.startsWith('data:')) cleanForm.cover_image_url = currentMosque.cover_image_url || '';
-    await base44.entities.Mosque.update(currentMosque.id, cleanForm);
+    await smartApi.entities.Mosque.update(currentMosque.id, cleanForm);
     toast.success("Pengaturan berhasil disimpan");
     await reload();
     setSaving(false);
@@ -199,7 +200,7 @@ export default function Pengaturan() {
                     <Upload className="h-4 w-4" /> Upload Logo
                     <input type="file" accept="image/*" className="hidden" onChange={async e => {
                       const file = e.target.files[0]; if (!file) return;
-                      const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                      const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
                       setForm(f => ({ ...f, logo_url: file_url }));
                     }} />
                   </label>
@@ -219,7 +220,7 @@ export default function Pengaturan() {
                   <Upload className="h-4 w-4" /> Upload Foto Sampul
                   <input type="file" accept="image/*" className="hidden" onChange={async e => {
                     const file = e.target.files[0]; if (!file) return;
-                    const { file_url } = await base44.integrations.Core.UploadFile({ file });
+                    const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
                     setForm(f => ({ ...f, cover_image_url: file_url }));
                   }} />
                 </label>
@@ -430,6 +431,84 @@ export default function Pengaturan() {
                 />
                 <p className="text-xs text-muted-foreground">Setelah durasi ini habis, layar TV akan kembali normal ke tampilan awal.</p>
               </div>
+            </div>
+
+            {/* Background TV Photo */}
+            <div className="space-y-3 pt-4 border-t">
+              <div>
+                <h4 className="font-semibold text-sm">🖼️ Foto Background Layar TV</h4>
+                <p className="text-xs text-muted-foreground mt-1">Atur foto masjid sebagai latar belakang layar TV. Jika tidak diisi, tampilan default (gradien gelap) akan digunakan.</p>
+              </div>
+
+              {/* Preview */}
+              {form.tv_background_url ? (
+                <div className="relative rounded-xl overflow-hidden border border-muted group">
+                  <img
+                    src={form.tv_background_url}
+                    alt="Background TV"
+                    className="w-full h-40 object-cover"
+                    onError={e => { e.target.style.display = 'none'; }}
+                  />
+                  {/* Preview overlay simulasi TV */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/75 flex items-center justify-center">
+                    <div className="text-center text-white">
+                      <div className="text-3xl mb-1">📺</div>
+                      <p className="text-xs font-semibold opacity-80">Preview Background TV</p>
+                      <p className="text-xs opacity-50">Overlay gelap otomatis diterapkan</p>
+                    </div>
+                  </div>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, tv_background_url: "" })}
+                      className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white text-xs px-2.5 py-1 rounded-lg font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      ✕ Hapus Foto
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="w-full h-28 rounded-xl border border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/20">
+                  <div className="text-center text-muted-foreground">
+                    <div className="text-2xl mb-1">🌙</div>
+                    <p className="text-xs">Menggunakan background default (gradien gelap)</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload atau URL */}
+              {canEdit && (
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-muted transition-colors font-medium flex-shrink-0">
+                      <Upload className="h-4 w-4" /> Upload Foto
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async e => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+                          try {
+                            const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
+                            setForm(f => ({ ...f, tv_background_url: file_url }));
+                            toast.success("Foto background berhasil diunggah");
+                          } catch (err) {
+                            toast.error("Gagal upload: " + err.message);
+                          }
+                        }}
+                      />
+                    </label>
+                    <Input
+                      value={form.tv_background_url || ""}
+                      onChange={e => setForm({ ...form, tv_background_url: e.target.value })}
+                      placeholder="Atau paste URL foto masjid..."
+                      className="flex-1"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Rekomendasi: foto eksterior/interior masjid, resolusi minimal 1920×1080px (Full HD). Foto akan diberi overlay gelap otomatis agar teks info tetap terbaca.</p>
+                </div>
+              )}
             </div>
 
           </div>

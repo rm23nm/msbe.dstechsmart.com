@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "../components/PageHeader";
 import ActivityForm from "../components/kegiatan/ActivityForm";
@@ -30,16 +30,16 @@ export default function Kegiatan() {
 
   async function loadData() {
     setDataLoading(true);
-    const acts = await base44.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100);
+    const acts = await smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100);
     setActivities(acts);
     setDataLoading(false);
   }
 
   async function handleSave(data) {
     if (editItem) {
-      await base44.entities.Activity.update(editItem.id, data);
+      await smartApi.entities.Activity.update(editItem.id, data);
     } else {
-      await base44.entities.Activity.create({ ...data, mosque_id: currentMosque.id });
+      await smartApi.entities.Activity.create({ ...data, mosque_id: currentMosque.id });
     }
     setShowForm(false);
     setEditItem(null);
@@ -47,7 +47,7 @@ export default function Kegiatan() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Activity.delete(id);
+    await smartApi.entities.Activity.delete(id);
     loadData();
   }
 

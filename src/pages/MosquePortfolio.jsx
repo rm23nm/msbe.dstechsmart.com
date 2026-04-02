@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { formatCurrency, formatDate } from "@/lib/formatCurrency";
 import {
   MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight,
   ArrowDownRight, Wallet, Megaphone, Instagram, Youtube,
-  Facebook, Globe, Landmark, UserPlus
+  Facebook, Globe, Landmark, UserPlus, Play, ChevronLeft, ChevronRight, Images,
+  Bot, X, Send, ChevronDown, MessageSquare, ExternalLink
 } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -19,6 +21,216 @@ const typeLabels = {
 const priorityColors = {
   high: "bg-red-100 text-red-700", medium: "bg-amber-100 text-amber-700", low: "bg-blue-100 text-blue-700"
 };
+
+function GaleriMasjid({ photos, mosqueName }) {
+  const [idx, setIdx] = useState(0);
+  const prev = () => setIdx(i => (i - 1 + photos.length) % photos.length);
+  const next = () => setIdx(i => (i + 1) % photos.length);
+
+  return (
+    <div>
+      <h2 className="font-semibold text-xl mb-4 flex items-center gap-2">
+        <Images className="h-5 w-5 text-primary" /> Galeri Foto
+      </h2>
+      <div className="relative rounded-2xl overflow-hidden border shadow-md bg-muted group">
+        <img
+          key={idx}
+          src={photos[idx]}
+          alt={`Galeri ${mosqueName} ${idx + 1}`}
+          className="w-full h-64 md:h-80 object-cover transition-opacity duration-500"
+          onError={e => { e.target.style.display='none'; }}
+        />
+        {/* Overlay bawah */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+        <div className="absolute bottom-4 left-4 text-white">
+          <p className="text-sm font-semibold">{mosqueName}</p>
+          <p className="text-xs text-white/70">Foto {idx + 1} dari {photos.length}</p>
+        </div>
+        {/* Counter dot */}
+        {photos.length > 1 && (
+          <div className="absolute bottom-4 right-4 flex gap-1.5">
+            {photos.map((_, i) => (
+              <button key={i} onClick={() => setIdx(i)}
+                className={`w-2 h-2 rounded-full transition-all ${i === idx ? 'bg-white w-5' : 'bg-white/50'}`} />
+            ))}
+          </div>
+        )}
+        {/* Nav arrows */}
+        {photos.length > 1 && (
+          <>
+            <button onClick={prev}
+              className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button onClick={next}
+              className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
+      </div>
+      {/* Thumbnail strip */}
+      {photos.length > 1 && (
+        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+          {photos.map((url, i) => (
+            <button key={i} onClick={() => setIdx(i)}
+              className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === idx ? 'border-primary' : 'border-transparent opacity-60 hover:opacity-100'}`}>
+              <img src={url} alt={`thumb-${i}`} className="w-full h-full object-cover"
+                onError={e => { e.target.style.display='none'; }} />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── AI CHAT WIDGET untuk Halaman Masjid ────────────────────────────────────
+function AIMosqueChatWidget({ mosque }) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    { from: 'bot', text: `Assalamu'alaikum! 👋 Saya asisten ${mosque?.name || 'Masjid'}. Ada yang bisa saya bantu?` }
+  ]);
+  const [input, setInput] = useState('');
+  const [typing, setTyping] = useState(false);
+  const [showPreset, setShowPreset] = useState(true);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, typing]);
+
+  const presetQA = [
+    { q: `Di mana lokasi ${mosque?.name}?`, a: `${mosque?.name} berlokasi di ${mosque?.address || '-'}, ${mosque?.city || ''}${mosque?.province ? ', ' + mosque.province : ''}. Silakan hubungi kami untuk petunjuk arah lebih lanjut.` },
+    { q: 'Bagaimana cara menghubungi masjid?', a: `Anda bisa menghubungi ${mosque?.name} melalui:${mosque?.phone ? '\n📞 Telepon: ' + mosque.phone : ''}${mosque?.email ? '\n📧 Email: ' + mosque.email : ''}${mosque?.instagram ? '\n📸 Instagram: ' + mosque.instagram : ''}. Kami siap melayani Anda!` },
+    { q: 'Apa saja kegiatan masjid?', a: `${mosque?.name} memiliki berbagai kegiatan rutin seperti shalat berjamaah 5 waktu, kajian mingguan, dan program sosial kemasyarakatan. Lihat jadwal kegiatan di halaman ini atau hubungi pengurus untuk info terbaru.` },
+    { q: 'Bagaimana cara berdonasi?', a: `Terima kasih atas niat baik Anda untuk berdonasi ke ${mosque?.name}. Anda dapat berdonasi melalui platform online kami atau langsung menghubungi pengurus masjid. Setiap donasi Anda sangat berarti untuk kemajuan masjid.` },
+    { q: 'Kapan waktu shalat?', a: `Jadwal shalat di ${mosque?.name} mengikuti jadwal shalat resmi berdasarkan lokasi masjid di ${mosque?.city || 'kota kami'}. Silakan cek pengumuman terkini di halaman ini atau hubungi pengurus masjid.` },
+  ];
+
+  function findAnswer(q) {
+    const query = q.toLowerCase();
+    for (const item of presetQA) {
+      const keywords = item.q.toLowerCase().split(' ').filter(w => w.length > 3);
+      if (keywords.some(kw => query.includes(kw))) return item.a;
+    }
+    return null;
+  }
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    const userMsg = text.trim();
+    setMessages(prev => [...prev, { from: 'user', text: userMsg }]);
+    setInput('');
+    setShowPreset(false);
+    setTyping(true);
+    await new Promise(r => setTimeout(r, 800 + Math.random() * 600));
+    setTyping(false);
+    const answer = findAnswer(userMsg);
+    setMessages(prev => [...prev, {
+      from: 'bot',
+      text: answer || `Terima kasih atas pertanyaan Anda. Untuk informasi lebih lanjut tentang ${mosque?.name}, silakan hubungi langsung pengurus masjid${mosque?.phone ? ' di nomor ' + mosque.phone : ''}. Jazakallah khairan! 🕌`
+    }]);
+  }
+
+  const waLink = mosque?.phone ? `https://wa.me/${mosque.phone.replace(/[^0-9]/g, '')}` : null;
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform"
+        aria-label="Tanya AI Asisten Masjid"
+      >
+        {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
+        {!open && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse" />}
+      </button>
+
+      {open && (
+        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border overflow-hidden flex flex-col" style={{ maxHeight: '520px' }}>
+          <div className="bg-gradient-to-r from-primary to-emerald-600 px-4 py-3 flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
+              {mosque?.logo_url
+                ? <img src={mosque.logo_url} alt="logo" className="w-full h-full rounded-full object-cover" />
+                : <span className="text-xl">🕌</span>}
+            </div>
+            <div>
+              <p className="text-white font-bold text-sm truncate max-w-[160px]">{mosque?.name || 'Asisten Masjid'}</p>
+              <p className="text-white/70 text-xs flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-300 rounded-full" />AI Asisten Online</p>
+            </div>
+            <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white">
+              <ChevronDown className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.from === 'user' ? 'justify-end' : 'justify-start'}`}>
+                {m.from === 'bot' && (
+                  <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
+                )}
+                <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                  m.from === 'user'
+                    ? 'bg-primary text-white rounded-br-sm'
+                    : 'bg-white border text-gray-700 rounded-bl-sm shadow-sm'
+                }`}>{m.text}</div>
+              </div>
+            ))}
+            {typing && (
+              <div className="flex justify-start">
+                <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
+                <div className="bg-white border px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm flex gap-1">
+                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              </div>
+            )}
+            {showPreset && messages.length <= 1 && (
+              <div className="space-y-2">
+                <p className="text-xs text-gray-400 text-center">Pilih pertanyaan</p>
+                {presetQA.map((item, i) => (
+                  <button key={i} onClick={() => sendMessage(item.q)}
+                    className="w-full text-left text-xs px-3 py-2 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 text-gray-700 transition-colors">
+                    {item.q}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          <div className="p-3 border-t bg-white">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendMessage(input)}
+                placeholder="Tanya sesuatu..."
+                className="flex-1 px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+              />
+              <button onClick={() => sendMessage(input)}
+                className="w-9 h-9 bg-primary text-white rounded-xl flex items-center justify-center hover:bg-primary/90 flex-shrink-0">
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+            {waLink && (
+              <a href={waLink} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 mt-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                <Phone className="h-3 w-3" /> WhatsApp Pengurus Masjid
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function MosquePortfolio() {
   const { id } = useParams();
@@ -43,11 +255,11 @@ export default function MosquePortfolio() {
 
   async function processJoin(mosqueId) {
     try {
-      const me = await base44.auth.me();
+      const me = await smartApi.auth.me();
       // Check if already a member
-      const existing = await base44.entities.MosqueMember.filter({ user_email: me.email, mosque_id: mosqueId });
+      const existing = await smartApi.entities.MosqueMember.filter({ user_email: me.email, mosque_id: mosqueId });
       if (existing.length === 0) {
-        await base44.entities.MosqueMember.create({
+        await smartApi.entities.MosqueMember.create({
           mosque_id: mosqueId,
           user_email: me.email,
           role: 'jamaah',
@@ -58,7 +270,7 @@ export default function MosquePortfolio() {
       window.location.href = '/dashboard';
     } catch (e) {
       // User is not logged in, redirect to login with join parameter
-      base44.auth.redirectToLogin(window.location.pathname + '?join=true');
+      smartApi.auth.redirectToLogin(window.location.pathname + '?join=true');
     }
   }
 
@@ -70,13 +282,12 @@ export default function MosquePortfolio() {
     setLoading(true);
     let mosqueData = null;
     try {
-      // Try by slug first, then list all and find by id
-      const bySlug = await base44.entities.Mosque.filter({ slug: id });
+      const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
       if (bySlug?.length > 0) {
         mosqueData = bySlug[0];
       } else {
         try {
-          const byId = await base44.entities.Mosque.filter({ id: id });
+          const byId = await smartApi.entities.Mosque.filter({ id: id });
           if (byId?.length > 0) mosqueData = byId[0];
         } catch (_) {}
       }
@@ -92,9 +303,9 @@ export default function MosquePortfolio() {
     setMosque(mosqueData);
 
     const [acts, anns, txns] = await Promise.all([
-      base44.entities.Activity.filter({ mosque_id: mosqueData.id, status: "upcoming" }, "date", 6),
-      base44.entities.Announcement.filter({ mosque_id: mosqueData.id, status: "published" }, "-created_date", 5),
-      mosqueData.show_financial ? base44.entities.Transaction.filter({ mosque_id: mosqueData.id }, "-date", 100) : Promise.resolve([]),
+      smartApi.entities.Activity.filter({ mosque_id: mosqueData.id, status: "upcoming" }, "date", 6),
+      smartApi.entities.Announcement.filter({ mosque_id: mosqueData.id, status: "published" }, "-created_date", 5),
+      mosqueData.show_financial ? smartApi.entities.Transaction.filter({ mosque_id: mosqueData.id }, "-date", 100) : Promise.resolve([]),
     ]);
     setActivities(acts);
     setAnnouncements(anns);
@@ -297,6 +508,42 @@ export default function MosquePortfolio() {
           </div>
         )}
 
+        {/* ── GALERI FOTO MASJID ── */}
+        {(() => {
+          const photos = mosque.tv_slideshow_urls
+            ? mosque.tv_slideshow_urls.split(',').map(u => u.trim()).filter(Boolean)
+            : mosque.cover_image_url ? [mosque.cover_image_url] : [];
+          if (photos.length === 0) return null;
+
+          return (
+            <GaleriMasjid photos={photos} mosqueName={mosque.name} />
+          );
+        })()}
+
+        {/* ── VIDEO MASJID ── */}
+        {(() => {
+          const ytUrl = mosque.tv_video_url || mosque.youtube;
+          if (!ytUrl) return null;
+          const ytId = ytUrl.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
+          if (!ytId) return null;
+          return (
+            <div>
+              <h2 className="font-semibold text-xl mb-4 flex items-center gap-2">
+                <Play className="h-5 w-5 text-primary" /> Video Masjid
+              </h2>
+              <div className="rounded-2xl overflow-hidden border shadow-md aspect-video bg-black">
+                <iframe
+                  src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&cc_load_policy=0`}
+                  className="w-full h-full"
+                  allow="encrypted-media; picture-in-picture"
+                  allowFullScreen
+                  title={`Video ${mosque.name}`}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Activities */}
         {activities.length > 0 && (
           <div>
@@ -323,12 +570,113 @@ export default function MosquePortfolio() {
           </div>
         )}
 
-        {/* Footer */}
-        <footer className="border-t pt-6 text-center text-xs text-muted-foreground">
-          <p>Halaman ini dikelola menggunakan <span className="font-semibold text-primary">MasjidKu</span></p>
-          <Link to="/" className="hover:text-primary hover:underline mt-1 inline-block">Daftarkan masjid Anda →</Link>
+        {/* Footer Masjid dengan Kontak Lengkap */}
+        <footer className="border-t mt-4">
+          {/* Kontak Info */}
+          <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white py-10 px-6 rounded-2xl mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Info Masjid */}
+              <div className="md:col-span-2">
+                <div className="flex items-center gap-3 mb-4">
+                  {mosque.logo_url
+                    ? <img src={mosque.logo_url} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white/20" />
+                    : <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center"><Landmark className="h-6 w-6 text-white" /></div>
+                  }
+                  <div>
+                    <h3 className="font-bold text-lg">{mosque.name}</h3>
+                    <p className="text-white/60 text-sm">{mosque.city}{mosque.province ? `, ${mosque.province}` : ''}</p>
+                  </div>
+                </div>
+                <p className="text-white/70 text-sm leading-relaxed mb-5">
+                  {mosque.about || `${mosque.name} berkomitmen melayani jamaah dengan sepenuh hati. Bergabunglah dengan kami dalam setiap kegiatan ibadah dan kemasyarakatan.`}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-start gap-3 bg-white/5 rounded-xl p-3">
+                    <MapPin className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm text-white/80">{mosque.address}, {mosque.city}</span>
+                  </div>
+                  {mosque.phone && (
+                    <a href={`tel:${mosque.phone}`} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition-colors">
+                      <Phone className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                      <span className="text-sm text-white/80">{mosque.phone}</span>
+                    </a>
+                  )}
+                  {mosque.email && (
+                    <a href={`mailto:${mosque.email}`} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition-colors">
+                      <Mail className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                      <span className="text-sm text-white/80 truncate">{mosque.email}</span>
+                    </a>
+                  )}
+                  {mosque.custom_domain && (
+                    <a href={`https://${mosque.custom_domain}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition-colors">
+                      <Globe className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                      <span className="text-sm text-white/80">{mosque.custom_domain}</span>
+                      <ExternalLink className="h-3 w-3 text-white/40 ml-auto" />
+                    </a>
+                  )}
+                </div>
+                {/* Social media */}
+                {(mosque.instagram || mosque.facebook || mosque.youtube) && (
+                  <div className="flex gap-3 mt-4">
+                    {mosque.instagram && (
+                      <a href={mosque.instagram} target="_blank" rel="noreferrer" className="p-2 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg transition-colors">
+                        <Instagram className="h-5 w-5 text-pink-400" />
+                      </a>
+                    )}
+                    {mosque.facebook && (
+                      <a href={mosque.facebook} target="_blank" rel="noreferrer" className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-colors">
+                        <Facebook className="h-5 w-5 text-blue-400" />
+                      </a>
+                    )}
+                    {mosque.youtube && (
+                      <a href={mosque.youtube} target="_blank" rel="noreferrer" className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors">
+                        <Youtube className="h-5 w-5 text-red-400" />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* CTA Bergabung */}
+              <div className="space-y-4">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+                  <h4 className="font-bold mb-2 text-sm">🤝 Bergabung Sebagai Jamaah</h4>
+                  <p className="text-white/60 text-xs mb-4 leading-relaxed">Daftar dan ikuti kegiatan {mosque.name} secara digital. Dapatkan notifikasi pengumuman dan jadwal terbaru.</p>
+                  <Link to={`/masjid/${mosque.slug || mosque.id}/login`}>
+                    <Button className="w-full bg-white text-primary hover:bg-white/90 text-sm" size="sm">
+                      <UserPlus className="h-4 w-4 mr-2" /> Login / Daftar Jamaah
+                    </Button>
+                  </Link>
+                </div>
+                {mosque.phone && (
+                  <a href={`https://wa.me/${mosque.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer"
+                    className="flex items-center gap-3 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-2xl p-4 transition-colors">
+                    <MessageSquare className="h-5 w-5 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold">WhatsApp Pengurus</p>
+                      <p className="text-xs text-white/60">{mosque.phone}</p>
+                    </div>
+                  </a>
+                )}
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+                  <p className="text-xs text-white/50 mb-1">Dikelola menggunakan</p>
+                  <Link to="/" className="text-emerald-400 hover:text-emerald-300 text-sm font-bold">🕌 MasjidKu Smart</Link>
+                  <p className="text-xs text-white/40 mt-1">Platform Digital Masjid #1 Indonesia</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground py-4 px-2">
+            <p>© {new Date().getFullYear()} {mosque.name}. Hak cipta dilindungi.</p>
+            <Link to="/" className="hover:text-primary transition-colors hover:underline">Daftarkan masjid Anda ke MasjidKu Smart →</Link>
+          </div>
         </footer>
       </div>
+
+      {/* AI Chat Widget Masjid */}
+      <AIMosqueChatWidget mosque={mosque} />
     </div>
   );
 }

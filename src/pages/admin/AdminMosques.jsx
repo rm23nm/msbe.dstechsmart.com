@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { base44 } from "@/api/apiClient";
+import { smartApi } from "@/api/apiClient";
 import { formatDate } from "@/lib/formatCurrency";
 import PageHeader from "../../components/PageHeader";
 import EmptyState from "../../components/EmptyState";
@@ -29,16 +29,16 @@ export default function AdminMosques() {
 
   async function loadData() {
     setLoading(true);
-    const data = await base44.entities.Mosque.list('-created_date');
+    const data = await smartApi.entities.Mosque.list('-created_date');
     setMosques(data);
     setLoading(false);
   }
 
   async function handleSave(data) {
     if (editItem) {
-      await base44.entities.Mosque.update(editItem.id, data);
+      await smartApi.entities.Mosque.update(editItem.id, data);
     } else {
-      await base44.entities.Mosque.create(data);
+      await smartApi.entities.Mosque.create(data);
     }
     setShowForm(false);
     setEditItem(null);
@@ -46,7 +46,7 @@ export default function AdminMosques() {
   }
 
   async function handleDelete(id) {
-    await base44.entities.Mosque.delete(id);
+    await smartApi.entities.Mosque.delete(id);
     loadData();
   }
 
