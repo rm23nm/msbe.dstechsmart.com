@@ -1,0 +1,83 @@
+{
+  "name": "Payment",
+  "type": "object",
+  "properties": {
+    "mosque_id": {
+      "type": "string",
+      "description": "ID masjid"
+    },
+    "transaction_type": {
+      "type": "string",
+      "enum": [
+        "donation",
+        "activity_registration",
+        "subscription"
+      ],
+      "description": "Tipe transaksi"
+    },
+    "reference_id": {
+      "type": "string",
+      "description": "ID referensi (donation_id, registration_id, etc)"
+    },
+    "midtrans_order_id": {
+      "type": "string",
+      "description": "Midtrans order ID"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Jumlah pembayaran (Rp)"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "capture",
+        "settlement",
+        "deny",
+        "cancel",
+        "expire"
+      ],
+      "description": "Status pembayaran dari Midtrans"
+    },
+    "payer_name": {
+      "type": "string",
+      "description": "Nama pembayar"
+    },
+    "payer_email": {
+      "type": "string",
+      "description": "Email pembayar"
+    },
+    "payer_phone": {
+      "type": "string",
+      "description": "No telepon pembayar"
+    },
+    "payment_method": {
+      "type": "string",
+      "description": "Metode pembayaran (transfer_bank, e_wallet, qris, etc)"
+    },
+    "midtrans_response": {
+      "type": "object",
+      "description": "Full response dari Midtrans API"
+    }
+  },
+  "required": [
+    "mosque_id",
+    "transaction_type",
+    "reference_id",
+    "amount"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

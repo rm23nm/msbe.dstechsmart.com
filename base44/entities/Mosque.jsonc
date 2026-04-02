@@ -1,0 +1,161 @@
+{
+  "name": "Mosque",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nama masjid"
+    },
+    "slug": {
+      "type": "string",
+      "description": "URL slug unik untuk halaman publik"
+    },
+    "address": {
+      "type": "string",
+      "description": "Alamat masjid"
+    },
+    "city": {
+      "type": "string",
+      "description": "Kota"
+    },
+    "province": {
+      "type": "string",
+      "description": "Provinsi"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Nomor telepon"
+    },
+    "email": {
+      "type": "string",
+      "description": "Email masjid"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "URL logo masjid"
+    },
+    "cover_image_url": {
+      "type": "string",
+      "description": "URL foto sampul/banner masjid"
+    },
+    "about": {
+      "type": "string",
+      "description": "Deskripsi singkat tentang masjid"
+    },
+    "established_year": {
+      "type": "string",
+      "description": "Tahun berdiri"
+    },
+    "instagram": {
+      "type": "string",
+      "description": "Link Instagram"
+    },
+    "facebook": {
+      "type": "string",
+      "description": "Link Facebook"
+    },
+    "youtube": {
+      "type": "string",
+      "description": "Link YouTube channel/video masjid"
+    },
+    "custom_domain": {
+      "type": "string",
+      "description": "Domain kustom masjid"
+    },
+    "show_financial": {
+      "type": "boolean",
+      "description": "Tampilkan info keuangan di halaman publik"
+    },
+    "primary_color": {
+      "type": "string",
+      "description": "Warna utama masjid (hex, contoh: #2d6a4f)"
+    },
+    "timezone": {
+      "type": "string",
+      "enum": [
+        "Asia/Jakarta",
+        "Asia/Makassar",
+        "Asia/Jayapura"
+      ],
+      "description": "Zona waktu masjid (WIB/WITA/WIT)"
+    },
+    "subscription_plan": {
+      "type": "string",
+      "enum": [
+        "trial",
+        "monthly",
+        "yearly"
+      ],
+      "description": "Paket langganan"
+    },
+    "subscription_status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired",
+        "trial",
+        "cancelled"
+      ],
+      "description": "Status langganan"
+    },
+    "subscription_start": {
+      "type": "string",
+      "description": "Tanggal mulai langganan"
+    },
+    "subscription_end": {
+      "type": "string",
+      "description": "Tanggal berakhir langganan"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive",
+        "suspended"
+      ],
+      "description": "Status masjid"
+    },
+    "midtrans_server_key": {
+      "type": "string",
+      "description": "Midtrans Server Key untuk API"
+    },
+    "midtrans_client_key": {
+      "type": "string",
+      "description": "Midtrans Client Key untuk Snap.js"
+    },
+    "midtrans_environment": {
+      "type": "string",
+      "enum": [
+        "sandbox",
+        "production"
+      ],
+      "description": "Midtrans environment (sandbox/production)"
+    }
+  },
+  "required": [
+    "name",
+    "address",
+    "city"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

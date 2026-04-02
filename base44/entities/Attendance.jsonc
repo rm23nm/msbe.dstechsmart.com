@@ -1,0 +1,53 @@
+{
+  "name": "Attendance",
+  "type": "object",
+  "properties": {
+    "activity_id": {
+      "type": "string",
+      "description": "ID kegiatan"
+    },
+    "mosque_id": {
+      "type": "string",
+      "description": "ID masjid"
+    },
+    "member_name": {
+      "type": "string",
+      "description": "Nama jamaah"
+    },
+    "member_email": {
+      "type": "string",
+      "description": "Email jamaah"
+    },
+    "member_phone": {
+      "type": "string",
+      "description": "Nomor telepon jamaah"
+    },
+    "checked_in_at": {
+      "type": "string",
+      "description": "Waktu check-in"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Catatan"
+    }
+  },
+  "required": [
+    "activity_id",
+    "mosque_id",
+    "member_name"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {
+      "user_condition": {
+        "role": "admin"
+      }
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

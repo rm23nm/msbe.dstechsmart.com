@@ -1,0 +1,112 @@
+{
+  "name": "Activity",
+  "type": "object",
+  "properties": {
+    "mosque_id": {
+      "type": "string",
+      "description": "ID masjid"
+    },
+    "title": {
+      "type": "string",
+      "description": "Judul kegiatan"
+    },
+    "description": {
+      "type": "string",
+      "description": "Deskripsi kegiatan"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "shalat",
+        "kajian",
+        "pengajian",
+        "ramadhan",
+        "idul_adha",
+        "idul_fitri",
+        "sosial",
+        "rapat",
+        "lainnya"
+      ],
+      "description": "Jenis kegiatan"
+    },
+    "date": {
+      "type": "string",
+      "description": "Tanggal kegiatan"
+    },
+    "time_start": {
+      "type": "string",
+      "description": "Waktu mulai"
+    },
+    "time_end": {
+      "type": "string",
+      "description": "Waktu selesai"
+    },
+    "location": {
+      "type": "string",
+      "description": "Lokasi"
+    },
+    "imam": {
+      "type": "string",
+      "description": "Imam/pemateri"
+    },
+    "muadzin": {
+      "type": "string",
+      "description": "Muadzin"
+    },
+    "photo_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Foto kegiatan"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Catatan"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "upcoming",
+        "ongoing",
+        "completed",
+        "cancelled"
+      ],
+      "description": "Status kegiatan"
+    }
+  },
+  "required": [
+    "mosque_id",
+    "title",
+    "type",
+    "date"
+  ],
+  "rls": {
+    "read": {},
+    "create": {},
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    }
+  }
+}

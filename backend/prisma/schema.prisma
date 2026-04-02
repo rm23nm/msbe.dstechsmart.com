@@ -1,0 +1,161 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  password               String
+  full_name              String?
+  phone                  String?
+  role                   String    @default("user") // admin, user
+  current_mosque_id      String?
+  reset_password_token   String?
+  reset_password_expires DateTime?
+  two_factor_secret      String?
+  two_factor_enabled     Boolean   @default(false)
+  created_at             DateTime  @default(now())
+}
+
+model Mosque {
+  id                String   @id @default(uuid())
+  name              String
+  slug              String   @unique
+  address           String?
+  description       String?
+  logo_url          String?
+  bank_name         String?
+  bank_account      String?
+  bank_account_name String?
+  show_financial    Boolean  @default(true)
+  status            String   @default("active") // active, inactive
+  email             String?
+  phone             String?
+  city              String?
+  province          String?
+  about             String?
+  established_year  String?
+  cover_image_url   String?
+  custom_domain     String?
+  instagram         String?
+  facebook          String?
+  youtube           String?
+  primary_color     String?
+  timezone          String?   @default("Asia/Jakarta")
+  midtrans_server_key  String?
+  midtrans_client_key  String?
+  midtrans_environment String? @default("sandbox")
+  tv_show_finance    Boolean  @default(true)
+  tv_show_jumat      Boolean  @default(true)
+  tv_show_activities Boolean  @default(true)
+  tv_show_announcements Boolean @default(true)
+  tv_show_qrcode     Boolean  @default(true)
+  tv_slideshow_urls  String?
+  tv_video_url       String?
+  tv_prayer_overlay_text String? @default("Mohon matikan handphone. Luruskan dan rapatkan shaf.")
+  tv_prayer_overlay_duration Int @default(15)
+  created_at        DateTime @default(now())
+}
+
+model MosqueMember {
+  id          String   @id @default(uuid())
+  user_email  String
+  user_name   String?
+  user_phone  String?
+  mosque_id   String
+  role        String   // admin_masjid, bendahara, pengurus, jamaah
+  status      String   @default("active")
+  join_date   String?
+  createdAt   DateTime @default(now())
+}
+
+model Transaction {
+  id          String   @id @default(uuid())
+  mosque_id   String
+  type        String   // income, expense
+  amount      Float
+  category    String?
+  description String?
+  date        String   // Storing as YYYY-MM-DD strings often used in UI
+  createdAt   DateTime @default(now())
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  mosque_id   String
+  title       String
+  description String?
+  date        String
+  time        String?
+  location    String?
+  speaker     String?
+  status      String   @default("upcoming") // upcoming, completed, cancelled
+  createdAt   DateTime @default(now())
+}
+
+model Announcement {
+  id           String   @id @default(uuid())
+  mosque_id    String
+  title        String
+  content      String?
+  status       String   @default("published") // published, draft
+  created_date String
+  createdAt    DateTime @default(now())
+}
+
+model Donation {
+  id             String   @id @default(uuid())
+  mosque_id      String
+  amount         Float
+  status         String   @default("pending") // pending, completed, rejected
+  donor_name     String?
+  donor_email    String?
+  donor_phone    String?
+  payment_method String?
+  payment_proof  String?
+  created_date   String
+  createdAt      DateTime @default(now())
+}
+
+model PrayerTime {
+  id           String   @id @default(uuid())
+  mosque_id    String
+  subuh        String?
+  dzuhur       String?
+  ashar        String?
+  maghrib      String?
+  isya         String?
+  created_date String?
+  createdAt    DateTime @default(now())
+}
+
+model JumatOfficer {
+  id          String   @id @default(uuid())
+  mosque_id   String
+  khatib      String?
+  imam        String?
+  muadzin     String?
+  bilal       String?
+  jumat_date  String?
+  createdAt   DateTime @default(now())
+}
+
+model AppSettings {
+  id    String  @id @default(uuid())
+  logo  String?
+  name  String?
+  theme String?
+}
+
+model PlanFeatures {
+  id          String  @id @default(uuid())
+  name        String
+  price       Float
+  features    String  // JSON string or comma separated
+  is_popular  Boolean @default(false)
+}

@@ -1,0 +1,101 @@
+{
+  "name": "MosqueMember",
+  "type": "object",
+  "properties": {
+    "mosque_id": {
+      "type": "string",
+      "description": "ID masjid"
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email pengguna"
+    },
+    "user_name": {
+      "type": "string",
+      "description": "Nama pengguna"
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "admin_masjid",
+        "bendahara",
+        "pengurus",
+        "jamaah"
+      ],
+      "description": "Peran di masjid"
+    },
+    "phone": {
+      "type": "string",
+      "description": "Nomor telepon"
+    },
+    "address": {
+      "type": "string",
+      "description": "Alamat lengkap"
+    },
+    "photo_url": {
+      "type": "string",
+      "description": "Foto profil jamaah"
+    },
+    "categories": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Kategori jamaah (misal: aktif kajian, donatur, remaja)"
+    },
+    "whatsapp": {
+      "type": "string",
+      "description": "Nomor WhatsApp (dengan kode negara, contoh: 628xxx)"
+    },
+    "birth_date": {
+      "type": "string",
+      "description": "Tanggal lahir"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "inactive"
+      ],
+      "description": "Status keanggotaan"
+    }
+  },
+  "required": [
+    "mosque_id",
+    "user_email",
+    "role"
+  ],
+  "rls": {
+    "read": {},
+    "create": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "created_by": "{{user.email}}"
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
