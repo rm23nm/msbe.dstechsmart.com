@@ -576,7 +576,7 @@ function VideoSection() {
           <iframe
             className="w-full h-full"
 
-            src="https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&cc_load_policy=0"
+            src="https://www.youtube-nocookie.com/embed/xkuAToGvtW8?rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&cc_load_policy=0"
             title="Demo MasjidKu"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
