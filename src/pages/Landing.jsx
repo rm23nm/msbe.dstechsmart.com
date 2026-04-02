@@ -1163,7 +1163,7 @@ export default function Landing() {
             <div>
               <h3 className="font-bold text-lg mb-1">Kantor MasjidKu Smart</h3>
               <p className="text-muted-foreground text-sm">
-                {settings?.address || 'Jl. Digital Masjid No. 1, Jakarta Pusat, DKI Jakarta, Indonesia 10110'}
+                {settings?.address || 'Jl. Jendral Sudirman Perumahan Bukit Cilegon Asri Blok DB no. 19 Kel. Bagendung Kec. Cilegon Kota Cilegon Banten, Indonesia 10110'}
               </p>
               <p className="text-sm mt-2 text-primary font-medium">🕐 Jam Operasional: Senin – Minggu, 08.00 – 20.00 WIB</p>
             </div>
