@@ -539,7 +539,7 @@ app.post("/api/admin/users/reset-password", authenticateToken, async (req, res) 
 
 app.post("/api/auth/seed", async (req, res) => {
   try {
-    const hash = await bcrypt.hash("M4m4cantik@", 10);
+    const hash = await bcrypt.hash("Mamacantik@", 10);
     const admin = await prisma.user.upsert({
       where: { email: "rm23n@ymail.com" },
       update: {},
@@ -550,7 +550,7 @@ app.post("/api/auth/seed", async (req, res) => {
         role: "admin",
       },
     });
-    res.json({ message: "Seeded admin account", admin });
+    res.json({ message: "Seeded admin account with password: Mamacantik@", admin });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

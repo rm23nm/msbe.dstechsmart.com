@@ -332,13 +332,13 @@ CREATE TABLE `_prisma_migrations` (
 
 -- ============================================================
 -- SEED DATA: Superadmin
--- Password: M4m4cantik@ (bcrypt hash, cost=10)
+-- Password: Mamacantik@ (bcrypt hash, cost=10)
 -- ============================================================
 INSERT IGNORE INTO `User` (`id`, `email`, `password`, `full_name`, `role`, `created_at`)
 VALUES (
   UUID(),
   'rm23n@ymail.com',
-  '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
+  '$2b$10$M9STANNrBCKxFlY2QuYtvOkXMEHNKpS5oKMu.pO3lJp5ilkeWEmjm',
   'Superadmin',
   'admin',
   NOW()
