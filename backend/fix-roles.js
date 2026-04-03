@@ -18,7 +18,7 @@ async function fixRoles() {
   console.log('✅ admin@masjidkusmart.com -> superadmin');
 
   // Also ensure there's a mosque_admin test account
-  const hash = await bcrypt.hash('Mamacantik@', 10);
+  const hash = await bcrypt.hash('Admin@1234', 10);
   
   // Get first mosque for linking
   const mosque = await prisma.mosque.findFirst();

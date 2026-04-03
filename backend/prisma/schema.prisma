@@ -1,5 +1,5 @@
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -8,206 +8,206 @@ generator client {
 }
 
 model User {
-  id                     String    @id @default(uuid()) @db.VarChar(36)
-  email                  String    @unique @db.VarChar(191)
-  password               String    @db.VarChar(255)
-  full_name              String?   @db.VarChar(191)
-  phone                  String?   @db.VarChar(50)
-  role                   String    @default("user") @db.VarChar(50)
-  current_mosque_id      String?   @db.VarChar(36)
-  reset_password_token   String?   @db.VarChar(191)
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  password               String
+  full_name              String?
+  phone                  String?
+  role                   String    @default("user") // superadmin, admin, mosque_admin, pengurus, user
+  current_mosque_id      String?
+  reset_password_token   String?
   reset_password_expires DateTime?
-  two_factor_secret      String?   @db.VarChar(255)
+  two_factor_secret      String?   // Secret untuk TOTP (Google Authenticator)
   two_factor_enabled     Boolean   @default(false)
-  two_factor_method      String?   @default("totp") @db.VarChar(20)
-  otp_code               String?   @db.VarChar(10)
-  otp_expires            DateTime?
+  two_factor_method      String?   @default("totp") // totp, whatsapp, sms
+  otp_code               String?   // OTP sementara untuk WA/SMS
+  otp_expires            DateTime? // Waktu expired OTP
   created_at             DateTime  @default(now())
 }
 
 model Mosque {
-  id                String    @id @default(uuid()) @db.VarChar(36)
-  name              String    @db.VarChar(191)
-  slug              String?   @unique @db.VarChar(191)
-  address           String?   @db.VarChar(500)
-  description       String?   @db.Text
-  logo_url          String?   @db.VarChar(500)
-  bank_name         String?   @db.VarChar(191)
-  bank_account      String?   @db.VarChar(191)
-  bank_account_name String?   @db.VarChar(191)
-  show_financial    Boolean   @default(true)
-  status            String    @default("active") @db.VarChar(20)
-  email             String?   @db.VarChar(191)
-  phone             String?   @db.VarChar(50)
-  city              String?   @db.VarChar(191)
-  province          String?   @db.VarChar(191)
-  about             String?   @db.Text
-  established_year  String?   @db.VarChar(10)
-  cover_image_url   String?   @db.VarChar(500)
-  custom_domain     String?   @db.VarChar(191)
-  instagram         String?   @db.VarChar(191)
-  facebook          String?   @db.VarChar(191)
-  youtube           String?   @db.VarChar(191)
-  primary_color     String?   @db.VarChar(20)
-  timezone          String?   @default("Asia/Jakarta") @db.VarChar(50)
-  midtrans_server_key  String? @db.VarChar(255)
-  midtrans_client_key  String? @db.VarChar(255)
-  midtrans_environment String? @default("sandbox") @db.VarChar(20)
+  id                String   @id @default(uuid())
+  name              String
+  slug              String?  @unique
+  address           String?
+  description       String?
+  logo_url          String?
+  bank_name         String?
+  bank_account      String?
+  bank_account_name String?
+  show_financial    Boolean  @default(true)
+  status            String   @default("active") // active, inactive
+  email             String?
+  phone             String?
+  city              String?
+  province          String?
+  about             String?
+  established_year  String?
+  cover_image_url   String?
+  custom_domain     String?
+  instagram         String?
+  facebook          String?
+  youtube           String?
+  primary_color     String?
+  timezone          String?   @default("Asia/Jakarta")
+  midtrans_server_key  String?
+  midtrans_client_key  String?
+  midtrans_environment String? @default("sandbox")
   tv_show_finance    Boolean  @default(true)
   tv_show_jumat      Boolean  @default(true)
   tv_show_activities Boolean  @default(true)
   tv_show_announcements Boolean @default(true)
   tv_show_qrcode     Boolean  @default(true)
-  tv_slideshow_urls  String?  @db.Text
-  tv_video_url       String?  @db.VarChar(500)
-  tv_prayer_overlay_text String? @default("Mohon matikan handphone. Luruskan dan rapatkan shaf.") @db.VarChar(500)
+  tv_slideshow_urls  String?
+  tv_video_url       String?
+  tv_prayer_overlay_text String? @default("Mohon matikan handphone. Luruskan dan rapatkan shaf.")
   tv_prayer_overlay_duration Int @default(15)
-  tv_background_url  String?  @db.VarChar(500)
-  subscription_plan   String? @default("trial") @db.VarChar(20)
-  subscription_status String? @default("trial") @db.VarChar(20)
+  tv_background_url  String?  // Foto background layar TV (opsional)
+  subscription_plan   String?  @default("trial")   // trial, basic, pro, enterprise
+  subscription_status String?  @default("trial")   // trial, active, expired, cancelled
   subscription_start  DateTime?
   subscription_end    DateTime?
-  created_at        DateTime  @default(now())
+  created_at        DateTime @default(now())
 }
 
 model MosqueMember {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  user_email  String   @db.VarChar(191)
-  user_name   String?  @db.VarChar(191)
-  user_phone  String?  @db.VarChar(50)
-  mosque_id   String   @db.VarChar(36)
-  role        String   @db.VarChar(50)
-  status      String   @default("active") @db.VarChar(20)
-  join_date   String?  @db.VarChar(30)
+  id          String   @id @default(uuid())
+  user_email  String
+  user_name   String?
+  user_phone  String?
+  mosque_id   String
+  role        String   // admin_masjid, bendahara, pengurus, jamaah
+  status      String   @default("active")
+  join_date   String?
   createdAt   DateTime @default(now())
 }
 
 model Transaction {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id   String   @db.VarChar(36)
-  type        String   @db.VarChar(20)
-  amount      Decimal  @db.Decimal(15, 2)
-  category    String?  @db.VarChar(191)
-  description String?  @db.Text
-  date        String   @db.VarChar(30)
-  receipt_url String?  @db.VarChar(500)
-  source      String?  @db.VarChar(50)
+  id          String   @id @default(uuid())
+  mosque_id   String
+  type        String   // income, expense
+  amount      Float
+  category    String?
+  description String?
+  date        String   // Storing as YYYY-MM-DD strings often used in UI
+  receipt_url String?  // URL bukti struk/nota
+  source      String?  // manual, telegram_bot, etc.
   createdAt   DateTime @default(now())
 }
 
 model Activity {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id   String   @db.VarChar(36)
-  title       String   @db.VarChar(191)
-  description String?  @db.Text
-  date        String   @db.VarChar(30)
-  time        String?  @db.VarChar(50)
-  location    String?  @db.VarChar(191)
-  speaker     String?  @db.VarChar(191)
-  status      String   @default("upcoming") @db.VarChar(20)
+  id          String   @id @default(uuid())
+  mosque_id   String
+  title       String
+  description String?
+  date        String
+  time        String?
+  location    String?
+  speaker     String?
+  status      String   @default("upcoming") // upcoming, completed, cancelled
   createdAt   DateTime @default(now())
 }
 
 model Announcement {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id    String   @db.VarChar(36)
-  title        String   @db.VarChar(191)
-  content      String?  @db.Text
-  status       String   @default("published") @db.VarChar(20)
-  created_date String   @db.VarChar(30)
+  id           String   @id @default(uuid())
+  mosque_id    String
+  title        String
+  content      String?
+  status       String   @default("published") // published, draft
+  created_date String
   createdAt    DateTime @default(now())
 }
 
 model Donation {
-  id             String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id      String   @db.VarChar(36)
-  amount         Decimal  @db.Decimal(15, 2)
-  status         String   @default("pending") @db.VarChar(20)
-  donor_name     String?  @db.VarChar(191)
-  donor_email    String?  @db.VarChar(191)
-  donor_phone    String?  @db.VarChar(50)
-  payment_method String?  @db.VarChar(50)
-  payment_proof  String?  @db.VarChar(500)
-  created_date   String   @db.VarChar(30)
+  id             String   @id @default(uuid())
+  mosque_id      String
+  amount         Float
+  status         String   @default("pending") // pending, completed, rejected
+  donor_name     String?
+  donor_email    String?
+  donor_phone    String?
+  payment_method String?
+  payment_proof  String?
+  created_date   String
   createdAt      DateTime @default(now())
 }
 
 model PrayerTime {
-  id           String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id    String   @db.VarChar(36)
-  subuh        String?  @db.VarChar(10)
-  dzuhur       String?  @db.VarChar(10)
-  ashar        String?  @db.VarChar(10)
-  maghrib      String?  @db.VarChar(10)
-  isya         String?  @db.VarChar(10)
-  created_date String?  @db.VarChar(30)
+  id           String   @id @default(uuid())
+  mosque_id    String
+  subuh        String?
+  dzuhur       String?
+  ashar        String?
+  maghrib      String?
+  isya         String?
+  created_date String?
   createdAt    DateTime @default(now())
 }
 
 model JumatOfficer {
-  id          String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id   String   @db.VarChar(36)
-  khatib      String?  @db.VarChar(191)
-  imam        String?  @db.VarChar(191)
-  muadzin     String?  @db.VarChar(191)
-  bilal       String?  @db.VarChar(191)
-  jumat_date  String?  @db.VarChar(30)
+  id          String   @id @default(uuid())
+  mosque_id   String
+  khatib      String?
+  imam        String?
+  muadzin     String?
+  bilal       String?
+  jumat_date  String?
   createdAt   DateTime @default(now())
 }
 
 model AppSettings {
-  id                    String  @id @default(uuid()) @db.VarChar(36)
-  logo                  String? @db.VarChar(500)
-  name                  String? @db.VarChar(191)
-  theme                 String? @db.VarChar(50)
-  app_name              String? @default("MasjidKu Smart") @db.VarChar(191)
-  app_tagline           String? @db.VarChar(500)
-  logo_url              String? @db.VarChar(500)
-  primary_color         String? @db.VarChar(20)
-  hero_image_url        String? @db.VarChar(500)
-  contact_email         String? @db.VarChar(191)
-  contact_phone         String? @db.VarChar(50)
-  whatsapp_number       String? @db.VarChar(50)
-  midtrans_server_key   String? @db.VarChar(255)
-  midtrans_client_key   String? @db.VarChar(255)
-  midtrans_environment  String? @default("sandbox") @db.VarChar(20)
-  gemini_api_key        String? @db.VarChar(255)
+  id                    String  @id @default(uuid())
+  logo                  String? // Legacy field
+  name                  String? // Legacy field
+  theme                 String? // Legacy field
+  app_name              String? @default("MasjidKu Smart")
+  app_tagline           String?
+  logo_url              String?
+  primary_color         String?
+  hero_image_url        String?
+  contact_email         String?
+  contact_phone         String?
+  whatsapp_number       String?
+  midtrans_server_key   String?
+  midtrans_client_key   String?
+  midtrans_environment  String? @default("sandbox")
+  gemini_api_key        String? // API Key untuk AI OCR struk
 }
 
 model TelegramSettings {
-  id                    String   @id @default(uuid()) @db.VarChar(36)
-  mosque_id             String   @unique @db.VarChar(36)
-  bot_token             String?  @db.VarChar(255)
-  chat_id               String?  @db.VarChar(100)
-  notify_transactions   Boolean  @default(true)
-  notify_activities     Boolean  @default(true)
-  notify_announcements  Boolean  @default(true)
-  notify_donations      Boolean  @default(true)
-  bot_enabled           Boolean  @default(false)
-  gemini_api_key        String?  @db.VarChar(255)
+  id                    String  @id @default(uuid())
+  mosque_id             String  @unique
+  bot_token             String? // Token Bot dari @BotFather
+  chat_id               String? // Chat ID grup/channel untuk notifikasi
+  notify_transactions   Boolean @default(true)  // Notif transaksi keuangan
+  notify_activities     Boolean @default(true)  // Notif kegiatan baru
+  notify_announcements  Boolean @default(true)  // Notif pengumuman
+  notify_donations      Boolean @default(true)  // Notif donasi masuk
+  bot_enabled           Boolean @default(false) // Apakah bot aktif
+  gemini_api_key        String? // API Key Gemini untuk OCR struk (opsional, override global)
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 }
 
 model PlanFeatures {
-  id          String  @id @default(uuid()) @db.VarChar(36)
-  name        String? @db.VarChar(191)
-  plan        String  @unique @db.VarChar(50)
-  price       Decimal @default(0) @db.Decimal(15, 2)
-  description String? @db.Text
-  features    String  @default("[]") @db.Text
+  id          String  @id @default(uuid())
+  name        String? // Legacy field
+  plan        String  @unique // trial, monthly, yearly
+  price       Float   @default(0)
+  description String?
+  features    String  @default("[]") // JSON array string
   is_popular  Boolean @default(false)
   max_mosques Int     @default(-1)
   storage_gb  Int     @default(-1)
 }
 
 model Attendance {
-  id             String   @id @default(uuid()) @db.VarChar(36)
-  activity_id    String   @db.VarChar(36)
-  mosque_id      String   @db.VarChar(36)
-  member_name    String   @db.VarChar(191)
-  member_email   String?  @db.VarChar(191)
-  member_phone   String?  @db.VarChar(50)
+  id             String   @id @default(uuid())
+  activity_id    String
+  mosque_id      String
+  member_name    String
+  member_email   String?
+  member_phone   String?
   checked_in_at  DateTime @default(now())
   createdAt      DateTime @default(now())
 }

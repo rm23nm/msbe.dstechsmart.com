@@ -17,11 +17,7 @@ export default function ForgotPassword() {
     setSuccess(null);
     try {
       const res = await smartApi.auth.forgotPassword(email);
-      if (res.email_failed) {
-        setError(res.message);
-      } else {
-        setSuccess(res.message || "Tautan reset kata sandi telah dikirim ke email & nomor telepon pemulihan Anda.");
-      }
+      setSuccess(res.message || "Tautan reset kata sandi telah dikirim ke email & nomor telepon pemulihan Anda.");
     } catch (err) {
       setError(err.response?.data?.error || err.message || "Gagal mengirim permintaan.");
     } finally {
