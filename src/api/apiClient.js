@@ -81,6 +81,16 @@ export const smartApi = {
       window.location.href = `/login?redirect=${encodeURIComponent(path || '/')}`;
     }
   },
+  admin: {
+    updateUserRole: async (targetUserId, newRole) => {
+      const { data } = await apiClient.post("/admin/users/role", { target_user_id: targetUserId, new_role: newRole });
+      return data;
+    },
+    resetUserPassword: async (targetUserId, newPassword) => {
+      const { data } = await apiClient.post("/admin/users/reset-password", { target_user_id: targetUserId, new_password: newPassword });
+      return data;
+    }
+  },
   integrations: {
     Core: {
       UploadFile: async (payload) => {

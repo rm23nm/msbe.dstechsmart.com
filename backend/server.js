@@ -9,12 +9,45 @@ const fs = require("fs");
 const { PrismaClient } = require("@prisma/client");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
+const nodemailer = require("nodemailer");
 const telegramService = require("./telegram-bot");
 
 const prisma = new PrismaClient();
 const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey123";
+
+// ============================
+// EMAIL TRANSPORTER (SMTP)
+// ============================
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT),
+  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+async function sendEmail({ to, subject, html }) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS || process.env.SMTP_PASS === "YOUR_SMTP_PASSWORD") {
+    console.error("[Email Error] SMTP is not configured. Please update SMTP_USER and SMTP_PASS in .env");
+    return { success: false, error: "SMTP not configured" };
+  }
+  try {
+    await transporter.sendMail({
+      from: `"${process.env.SMTP_FROM_NAME}" <${process.env.SMTP_FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("[Email Error]", error.message);
+    return { success: false, error: error.message };
+  }
+}
 
 // ============================
 // AUTO-START TELEGRAM BOTS
@@ -75,7 +108,7 @@ const authenticateToken = (req, res, next) => {
 
 /* ==================
    Auth Endpoints
-================== */
+ ================== */
 
 app.post("/api/auth/login", async (req, res) => {
   const { identifier, password } = req.body;
@@ -91,38 +124,47 @@ app.post("/api/auth/login", async (req, res) => {
     if (user.two_factor_enabled) {
       const method = user.two_factor_method || "totp";
       
-      // Jika method WA/SMS, generate dan kirim OTP otomatis
-      if (method === "whatsapp" || method === "sms") {
-        if (!user.phone) {
-          return res.status(400).json({ error: "Nomor telepon belum diatur. Tambah nomor HP di Pengaturan Profil." });
-        }
+      // Jika method WA/SMS/Email, generate dan kirim OTP otomatis
+      if (method === "whatsapp" || method === "sms" || method === "email") {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 menit
         await prisma.user.update({
           where: { id: user.id },
           data: { otp_code: otp, otp_expires: expires }
         });
+
+        // 1. Kirim via Email jika method email atau sbagai cadangan
+        if (method === "email" || user.email) {
+          await sendEmail({
+            to: user.email,
+            subject: "Kode OTP Login - MasjidKu Smart",
+            html: `<h3>Kode OTP Login Anda</h3>
+                   <p>Halo <b>${user.full_name || 'User'}</b>,</p>
+                   <p>Gunakan kode OTP berikut untuk masuk ke akun Anda:</p>
+                   <h2 style="color: #1a7a4a; letter-spacing: 5px;">${otp}</h2>
+                   <p>Kode ini berlaku selama 10 menit. Jangan berikan kode ini kepada siapapun.</p>`
+          });
+        }
         
-        // Kirim via WhatsApp link (buka di server-side log dan kirim WA link jika ada nomor)
-        const phone = user.phone.replace(/[^0-9]/g, "").replace(/^0/, "62");
-        const waMsg = `[MasjidKu Smart] Kode OTP login Anda adalah: *${otp}*\n\nBerlaku selama 10 menit. Jangan bagikan kode ini kepada siapapun.`;
-        const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`;
+        // 2. Kirim via WhatsApp link jika nomor tersedia
+        let waUrl = null;
+        if (user.phone) {
+          const phone = user.phone.replace(/[^0-9]/g, "").replace(/^0/, "62");
+          const waMsg = `[MasjidKu Smart] Kode OTP login Anda adalah: *${otp}*\n\nBerlaku selama 10 menit. Jangan bagikan kode ini kepada siapapun.`;
+          waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`;
+        }
         
         console.log(`\n=== OTP ${method.toUpperCase()} LOGIN ===`);
         console.log(`User    : ${user.email}`);
-        console.log(`Phone   : ${user.phone}`);
         console.log(`OTP     : ${otp}`);
-        console.log(`Expired : ${expires.toLocaleString('id-ID')}`);
-        console.log(`WA URL  : ${waUrl}`);
         console.log(`=================================\n`);
         
         return res.json({
           requires_2fa: true,
           method,
           email: user.email,
-          phone_hint: user.phone.replace(/(.{3}).*(.{3})/, "$1****$2"),
-          wa_url: method === "whatsapp" ? waUrl : null, // Frontend bisa tampilkan link WA
-          otp_debug: process.env.NODE_ENV !== "production" ? otp : undefined // Hanya tampil di dev
+          phone_hint: user.phone ? user.phone.replace(/(.{3}).*(.{3})/, "$1****$2") : null,
+          wa_url: method === "whatsapp" ? waUrl : null,
         });
       }
       
@@ -187,15 +229,45 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       data: { reset_password_token: resetToken, reset_password_expires: resetExpires }
     });
 
-    // SIMULASI PENGIRIMAN
-    console.log(`\n=== PERMINTAAN RESET PASSWORD ===`);
-    console.log(`Tujuan     : ${user.full_name || user.email}`);
-    if (user.phone) console.log(`No. WA/SMS : ${user.phone}`);
-    console.log(`Token Reset: ${resetToken}`);
-    console.log(`Buka URL   : http://localhost:5173/reset-password?token=${resetToken}`);
-    console.log(`=================================\n`);
+    // KIRIM EMAIL ASLI
+    const baseUrl = process.env.SERVER_BASE_URL || "https://ms.dstechsmart.com";
+    const resetLink = `${baseUrl}/reset-password?token=${resetToken}`;
+    
+    const emailRes = await sendEmail({
+      to: user.email,
+      subject: "Reset Password - MasjidKu Smart",
+      html: `<h3>Permintaan Reset Password</h3>
+             <p>Halo <b>${user.full_name || user.email}</b>,</p>
+             <p>Kami menerima permintaan untuk meriset password akun Anda. Silakan klik tombol di bawah ini untuk melanjutkan:</p>
+             <p><a href="${resetLink}" style="background: #1a7a4a; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password Saya</a></p>
+             <p>Atau copy-paste link berikut ke browser Anda:</p>
+             <p>${resetLink}</p>
+             <p>Link ini akan kedaluwarsa dalam 1 jam.</p>`
+    });
 
-    res.json({ message: "Instruksi reset password telah dikirimkan ke Email dan WA/SMS Anda. (Cek console log terminal untuk linknya saat ini)" });
+    // Kirim via WA as fallback/notif (logs to console for manual use if email fails)
+    let waInfo = "";
+    if (user.phone) {
+      const phone = user.phone.replace(/[^0-9]/g, "").replace(/^0/, "62");
+      const waMsg = `[MasjidKu Smart] Halo ${user.full_name}, berikut adalah link reset password Anda: ${resetLink}`;
+      console.log(`\n=== MANUAL RESET LINK (WA Fallback) ===`);
+      console.log(`User    : ${user.email}`);
+      console.log(`Link    : ${resetLink}`);
+      console.log(`WA Link : https://wa.me/${phone}?text=${encodeURIComponent(waMsg)}`);
+      console.log(`========================================\n`);
+      waInfo = " dan notifikasi WhatsApp.";
+    }
+
+    if (!emailRes.success) {
+      // Jika email gagal tapi WA ada, beri tahu user (atau admin bisa cek log)
+      return res.status(200).json({ 
+        message: "Permintaan diterima, namun pengiriman email gagal. Jika Anda pengurus, silakan hubungi admin atau cek log server untuk link reset manual.",
+        error: emailRes.error,
+        email_failed: true
+      });
+    }
+
+    res.json({ message: "Kami telah mengirimkan instruksi reset password ke email Anda" + waInfo });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -383,6 +455,13 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
 
 app.patch("/api/auth/me", authenticateToken, async (req, res) => {
   try {
+    const { role, ...updateData } = req.body;
+    
+    // Cegah user biasa mengubah role-nya sendiri lewat endpoint profil
+    if (role && req.user.role !== "admin") {
+       return res.status(403).json({ error: "Anda tidak memiliki izin untuk mengubah Role Anda sendiri." });
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: req.body
@@ -391,6 +470,70 @@ app.patch("/api/auth/me", authenticateToken, async (req, res) => {
     res.json(userData);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ✅ ENDPOINT BARU: Khusus Superadmin untuk mengelola Role User
+app.post("/api/admin/users/role", authenticateToken, async (req, res) => {
+  // Hanya role 'admin' (Superadmin) yang boleh akses ini
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Akses ditolak. Fitur ini hanya untuk Superadmin." });
+  }
+
+  const { target_user_id, new_role } = req.body;
+  const validRoles = ["user", "mosque_admin", "admin"];
+  
+  if (!target_user_id || !new_role) {
+    return res.status(400).json({ error: "target_user_id dan new_role wajib diisi" });
+  }
+
+  if (!validRoles.includes(new_role)) {
+    return res.status(400).json({ error: `Role tidak valid. Pilihan: ${validRoles.join(", ")}` });
+  }
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: target_user_id },
+      data: { role: new_role }
+    });
+    res.json({ message: `Role user ${updated.email} berhasil diubah menjadi ${new_role}`, user: updated });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ✅ ENDPOINT BARU: Khusus Superadmin untuk Reset Password & Reset 2FA User
+app.post("/api/admin/users/reset-password", authenticateToken, async (req, res) => {
+  // Hanya role 'admin' yang merupakan Superadmin yang boleh akses ini
+  if (req.user.role !== "admin") {
+    return res.status(403).json({ error: "Akses ditolak. Fitur ini hanya untuk Superadmin." });
+  }
+
+  const { target_user_id, new_password } = req.body;
+  
+  if (!target_user_id || !new_password) {
+    return res.status(400).json({ error: "target_user_id dan new_password wajib diisi" });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: target_user_id } });
+    if (!user) return res.status(404).json({ error: "Pengguna tidak ditemukan" });
+
+    const hash = await bcrypt.hash(new_password, 10);
+    await prisma.user.update({
+      where: { id: target_user_id },
+      data: { 
+        password: hash, 
+        reset_password_token: null, 
+        reset_password_expires: null,
+        two_factor_enabled: false,
+        otp_code: null,
+        otp_expires: null
+      }
+    });
+    res.json({ message: `Password untuk user ${user.email} berhasil diubah dan 2FA telah dinonaktifkan.` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
