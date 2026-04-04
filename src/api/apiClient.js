@@ -61,6 +61,17 @@ export const smartApi = {
       const { data } = await apiClient.post("/auth/reset-password", { token, newPassword });
       return data;
     },
+    changePassword: async (currentPassword, newPassword) => {
+      const { data } = await apiClient.post("/auth/change-password", { currentPassword, newPassword });
+      return data;
+    },
+    adminChangePassword: async ({ userId, email, newPassword }) => {
+      const payload = { newPassword };
+      if (userId) payload.userId = userId;
+      if (email) payload.email = email;
+      const { data } = await apiClient.post("/auth/admin-change-password", payload);
+      return data;
+    },
     me: async () => {
       try {
         const { data } = await apiClient.get("/auth/me");
@@ -103,7 +114,7 @@ export const smartApi = {
 };
 
 // Dinamically create all entities that match smartApi
-const models = ["User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures"];
+const models = ["User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures", "RolePermission"];
 
 models.forEach(model => {
   smartApi.entities[model] = {

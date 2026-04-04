@@ -15,7 +15,7 @@ const statusColors = {
   cancelled: "bg-red-100 text-red-600",
 };
 
-export default function ActivityCard({ activity, onEdit, onDelete, canEdit }) {
+export default function ActivityCard({ activity, onEdit, onDelete, canEdit, canDelete }) {
   const a = activity;
   return (
     <div className="bg-card rounded-xl border p-5 hover:shadow-md transition-shadow">
@@ -50,14 +50,18 @@ export default function ActivityCard({ activity, onEdit, onDelete, canEdit }) {
         )}
       </div>
 
-      {canEdit && (
+      {(canEdit || canDelete) && (
         <div className="flex gap-2 mt-4 pt-3 border-t">
-          <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={onEdit}>
-            <Pencil className="h-3 w-3" /> Edit
-          </Button>
-          <Button size="sm" variant="outline" className="gap-1 text-xs text-destructive" onClick={onDelete}>
-            <Trash2 className="h-3 w-3" /> Hapus
-          </Button>
+          {canEdit && (
+            <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={onEdit}>
+              <Pencil className="h-3 w-3" /> Edit
+            </Button>
+          )}
+          {canDelete && (
+            <Button size="sm" variant="outline" className="gap-1 text-xs text-destructive" onClick={onDelete}>
+              <Trash2 className="h-3 w-3" /> Hapus
+            </Button>
+          )}
         </div>
       )}
     </div>

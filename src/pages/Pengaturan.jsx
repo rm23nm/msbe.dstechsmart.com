@@ -613,68 +613,135 @@ export default function Pengaturan() {
 
         {/* KEAMANAN TAB */}
         {activeTab === "keamanan" && (
-          <div className="bg-card rounded-xl border p-6 space-y-6">
-            <h3 className="font-semibold flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" /> Keamanan Akun
-            </h3>
-            
-            <div className="bg-slate-50 border p-4 rounded-xl">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-                <div>
-                  <h4 className="font-medium text-slate-800">Autentikasi Dua Faktor (2FA)</h4>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Tambahkan lapisan keamanan ekstra ke akun Anda menggunakan aplikasi Authenticator.
-                  </p>
+          <div className="bg-card rounded-xl border p-6 space-y-8">
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <KeyRound className="h-5 w-5 text-primary" /> Ganti Password
+              </h3>
+              <div className="space-y-4 max-w-sm">
+                <div className="space-y-2">
+                  <Label>Password Saat Ini</Label>
+                  <Input 
+                    type="password" 
+                    value={form.currentPassword || ""} 
+                    onChange={e => setForm({...form, currentPassword: e.target.value})} 
+                    placeholder="Masukkan password saat ini" 
+                  />
                 </div>
-                <Badge className="w-fit" variant={user?.two_factor_enabled ? "default" : "secondary"}>
-                  {user?.two_factor_enabled ? "Aktif" : "Tidak Aktif"}
-                </Badge>
+                <div className="space-y-2">
+                  <Label>Password Baru</Label>
+                  <Input 
+                    type="password" 
+                    value={form.newPassword || ""} 
+                    onChange={e => setForm({...form, newPassword: e.target.value})} 
+                    placeholder="Masukkan password baru" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Konfirmasi Password Baru</Label>
+                  <Input 
+                    type="password" 
+                    value={form.confirmPassword || ""} 
+                    onChange={e => setForm({...form, confirmPassword: e.target.value})} 
+                    placeholder="Ulangi password baru" 
+                  />
+                </div>
+                <Button 
+                  type="button" 
+                  onClick={async () => {
+                    if (!form.currentPassword || !form.newPassword) {
+                      toast.error("Semua field password wajib diisi");
+                      return;
+                    }
+                    if (form.newPassword !== form.confirmPassword) {
+                      toast.error("Konfirmasi password tidak cocok");
+                      return;
+                    }
+                    if (form.newPassword.length < 6) {
+                      toast.error("Password baru minimal 6 karakter");
+                      return;
+                    }
+                    setSaving(true);
+                    try {
+                      await smartApi.auth.changePassword(form.currentPassword, form.newPassword);
+                      toast.success("Password berhasil diubah");
+                      setForm({...form, currentPassword: "", newPassword: "", confirmPassword: ""});
+                    } catch (error) {
+                      toast.error(error.response?.data?.error || "Gagal mengubah password");
+                    }
+                    setSaving(false);
+                  }}
+                  disabled={saving}
+                >
+                  {saving ? "Menyimpan..." : "Ganti Password"}
+                </Button>
               </div>
+            </div>
 
-              {!user?.two_factor_enabled ? (
-                <div className="space-y-4">
-                  {!setup2FAData ? (
-                    <Button type="button" onClick={handleSetup2FA}>Mulai Setup 2FA</Button>
-                  ) : (
-                    <div className="bg-white p-4 border rounded-xl space-y-4">
-                      <p className="text-sm font-medium">1. Scan QR Code ini dengan aplikasi Authenticator (Google Authenticator, Authy, dll.)</p>
-                      <div className="bg-slate-100 p-4 rounded-lg inline-block">
-                        <img src={setup2FAData.qrCode} alt="QR Code" className="w-48 h-48 mx-auto" />
-                      </div>
-                      <p className="text-xs text-muted-foreground">Key Manual: <code className="bg-muted px-1 rounded">{setup2FAData.secret}</code></p>
-                      
-                      <div className="pt-4 border-t">
-                        <p className="text-sm font-medium mb-2">2. Masukkan 6-digit kode OTP</p>
-                        <div className="flex gap-2">
-                          <Input 
-                            value={twoFactorToken} 
-                            onChange={e => setTwoFactorToken(e.target.value.replace(/\D/g,''))} 
-                            placeholder="123456" 
-                            maxLength={6} 
-                            className="w-32 tracking-widest text-center" 
-                          />
-                          <Button type="button" onClick={handleEnable2FA} disabled={twoFactorToken.length !== 6}>Aktifkan</Button>
-                          <Button type="button" variant="outline" onClick={() => { setSetup2FAData(null); setTwoFactorToken(""); }}>Batal</Button>
+            <hr className="border-muted" />
+
+            <div>
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <ShieldCheck className="h-5 w-5 text-primary" /> Autentikasi Dua Faktor (2FA)
+              </h3>
+              <div className="bg-slate-50 border p-4 rounded-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
+                  <div>
+                    <h4 className="font-medium text-slate-800">Autentikasi Dua Faktor (2FA)</h4>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Tambahkan lapisan keamanan ekstra ke akun Anda menggunakan aplikasi Authenticator.
+                    </p>
+                  </div>
+                  <Badge className="w-fit" variant={user?.two_factor_enabled ? "default" : "secondary"}>
+                    {user?.two_factor_enabled ? "Aktif" : "Tidak Aktif"}
+                  </Badge>
+                </div>
+
+                {!user?.two_factor_enabled ? (
+                  <div className="space-y-4">
+                    {!setup2FAData ? (
+                      <Button type="button" onClick={handleSetup2FA}>Mulai Setup 2FA</Button>
+                    ) : (
+                      <div className="bg-white p-4 border rounded-xl space-y-4">
+                        <p className="text-sm font-medium">1. Scan QR Code ini dengan aplikasi Authenticator (Google Authenticator, Authy, dll.)</p>
+                        <div className="bg-slate-100 p-4 rounded-lg inline-block">
+                          <img src={setup2FAData.qrCode} alt="QR Code" className="w-48 h-48 mx-auto" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Key Manual: <code className="bg-muted px-1 rounded">{setup2FAData.secret}</code></p>
+                        
+                        <div className="pt-4 border-t">
+                          <p className="text-sm font-medium mb-2">2. Masukkan 6-digit kode OTP</p>
+                          <div className="flex gap-2">
+                            <Input 
+                              value={twoFactorToken} 
+                              onChange={e => setTwoFactorToken(e.target.value.replace(/\D/g,''))} 
+                              placeholder="123456" 
+                              maxLength={6} 
+                              className="w-32 tracking-widest text-center" 
+                            />
+                            <Button type="button" onClick={handleEnable2FA} disabled={twoFactorToken.length !== 6}>Aktifkan</Button>
+                            <Button type="button" variant="outline" onClick={() => { setSetup2FAData(null); setTwoFactorToken(""); }}>Batal</Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-4 bg-white p-4 border rounded-xl">
-                  <p className="text-sm border-b pb-3 mb-3 text-slate-600">Untuk menonaktifkan 2FA, masukkan kode Authenticator Anda saat ini.</p>
-                  <div className="flex gap-2">
-                    <Input 
-                      value={twoFactorToken} 
-                      onChange={e => setTwoFactorToken(e.target.value.replace(/\D/g,''))} 
-                      placeholder="123456" 
-                      maxLength={6} 
-                      className="w-32 tracking-widest text-center" 
-                    />
-                    <Button type="button" variant="destructive" onClick={handleDisable2FA} disabled={twoFactorToken.length !== 6}>Nonaktifkan 2FA</Button>
+                    )}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="space-y-4 bg-white p-4 border rounded-xl">
+                    <p className="text-sm border-b pb-3 mb-3 text-slate-600">Untuk menonaktifkan 2FA, masukkan kode Authenticator Anda saat ini.</p>
+                    <div className="flex gap-2">
+                      <Input 
+                        value={twoFactorToken} 
+                        onChange={e => setTwoFactorToken(e.target.value.replace(/\D/g,''))} 
+                        placeholder="123456" 
+                        maxLength={6} 
+                        className="w-32 tracking-widest text-center" 
+                      />
+                      <Button type="button" variant="destructive" onClick={handleDisable2FA} disabled={twoFactorToken.length !== 6}>Nonaktifkan 2FA</Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

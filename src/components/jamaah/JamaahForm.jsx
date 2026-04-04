@@ -16,16 +16,25 @@ const ROLES = [
 const DEFAULT_CATEGORIES = ["Aktif Kajian", "Donatur", "Remaja Masjid", "Ibu-Ibu Pengajian", "Bapak-Bapak", "PHBI", "Tahfidz"];
 
 export default function JamaahForm({ item, onSave, onCancel }) {
+  // Helper to parse categories array
+  const parseCategories = (c) => {
+    if (Array.isArray(c)) return c;
+    if (typeof c === 'string') {
+      try { return JSON.parse(c); } catch(e) { return []; }
+    }
+    return [];
+  };
+
   const [form, setForm] = useState({
     user_name: item?.user_name || "",
     user_email: item?.user_email || "",
-    phone: item?.phone || "",
+    user_phone: item?.user_phone || "",
     whatsapp: item?.whatsapp || "",
     address: item?.address || "",
     role: item?.role || "jamaah",
     photo_url: item?.photo_url || "",
     birth_date: item?.birth_date || "",
-    categories: item?.categories || [],
+    categories: parseCategories(item?.categories),
     status: item?.status || "active",
   });
   const [loading, setLoading] = useState(false);
@@ -44,8 +53,16 @@ export default function JamaahForm({ item, onSave, onCancel }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setLoading(true);
-    await onSave(form);
-    setLoading(false);
+    try {
+      // Stringify array for sqlite
+      const payload = { ...form, categories: JSON.stringify(form.categories) };
+      await onSave(payload);
+    } catch (err) {
+      if (window.toast) window.toast.error("Gagal menyimpan data jamaah");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -72,7 +89,7 @@ export default function JamaahForm({ item, onSave, onCancel }) {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div><Label>Telepon</Label><Input className="mt-1" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="08xxx" /></div>
+        <div><Label>Telepon</Label><Input className="mt-1" value={form.user_phone} onChange={e => setForm(p => ({ ...p, user_phone: e.target.value }))} placeholder="08xxx" /></div>
         <div><Label>WhatsApp</Label><Input className="mt-1" value={form.whatsapp} onChange={e => setForm(p => ({ ...p, whatsapp: e.target.value }))} placeholder="628xxx" /></div>
       </div>
 

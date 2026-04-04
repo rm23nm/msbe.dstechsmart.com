@@ -21,6 +21,7 @@ import AdminBilling from './pages/admin/AdminBilling';
 import AdminReports from './pages/admin/AdminReports';
 import AdminSettings from './pages/admin/AdminSettings.jsx';
 import AdminPackages from './pages/admin/AdminPackages.jsx';
+import AdminRoles from './pages/admin/AdminRoles.jsx';
 import Aset from './pages/Aset.jsx';
 import LaporanKeuangan from './pages/LaporanKeuangan.jsx';
 import JamaahDashboard from './pages/JamaahDashboard.jsx';
@@ -121,6 +122,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/reports" element={<AdminReports />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/packages" element={<AdminPackages />} />
+        <Route path="/admin/roles" element={<AdminRoles />} />
         <Route path="/aset" element={<Aset />} />
         <Route path="/laporan-keuangan" element={<LaporanKeuangan />} />
         <Route path="/jamaah-dashboard" element={<JamaahDashboard />} />

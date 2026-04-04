@@ -187,15 +187,45 @@ app.post("/api/auth/forgot-password", async (req, res) => {
       data: { reset_password_token: resetToken, reset_password_expires: resetExpires }
     });
 
-    // SIMULASI PENGIRIMAN
-    console.log(`\n=== PERMINTAAN RESET PASSWORD ===`);
-    console.log(`Tujuan     : ${user.full_name || user.email}`);
-    if (user.phone) console.log(`No. WA/SMS : ${user.phone}`);
-    console.log(`Token Reset: ${resetToken}`);
-    console.log(`Buka URL   : http://localhost:5173/reset-password?token=${resetToken}`);
-    console.log(`=================================\n`);
+    const resetLink = `${process.env.APP_URL || "http://localhost:5173"}/reset-password?token=${resetToken}`;
 
-    res.json({ message: "Instruksi reset password telah dikirimkan ke Email dan WA/SMS Anda. (Cek console log terminal untuk linknya saat ini)" });
+    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+      const nodemailer = require("nodemailer");
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT || 465,
+        secure: process.env.SMTP_PORT == 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"MasjidKu Smart" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to: user.email,
+        subject: "Reset Password MasjidKu Smart",
+        html: `<h2>Halo ${user.full_name || user.email},</h2>
+               <p>Kami menerima permintaan untuk mereset password akun MasjidKu Smart Anda.</p>
+               <p>Silakan klik link di bawah ini untuk mereset password Anda:</p>
+               <a href="${resetLink}" style="padding:10px 20px;background:#10b981;color:white;text-decoration:none;border-radius:5px;display:inline-block;margin:10px 0;">Reset Password</a>
+               <p>Link ini hanya berlaku selama 1 jam.</p>
+               <p>Jika Anda tidak meminta reset password, abaikan saja email ini.</p>
+               <br/>
+               <p>Salam,<br/>Tim MasjidKu Smart</p>`
+      });
+      console.log(`[SMTP] Email reset password terkirim ke ${user.email}`);
+    } else {
+      // SIMULASI PENGIRIMAN JIKA SMTP BELUM DIKONFIGURASI
+      console.log(`\n=== PERMINTAAN RESET PASSWORD PADA MODE SIMULASI ===`);
+      console.log(`PENTING: Email ini tidak benar-benar dikirim karena konfigurasi SMTP (.env) belum diatur.`);
+      console.log(`Tujuan     : ${user.full_name || user.email}`);
+      console.log(`Token Reset: ${resetToken}`);
+      console.log(`Buka URL   : ${resetLink}`);
+      console.log(`====================================================\n`);
+    }
+
+    res.json({ message: "Kami telah mengirimkan instruksi untuk reset password ke email Anda. Silakan cek inbox atau folder spam." });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -222,6 +252,70 @@ app.post("/api/auth/reset-password", async (req, res) => {
     });
 
     res.json({ message: "Password berhasil direset. Silakan login menggunakan kata sandi baru." });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint untuk Ganti Password Mandiri (oleh User sendiri)
+app.post("/api/auth/change-password", authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: "Password saat ini dan password baru wajib diisi" });
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    const match = await bcrypt.compare(currentPassword, user.password);
+    if (!match) return res.status(400).json({ error: "Password saat ini salah" });
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: { password: hash }
+    });
+
+    res.json({ message: "Password berhasil diubah" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Endpoint untuk Ganti Password oleh Admin (Superadmin mengubah sembarang, Admin Masjid mengubah jamaahnya)
+app.post("/api/auth/admin-change-password", authenticateToken, async (req, res) => {
+  const { userId, email, newPassword } = req.body;
+  if ((!userId && !email) || !newPassword) return res.status(400).json({ error: "ID User/Email dan password baru wajib diisi" });
+
+  try {
+    const requester = await prisma.user.findUnique({ where: { id: req.user.id } });
+    let targetUser = null;
+    
+    if (userId) {
+      targetUser = await prisma.user.findUnique({ where: { id: userId } });
+    } else if (email) {
+      targetUser = await prisma.user.findUnique({ where: { email } });
+    }
+    
+    if (!targetUser) return res.status(404).json({ error: "Target user tidak ditemukan" });
+
+    // Validasi izin:
+    if (requester.role !== "admin") {
+      // Jika bukan superadmin, harus berupa admin_masjid atau yang memiliki akses ke current_mosque_id target
+      if (requester.current_mosque_id !== targetUser.current_mosque_id && targetUser.role === "admin") {
+        return res.status(403).json({ error: "Akses ditolak" });
+      }
+      if (targetUser.role === "admin") {
+         return res.status(403).json({ error: "Tidak dapat mengubah password superadmin" });
+      }
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+      where: { id: targetUser.id },
+      data: { password: hash }
+    });
+
+    res.json({ message: "Password berhasil diubah oleh Admin" });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -491,7 +585,49 @@ app.post("/api/entities/:model", authenticateToken, async (req, res) => {
   if (!prisma[prismaModel]) return res.status(404).json({ error: "Invalid entity" });
 
   try {
-    const result = await prisma[prismaModel].create({ data: req.body });
+    const { admin_password, ...data } = req.body;
+    const result = await prisma[prismaModel].create({ data });
+    
+    // Auto provision admin_masjid user if registering a Mosque and admin_password is provided
+    if (modelName === "Mosque" && admin_password && data.email) {
+      const hash = await bcrypt.hash(admin_password, 10);
+      
+      // Upsert User
+      let user = await prisma.user.findUnique({ where: { email: data.email } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email: data.email,
+            password: hash,
+            full_name: `Admin ${data.name}`,
+            phone: data.phone || "",
+            role: "admin_masjid",
+            current_mosque_id: result.id
+          }
+        });
+      } else {
+        await prisma.user.update({
+          where: { email: data.email },
+          data: { password: hash, role: "admin_masjid", current_mosque_id: result.id }
+        });
+      }
+      
+      // Upsert MosqueMember
+      const member = await prisma.mosqueMember.findFirst({ where: { user_email: data.email, mosque_id: result.id } });
+      if (!member) {
+        await prisma.mosqueMember.create({
+          data: {
+            user_email: data.email,
+            user_name: `Admin ${data.name}`,
+            user_phone: data.phone || "",
+            mosque_id: result.id,
+            role: "admin_masjid",
+            status: "active"
+          }
+        });
+      }
+    }
+    
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -504,7 +640,25 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
   if (!prisma[prismaModel]) return res.status(404).json({ error: "Invalid entity" });
 
   try {
-    const result = await prisma[prismaModel].update({ where: { id: req.params.id }, data: req.body });
+    const { admin_password, ...data } = req.body;
+    const result = await prisma[prismaModel].update({ where: { id: req.params.id }, data });
+    
+    // Update admin_masjid password if registering/updating Mosque and admin_password is provided
+    if (modelName === "Mosque" && admin_password) {
+      // Find mosque to get the email
+      const targetEmail = data.email || (await prisma.mosque.findUnique({ where: { id: req.params.id } }))?.email;
+      if (targetEmail) {
+        const hash = await bcrypt.hash(admin_password, 10);
+        let user = await prisma.user.findUnique({ where: { email: targetEmail } });
+        if (user) {
+          await prisma.user.update({
+            where: { email: targetEmail },
+            data: { password: hash }
+          });
+        }
+      }
+    }
+    
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });

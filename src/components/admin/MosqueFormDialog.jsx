@@ -136,13 +136,27 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>Email Masjid</Label>
+              <Label>Email Masjid / Akun Admin <span className="text-destructive">*</span></Label>
               <Input
                 type="email"
                 value={form.email || ""}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="admin@masjid.com"
+                required
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Password Admin {!item && <span className="text-destructive">*</span>}</Label>
+              <Input
+                type="password"
+                value={form.admin_password || ""}
+                onChange={(e) => setForm({ ...form, admin_password: e.target.value })}
+                placeholder={item ? "Kosongkan jika tidak diubah" : "Password untuk login admin"}
+                required={!item}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {item ? "Isi kolom ini jika ingin mereset password admin masjid." : "Password untuk akun admin_masjid awal."}
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

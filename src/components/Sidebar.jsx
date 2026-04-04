@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Wallet, Calendar, Users, Megaphone, Settings, Monitor,
   Building2, CreditCard, BarChart3, LogOut, ChevronDown, Landmark,
-  Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck, Send
+  Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck, Send, ShieldAlert
 } from "lucide-react";
 import { smartApi } from "@/api/apiClient";
 import { useState, useEffect } from "react";
@@ -19,6 +19,7 @@ function getAdminMenuItems(t) {
     { label: "Paket & Fitur", path: "/admin/packages", icon: Package },
     { label: t("reports"), path: "/admin/reports", icon: BarChart3 },
     { label: t("appSettings"), path: "/admin/settings", icon: Settings },
+    { label: "Pengaturan Roles", path: "/admin/roles", icon: ShieldAlert },
   ];
 }
 

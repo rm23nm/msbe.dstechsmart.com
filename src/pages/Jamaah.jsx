@@ -36,6 +36,12 @@ export default function Jamaah() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [broadcastMsg, setBroadcastMsg] = useState({ subject: "", body: "", channel: "email", filterCategory: "all" });
   const [broadcasting, setBroadcasting] = useState(false);
+  
+  // State for changing password
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const roleLabels = {
     admin_masjid: t("roleAdmin"),
@@ -101,6 +107,33 @@ export default function Jamaah() {
     setBroadcasting(false);
   }
 
+  function openChangePasswordDialog(m) {
+    if (!m.user_email) {
+      toast.error("Anggota ini tidak memiliki email yang terdaftar.");
+      return;
+    }
+    setSelectedUserForPassword(m);
+    setNewPassword("");
+    setShowChangePassword(true);
+  }
+
+  async function handleAdminChangePassword() {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error("Password baru minimal 6 karakter.");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await smartApi.auth.adminChangePassword({ email: selectedUserForPassword.user_email, newPassword });
+      toast.success(`Password untuk jamaah ${selectedUserForPassword.user_name || selectedUserForPassword.user_email} berhasil diubah.`);
+      setShowChangePassword(false);
+    } catch (error) {
+      toast.error(error.message || "Gagal mengubah password jamaah. Pastikan jamaah tersebut sudah mendaftarkan akun aplikasinya.");
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
   async function handleResetPassword(m) {
     if (!m.user_email) return;
     await smartApi.integrations.Core.SendEmail({
@@ -114,7 +147,7 @@ export default function Jamaah() {
   function exportCSV() {
     const rows = [["Nama", "Email", "Telepon", "Peran", "Status", "Bergabung"]];
     filtered.forEach((m) =>
-      rows.push([m.user_name || "", m.user_email || "", m.phone || "", roleLabels[m.role] || m.role, m.status, m.created_date?.split("T")[0] || ""])
+      rows.push([m.user_name || "", m.user_email || "", m.user_phone || "", roleLabels[m.role] || m.role, m.status, m.created_date?.split("T")[0] || ""])
     );
     const csv = rows.map((r) => r.join(",")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -229,7 +262,7 @@ export default function Jamaah() {
               <div>
                 <p className="font-medium text-sm">{m.user_name || "-"}</p>
                 <p className="text-xs text-muted-foreground truncate">{m.user_email}</p>
-                {m.phone && <p className="text-xs text-muted-foreground">{m.phone}</p>}
+                {m.user_phone && <p className="text-xs text-muted-foreground">{m.user_phone}</p>}
               </div>
               <div className="flex items-center justify-between">
                 <Badge variant={m.status === "active" ? "default" : "secondary"} className="text-xs">
@@ -240,7 +273,7 @@ export default function Jamaah() {
                     <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditItem(m); setShowForm(true); }}>
                       <Pencil className="h-3 w-3" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" title={t("resetPassword")} onClick={() => handleResetPassword(m)}>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" title="Ganti Password" onClick={() => openChangePasswordDialog(m)}>
                       <KeyRound className="h-3 w-3" />
                     </Button>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(m.id)}>
@@ -272,7 +305,7 @@ export default function Jamaah() {
                   <TableRow key={m.id}>
                     <TableCell className="font-medium">{m.user_name || "-"}</TableCell>
                     <TableCell className="text-sm">{m.user_email}</TableCell>
-                    <TableCell className="text-sm">{m.phone || "-"}</TableCell>
+                    <TableCell className="text-sm">{m.user_phone || "-"}</TableCell>
                     <TableCell>
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${roleColors[m.role] || roleColors.jamaah}`}>
                         {roleLabels[m.role] || m.role}
@@ -292,7 +325,7 @@ export default function Jamaah() {
                           <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditItem(m); setShowForm(true); }}>
                             <Pencil className="h-3 w-3" />
                           </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7" title={t("resetPassword")} onClick={() => handleResetPassword(m)}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7" title="Ganti Password" onClick={() => openChangePasswordDialog(m)}>
                             <KeyRound className="h-3 w-3" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => handleDelete(m.id)}>
@@ -363,6 +396,21 @@ export default function Jamaah() {
             <DialogTitle>{editItem ? t("editMember") : t("addMember")}</DialogTitle>
           </DialogHeader>
           <JamaahForm item={editItem} onSave={handleSave} onCancel={() => setShowForm(false)} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Ganti Password Jamaah</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">Mengubah password untuk <strong>{selectedUserForPassword?.user_name || selectedUserForPassword?.user_email}</strong></p>
+            <label className="text-sm font-medium">Password Baru</label>
+            <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Masukkan password baru..." />
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" onClick={() => setShowChangePassword(false)}>Batal</Button>
+              <Button onClick={handleAdminChangePassword} disabled={changingPassword}>{changingPassword ? 'Menyimpan...' : 'Simpan Password'}</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

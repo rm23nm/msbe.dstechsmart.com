@@ -13,7 +13,7 @@ model User {
   password               String
   full_name              String?
   phone                  String?
-  role                   String    @default("user") // superadmin, admin, mosque_admin, pengurus, user
+  role                   String    @default("user") // superadmin, admin, mosque_admin, pengurus, user, jamaah
   current_mosque_id      String?
   reset_password_token   String?
   reset_password_expires DateTime?
@@ -23,6 +23,13 @@ model User {
   otp_code               String?   // OTP sementara untuk WA/SMS
   otp_expires            DateTime? // Waktu expired OTP
   created_at             DateTime  @default(now())
+}
+
+model RolePermission {
+  id          String   @id @default(uuid())
+  role_name   String   @unique // superadmin, mosque_admin, pengurus, user, jamaah
+  permissions String   @default("{}") // JSON string: { "menu_key": { "view": true, "edit": false, "delete": false } }
+  updatedAt   DateTime @updatedAt
 }
 
 model Mosque {
@@ -75,6 +82,12 @@ model MosqueMember {
   user_email  String
   user_name   String?
   user_phone  String?
+  phone       String?
+  whatsapp    String?
+  address     String?
+  photo_url   String?
+  birth_date  String?
+  categories  String?  @default("[]") // JSON string
   mosque_id   String
   role        String   // admin_masjid, bendahara, pengurus, jamaah
   status      String   @default("active")

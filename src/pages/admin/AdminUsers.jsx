@@ -21,6 +21,12 @@ export default function AdminUsers() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [resetLoading, setResetLoading] = useState(null);
+  
+  // State for changing password modal
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => { loadData(); }, []);
 
@@ -41,6 +47,30 @@ export default function AdminUsers() {
     setInviting(false);
   }
 
+  function openChangePasswordDialog(user) {
+    setSelectedUserForPassword(user);
+    setNewPassword("");
+    setShowChangePassword(true);
+  }
+
+  async function handleAdminChangePassword() {
+    if (!newPassword) {
+      toast.error("Password baru wajib diisi");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await smartApi.auth.adminChangePassword({ userId: selectedUserForPassword.id, newPassword });
+      toast.success(`Password untuk ${selectedUserForPassword.email} berhasil diubah.`);
+      setShowChangePassword(false);
+    } catch (error) {
+      toast.error(error.message || "Gagal mengubah password");
+    } finally {
+      setChangingPassword(false);
+    }
+  }
+
+  // Handle generic reset email as well
   async function handleResetPassword(email) {
     setResetLoading(email);
     try {
@@ -88,7 +118,7 @@ export default function AdminUsers() {
                   <TableHead>Email</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Bergabung</TableHead>
-                  <TableHead className="w-32">Aksi</TableHead>
+                  <TableHead className="w-40 text-center">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -102,9 +132,9 @@ export default function AdminUsers() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">{formatDate(u.created_date)}</TableCell>
-                    <TableCell>
-                      <Button size="sm" variant="ghost" className="gap-1 text-xs h-7" onClick={() => handleResetPassword(u.email)} disabled={resetLoading === u.email}>
-                        <KeyRound className="h-3 w-3" /> {resetLoading === u.email ? 'Mengirim...' : 'Reset PW'}
+                    <TableCell className="text-center flex justify-center gap-2">
+                      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => openChangePasswordDialog(u)}>
+                        <KeyRound className="h-3 w-3 mr-1" /> Ganti PW
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -125,6 +155,21 @@ export default function AdminUsers() {
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowInvite(false)}>Batal</Button>
               <Button onClick={handleInvite} disabled={inviting}>{inviting ? 'Mengirim...' : 'Kirim Undangan'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showChangePassword} onOpenChange={setShowChangePassword}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Ganti Password Pengguna</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm">Mengubah password untuk akun: <strong>{selectedUserForPassword?.email}</strong></p>
+            <label className="text-sm font-medium">Password Baru</label>
+            <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Masukkan password baru..." />
+            <div className="flex gap-2 justify-end mt-4">
+              <Button variant="outline" onClick={() => setShowChangePassword(false)}>Batal</Button>
+              <Button onClick={handleAdminChangePassword} disabled={changingPassword}>{changingPassword ? 'Menyimpan...' : 'Simpan Password'}</Button>
             </div>
           </div>
         </DialogContent>

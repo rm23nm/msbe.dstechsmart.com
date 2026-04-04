@@ -16,8 +16,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import { usePermissions } from "@/lib/usePermissions";
+
 export default function Kegiatan() {
-  const { currentMosque, loading, isPengurus } = useMosqueContext();
+  const { currentMosque, loading } = useMosqueContext();
+  const perms = usePermissions("kegiatan");
   const [activities, setActivities] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -25,8 +28,8 @@ export default function Kegiatan() {
   const [activeTab, setActiveTab] = useState("upcoming");
 
   useEffect(() => {
-    if (currentMosque) loadData();
-  }, [currentMosque]);
+    if (currentMosque && perms.view) loadData();
+  }, [currentMosque, perms.view]);
 
   async function loadData() {
     setDataLoading(true);
@@ -36,6 +39,7 @@ export default function Kegiatan() {
   }
 
   async function handleSave(data) {
+    if (!perms.edit) return;
     if (editItem) {
       await smartApi.entities.Activity.update(editItem.id, data);
     } else {
@@ -47,11 +51,16 @@ export default function Kegiatan() {
   }
 
   async function handleDelete(id) {
+    if (!perms.delete) return;
     await smartApi.entities.Activity.delete(id);
     loadData();
   }
 
   if (loading || !currentMosque) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+
+  if (!perms.view) {
+    return <div className="p-12 text-center text-muted-foreground"><p>Anda tidak memiliki izin (View) untuk melihat modul ini.</p></div>;
+  }
 
   const filtered = activeTab === "all" ? activities : activities.filter(a => a.status === activeTab);
 
@@ -60,7 +69,7 @@ export default function Kegiatan() {
       <PageHeader title="Kegiatan" description="Kelola jadwal dan kegiatan masjid">
         <div className="flex gap-2">
           <CalendarExport activities={activities} mosqueName={currentMosque?.name || "Masjid"} />
-          {isPengurus && (
+          {perms.edit && (
             <Button onClick={() => { setEditItem(null); setShowForm(true); }} className="gap-2">
               <Plus className="h-4 w-4" /> Tambah Kegiatan
             </Button>
@@ -83,7 +92,7 @@ export default function Kegiatan() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(a => (
-            <ActivityCard key={a.id} activity={a} onEdit={() => { setEditItem(a); setShowForm(true); }} onDelete={() => handleDelete(a.id)} canEdit={isPengurus} />
+            <ActivityCard key={a.id} activity={a} onEdit={() => { setEditItem(a); setShowForm(true); }} onDelete={() => handleDelete(a.id)} canEdit={perms.edit} canDelete={perms.delete} />
           ))}
         </div>
       )}
