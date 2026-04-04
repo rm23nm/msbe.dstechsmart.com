@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import {
   CheckCircle, Star, Users, Calendar, DollarSign, Package, Globe, Sparkles, Monitor, ChevronLeft, ChevronRight,
   Play, Pause, MessageSquare, TrendingUp, Shield, Wifi, Megaphone,
-  BarChart3, Gift, FileText, CheckCircle2, Phone, Mail, MapPin, Send, Bot, X, ChevronDown
+  Gift, FileText, CheckCircle2, Phone, Mail, MapPin, Send, Bot, X, ChevronDown
 } from "lucide-react";
 
 const FEATURES = [

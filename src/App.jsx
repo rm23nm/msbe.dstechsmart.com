@@ -25,7 +25,6 @@ import Pengumuman from "@/pages/Pengumuman";
 import Donasi from "@/pages/Donasi";
 import InfoPublik from "@/pages/InfoPublik";
 import CariMasjid from "@/pages/CariMasjid";
-import UserNotRegisteredError from "@/components/UserNotRegisteredError";
 import JamaahDashboard from "@/pages/JamaahDashboard";
 import AnalitikDashboard from "@/pages/AnalitikDashboard";
 import AIAnalitik from "@/pages/AIAnalitik";

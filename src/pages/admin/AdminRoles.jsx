@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { smartApi } from "@/api/apiClient";
 import PageHeader from "@/components/PageHeader";
-import { ShieldAlert, Plus, Check, Save } from "lucide-react";
+import { ShieldAlert, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

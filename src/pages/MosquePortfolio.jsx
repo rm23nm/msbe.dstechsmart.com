@@ -5,9 +5,9 @@ import { formatCurrency, formatDate } from "@/lib/formatCurrency";
 import QRCode from "react-qr-code";
 import {
   MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight, ArrowDownRight,
-  Wallet, Megaphone, Instagram, Youtube, Facebook, Globe, Landmark,
+  Wallet, Megaphone, Instagram, Youtube, Facebook, Globe,
   UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
-  MessageSquare, ExternalLink, Smartphone, Home, Info, Images, DollarSign, Users, BookOpen
+  MessageSquare, Smartphone, Home, Info, Images, DollarSign, Users, BookOpen
 } from "lucide-react";
 import QuranReader from "@/components/QuranReader";
 import { Badge } from "@/components/ui/badge";

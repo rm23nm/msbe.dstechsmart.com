@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
-import { Clock, Navigation, Wallet, Calendar, Megaphone, CheckCircle2 } from "lucide-react";
+import { Clock, Navigation, Calendar, Megaphone, CheckCircle2 } from "lucide-react";
 
 const PRAYER_LABELS = [
   { key: 'subuh', label: 'Subuh' },
