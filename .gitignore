@@ -28,3 +28,8 @@ node_modules
 
 .env
 .vite
+
+# Database local & user uploads
+backend/prisma/*.db
+backend/uploads/
+uploads/

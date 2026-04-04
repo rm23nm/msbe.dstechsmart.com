@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import QRCode from "react-qr-code";
 import { smartApi } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -1191,7 +1192,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="py-12 px-6 border-t bg-slate-900 text-white">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
             {/* Brand */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 mb-3">
@@ -1233,6 +1234,14 @@ export default function Landing() {
                   Indonesia
                 </div>
               </div>
+            </div>
+            {/* Mobile App */}
+            <div>
+              <p className="font-semibold text-sm mb-3 text-slate-300">Aplikasi Mobile <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[10px] ml-1">BARU</span></p>
+              <div className="bg-white p-2 text-black rounded-lg inline-block mb-2 shadow-lg">
+                <QRCode value="https://ms.dstechsmart.com" size={90} />
+              </div>
+              <p className="text-xs text-slate-400 leading-snug">Scan dengan kamera HP Anda untuk <b>Menginstal Aplikasi MasjidKu</b> secara otomatis.</p>
             </div>
           </div>
           <div className="border-t border-slate-700 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-slate-500 text-xs">
