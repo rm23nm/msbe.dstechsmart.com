@@ -228,7 +228,7 @@ function HeroSlider({ slides, waUrl, heroImage }) {
             </Button>
           </a>
           <a href="#galeri">
-            <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10 px-8 text-base h-12 gap-2">
+            <Button size="lg" variant="outline" className="border-white/40 bg-black/20 text-white hover:bg-white hover:text-black px-8 text-base h-12 gap-2 backdrop-blur-sm transition-all duration-300">
               <Play className="h-4 w-4" /> Lihat Galeri & Video
             </Button>
           </a>

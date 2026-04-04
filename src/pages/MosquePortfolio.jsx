@@ -154,6 +154,7 @@ const TABS = [
   { id: 'beranda', label: 'Beranda', icon: Home },
   { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone },
   { id: 'kegiatan', label: 'Kegiatan', icon: Calendar },
+  { id: 'organisasi', label: 'Organisasi', icon: Users },
   { id: 'galeri', label: 'Galeri & Video', icon: Images },
   { id: 'keuangan', label: 'Keuangan', icon: DollarSign },
   { id: 'tentang', label: 'Tentang', icon: Info },
@@ -475,6 +476,47 @@ export default function MosquePortfolio() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* STRUKTUR ORGANISASI */}
+        {activeTab === 'organisasi' && (
+          <div className="space-y-8">
+            <div className="text-center md:text-left">
+              <h2 className="font-semibold text-2xl flex items-center justify-center md:justify-start gap-2">
+                <Users className="h-6 w-6 text-primary" />
+                Struktur Organisasi {mosque.name}
+              </h2>
+              <p className="text-muted-foreground mt-2">Daftar pengurus dan struktur manajemen DKM (Dewan Kemakmuran Masjid).</p>
+            </div>
+
+            {mosque.organization_structure_url ? (
+              <div className="bg-card border rounded-2xl p-4 md:p-8 shadow-sm overflow-hidden group">
+                <div className="relative rounded-xl overflow-hidden bg-muted border">
+                  <img 
+                    src={mosque.organization_structure_url} 
+                    alt="Struktur Organisasi" 
+                    className="w-full h-auto object-contain transition-transform duration-500 group-hover:scale-[1.02]"
+                    onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80'; }}
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
+                </div>
+                <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/10 flex items-center gap-3">
+                  <Info className="h-5 w-5 text-primary flex-shrink-0" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Struktur di atas adalah susunan pengurus resmi {mosque.name} yang berlaku saat ini. Hubungi sekretariat masjid untuk informasi lebih lanjut mengenai kepengurusan.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-card border rounded-2xl p-12 text-center text-muted-foreground">
+                <Users className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                <h3 className="font-semibold text-lg text-foreground">Gambar Struktur Belum Tersedia</h3>
+                <p className="text-sm max-w-sm mx-auto mt-2 italic">Pengurus belum mengunggah gambar struktur organisasi masjid ini.</p>
+                {/* Petunjuk buat admin (hanya info teks) */}
+                <p className="text-[10px] mt-6 opacity-60">Admin bisa mengunggah gambar ini di menu Pengaturan Masjid.</p>
               </div>
             )}
           </div>

@@ -79,6 +79,27 @@ const authenticateToken = (req, res, next) => {
 };
 
 /* ==================
+   Public Endpoints
+   ================== */
+
+app.get("/api/public/mosque-by-domain", async (req, res) => {
+  const { domain } = req.query;
+  if (!domain) return res.status(400).json({ error: "Domain required" });
+
+  try {
+    const mosque = await prisma.mosque.findFirst({
+      where: { custom_domain: domain },
+      select: { id: true, slug: true, name: true }
+    });
+    
+    if (!mosque) return res.status(404).json({ error: "Mosque not found for this domain" });
+    res.json(mosque);
+  } catch (error) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ==================
    Auth Endpoints
 ================== */
 

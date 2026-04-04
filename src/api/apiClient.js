@@ -110,6 +110,12 @@ export const smartApi = {
       }
     }
   },
+  mosque: {
+    getByDomain: async (domain) => {
+      const { data } = await apiClient.get(`/public/mosque-by-domain?domain=${domain}`);
+      return data;
+    }
+  },
   entities: {}
 };
 

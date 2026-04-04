@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Save, Globe, ExternalLink, Copy, Upload, ShieldCheck } from "lucide-react";
+import { Settings, Save, Globe, ExternalLink, Copy, Upload, ShieldCheck, Users, KeyRound } from "lucide-react";
 import NotificationSettings from "../components/NotificationSettings";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -90,6 +90,7 @@ export default function Pengaturan() {
         tv_prayer_overlay_text: currentMosque.tv_prayer_overlay_text || "Mohon matikan handphone. Luruskan dan rapatkan shaf.",
         tv_prayer_overlay_duration: currentMosque.tv_prayer_overlay_duration || 15,
         tv_background_url: currentMosque.tv_background_url || "",
+        organization_structure_url: currentMosque.organization_structure_url || "",
       });
     }
   }, [currentMosque]);
@@ -278,7 +279,7 @@ export default function Pengaturan() {
                 <p className="text-xs text-muted-foreground">Jika diisi, halaman bisa diakses via /masjid/[slug]</p>
               </div>
 
-              <div className="space-y-2 pt-2 border-t">
+              <div className="space-y-4 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <div>
                     <Label>Tampilkan Keuangan di Halaman Publik</Label>
@@ -286,22 +287,88 @@ export default function Pengaturan() {
                   </div>
                   <Switch checked={form.show_financial} onCheckedChange={v => setForm({ ...form, show_financial: v })} disabled={!canEdit} />
                 </div>
-              </div>
 
-              <div className="space-y-2 pt-2 border-t">
-                <Label>Sosial Media</Label>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-pink-500 text-sm w-24">Instagram</span>
-                    <Input value={form.instagram || ""} onChange={e => setForm({ ...form, instagram: e.target.value })} disabled={!canEdit} placeholder="https://instagram.com/..." />
+                  <Label>Sosial Media</Label>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-pink-500 text-sm w-24">Instagram</span>
+                      <Input value={form.instagram || ""} onChange={e => setForm({ ...form, instagram: e.target.value })} disabled={!canEdit} placeholder="https://instagram.com/..." />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-blue-600 text-sm w-24">Facebook</span>
+                      <Input value={form.facebook || ""} onChange={e => setForm({ ...form, facebook: e.target.value })} disabled={!canEdit} placeholder="https://facebook.com/..." />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600 text-sm w-24">YouTube</span>
+                      <Input value={form.youtube || ""} onChange={e => setForm({ ...form, youtube: e.target.value })} disabled={!canEdit} placeholder="https://youtube.com/..." />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-blue-600 text-sm w-24">Facebook</span>
-                    <Input value={form.facebook || ""} onChange={e => setForm({ ...form, facebook: e.target.value })} disabled={!canEdit} placeholder="https://facebook.com/..." />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-red-600 text-sm w-24">YouTube</span>
-                    <Input value={form.youtube || ""} onChange={e => setForm({ ...form, youtube: e.target.value })} disabled={!canEdit} placeholder="https://youtube.com/..." />
+                </div>
+
+                <div className="space-y-3 pt-4 border-t">
+                  <Label className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" /> Foto Struktur Organisasi
+                  </Label>
+                  <p className="text-xs text-muted-foreground">Upload gambar struktur kepengurusan DKM Masjid (format PNG/JPG, maks 2MB).</p>
+                  
+                  <div className="space-y-3">
+                    {form.organization_structure_url ? (
+                      <div className="relative rounded-xl overflow-hidden border border-muted group">
+                        <img
+                          src={form.organization_structure_url}
+                          alt="Struktur Organisasi"
+                          className="w-full h-40 object-contain bg-slate-50"
+                          onError={e => { e.target.style.display = 'none'; }}
+                        />
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, organization_structure_url: "" })}
+                            className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white text-xs px-2.5 py-1 rounded-lg font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            ✕ Hapus
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-full h-32 rounded-xl border border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/20">
+                        <div className="text-center text-muted-foreground">
+                          <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                          <p className="text-xs italic">Belum ada foto struktur organisasi</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {canEdit && (
+                      <div className="flex gap-2">
+                        <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-muted transition-colors font-medium flex-shrink-0">
+                          <Upload className="h-4 w-4" /> Upload Foto
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async e => {
+                              const file = e.target.files[0];
+                              if (!file) return;
+                              try {
+                                const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
+                                setForm(f => ({ ...f, organization_structure_url: file_url }));
+                                toast.success("Foto struktur berhasil diunggah");
+                              } catch (err) {
+                                toast.error("Gagal upload: " + err.message);
+                              }
+                            }}
+                          />
+                        </label>
+                        <Input
+                          value={form.organization_structure_url || ""}
+                          onChange={e => setForm({ ...form, organization_structure_url: e.target.value })}
+                          placeholder="Atau paste URL foto struktur..."
+                          className="flex-1"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

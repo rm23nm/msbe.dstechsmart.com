@@ -70,6 +70,7 @@ model Mosque {
   tv_prayer_overlay_text String? @default("Mohon matikan handphone. Luruskan dan rapatkan shaf.")
   tv_prayer_overlay_duration Int @default(15)
   tv_background_url  String?  // Foto background layar TV (opsional)
+  organization_structure_url String? // Foto/Gambar struktur organisasi masjid (Pengurus DKM)
   subscription_plan   String?  @default("trial")   // trial, basic, pro, enterprise
   subscription_status String?  @default("trial")   // trial, active, expired, cancelled
   subscription_start  DateTime?

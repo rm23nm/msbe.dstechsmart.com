@@ -61,9 +61,52 @@ function isPublicPath(pathname) {
   );
 }
 
+import { useState, useEffect } from "react";
+import { smartApi } from "@/api/apiClient";
+
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
   const location = useLocation();
+  const [customMosque, setCustomMosque] = useState(null);
+  const [resolvingDomain, setResolvingDomain] = useState(true);
+
+  useEffect(() => {
+    async function checkDomain() {
+      const hostname = window.location.hostname;
+      // Jangan cek jika ini domain utama atau localhost
+      if (hostname === "ms.dstechsmart.com" || hostname === "localhost" || hostname.includes("127.0.0.1")) {
+        setResolvingDomain(false);
+        return;
+      }
+
+      try {
+        const m = await smartApi.mosque.getByDomain(hostname);
+        if (m) setCustomMosque(m);
+      } catch (e) {
+        console.log("Not a custom domain mosque");
+      }
+      setResolvingDomain(false);
+    }
+    checkDomain();
+  }, []);
+
+  if (resolvingDomain) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  // Jika diakses via custom domain dan sedang di root '/', tampilkan portfolio masjid tersebut
+  if (customMosque && location.pathname === "/") {
+    return (
+      <Routes>
+        <Route path="/" element={<MosquePortfolio id={customMosque.slug || customMosque.id} />} />
+        <Route path="*" element={<PageNotFound />} />
+      </Routes>
+    );
+  }
 
   // Public routes — render immediately without auth check
   if (isPublicPath(location.pathname)) {

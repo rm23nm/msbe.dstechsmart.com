@@ -378,32 +378,29 @@ export default function PublicTV() {
         </div>
       </div>
 
-      {/* MAIN CONTENT GRID - Exactly matching the image structure */}
-      {/* 2 Columns: Left Col (Petugas, Kegiatan, Pengumuman), Right Col (Keuangan, Slideshow) */}
+      {/* MAIN CONTENT GRID - Optimized for better data visibility */}
       <div className="flex-1 px-6 pb-6 overflow-hidden flex gap-6 relative z-10">
         
-        {/* LEFT COLUMN (approx 1/3 width) - Petugas, Kegiatan, Pengumuman */}
-        <div className="w-[35%] flex flex-col gap-5 h-full">
+        {/* LEFT COLUMN (Information Sidebar) */}
+        <div className="w-[42%] flex flex-col gap-4 h-full">
           
           {(mosque.tv_show_jumat ?? true) && (
             <SectionBox title="Petugas Shalat Jumat" icon={CheckCircle2}>
               {jumatOfficer ? (
-                <div className="space-y-3">
-                  <div className="flex bg-black/20 rounded-lg p-2.5 border border-white/5 items-center">
-                    <span className="w-20 text-emerald-200/70 text-xs font-bold tracking-widest uppercase">Khatib</span>
-                    <span className="font-semibold text-base">{jumatOfficer.khatib || '-'}</span>
-                  </div>
-                  <div className="flex bg-black/20 rounded-lg p-2.5 border border-white/5 items-center">
-                    <span className="w-20 text-emerald-200/70 text-xs font-bold tracking-widest uppercase">Imam</span>
-                    <span className="font-semibold text-base">{jumatOfficer.imam || '-'}</span>
-                  </div>
-                  <div className="flex bg-black/20 rounded-lg p-2.5 border border-white/5 items-center">
-                    <span className="w-20 text-emerald-200/70 text-xs font-bold tracking-widest uppercase">Muadzin</span>
-                    <span className="font-semibold text-base">{jumatOfficer.muadzin || '-'}</span>
-                  </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { label: 'Khatib', val: jumatOfficer.khatib },
+                    { label: 'Imam', val: jumatOfficer.imam },
+                    { label: 'Muadzin', val: jumatOfficer.muadzin }
+                  ].map((p, i) => (
+                    <div key={i} className="flex bg-black/25 rounded-xl p-3 border border-white/5 items-center justify-between">
+                      <span className="text-emerald-300/80 text-xs font-bold tracking-widest uppercase">{p.label}</span>
+                      <span className="font-bold text-lg text-white truncate ml-4">{p.val || '-'}</span>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <div className="flex h-full items-center justify-center text-white/40 italic py-4">Belum ada jadwal</div>
+                <div className="flex items-center justify-center text-white/40 italic py-4">Belum ada jadwal</div>
               )}
             </SectionBox>
           )}
@@ -413,14 +410,21 @@ export default function PublicTV() {
               {activities.length === 0 ? (
                 <div className="flex h-full items-center justify-center text-white/40 italic">Tidak ada kegiatan rutin</div>
               ) : (
-                <div className="flex flex-col h-full gap-3">
-                  {activities.slice(0, 4).map(a => (
-                    <div key={a.id} className="bg-black/20 p-3 rounded-xl border border-white/5 shadow-sm">
-                      <p className="font-bold text-white text-sm line-clamp-1 mb-1">{a.title}</p>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="bg-emerald-500/20 text-emerald-200 px-2 py-0.5 rounded-md font-medium">{formatDate(a.date)}</span>
-                        {a.time && <span className="text-white/60">{a.time}</span>}
+                <div className="flex flex-col gap-2 overflow-hidden">
+                  {activities.slice(0, 3).map(a => (
+                    <div key={a.id} className="bg-black/25 p-3 rounded-xl border border-white/5">
+                      <div className="flex justify-between items-start gap-2">
+                        <p className="font-bold text-white text-sm line-clamp-1 flex-1">{a.title}</p>
+                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded font-bold whitespace-nowrap">
+                          {formatDate(a.date)}
+                        </span>
                       </div>
+                      {a.time_start && (
+                        <p className="text-[11px] text-white/50 mt-1 flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {a.time_start} {a.time_end ? `- ${a.time_end}` : ''} 
+                          {a.location && <span className="ml-2">📍 {a.location}</span>}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -431,13 +435,12 @@ export default function PublicTV() {
           {(mosque.tv_show_announcements ?? true) && (
             <SectionBox title="Pengumuman" icon={Megaphone} flex>
               {announcements.length === 0 ? (
-                <div className="flex h-full items-center justify-center text-white/40 italic">Belum ada pengumuman tersemat</div>
+                <div className="flex h-full items-center justify-center text-white/40 italic">Belum ada pengumuman</div>
               ) : (
-                <div className="flex flex-col h-full gap-3">
-                  {announcements.slice(0, 3).map(a => (
-                    <div key={a.id} className="relative pl-4">
-                      <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                      <p className="font-bold text-sm text-white mb-0.5 leading-snug">{a.title}</p>
+                <div className="flex flex-col gap-3">
+                  {announcements.slice(0, 2).map(a => (
+                    <div key={a.id} className="relative pl-4 border-l-2 border-emerald-500/50">
+                      <p className="font-bold text-sm text-white mb-1 line-clamp-1">{a.title}</p>
                       <p className="text-white/60 text-xs line-clamp-2 leading-relaxed">{a.content}</p>
                     </div>
                   ))}
@@ -445,36 +448,34 @@ export default function PublicTV() {
               )}
             </SectionBox>
           )}
-
         </div>
 
-        {/* RIGHT COLUMN (approx 2/3 width) - Keuangan, Slideshow */}
-        <div className="flex-1 flex flex-col gap-6 h-full">
+        {/* RIGHT COLUMN (Visuals & Finance) */}
+        <div className="flex-1 flex flex-col gap-4 h-full">
           
           {(mosque.tv_show_finance ?? true) && (
-            <SectionBox title="Laporan Keuangan" icon={Wallet}>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-black/20 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center">
-                  <span className="text-emerald-200/70 text-xs font-bold tracking-widest uppercase mb-1">Pemasukan</span>
-                  <span className="text-lg font-bold text-emerald-300">{formatRp(totalIncome)}</span>
-                </div>
-                <div className="bg-black/20 p-4 rounded-xl border border-white/5 flex flex-col items-center justify-center text-center">
-                  <span className="text-rose-200/70 text-xs font-bold tracking-widest uppercase mb-1">Pengeluaran</span>
-                  <span className="text-lg font-bold text-rose-300">{formatRp(totalExpense)}</span>
-                </div>
-                <div className="bg-emerald-900/40 p-4 rounded-xl border border-emerald-500/30 flex flex-col items-center justify-center text-center shadow-[inset_0_1px_15px_rgba(16,185,129,0.1)]">
-                  <span className="text-emerald-100/90 text-xs font-bold tracking-widest uppercase mb-1">Saldo Kas Akhir</span>
-                  <span className="text-xl font-black text-white">{formatRp(balance)}</span>
-                </div>
+            <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <p className="text-[10px] font-black text-emerald-400/70 tracking-widest uppercase mb-1">Pemasukan</p>
+                <p className="text-xl font-bold text-white">{formatRp(totalIncome)}</p>
               </div>
-            </SectionBox>
+              <div className="text-center border-x border-white/10">
+                <p className="text-[10px] font-black text-rose-400/70 tracking-widest uppercase mb-1">Pengeluaran</p>
+                <p className="text-xl font-bold text-white">{formatRp(totalExpense)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-black text-blue-400/70 tracking-widest uppercase mb-1">Saldo Kas</p>
+                <p className="text-xl font-black text-emerald-400">{formatRp(balance)}</p>
+              </div>
+            </div>
           )}
 
-          {/* SLIDESHOW AREA - Takes up remaining vertical space */}
-          <div className="flex-1 rounded-2xl z-10 drop-shadow-2xl">
+          {/* SLIDESHOW AREA - Filling remaining space */}
+          <div className="flex-1 rounded-2xl overflow-hidden shadow-2xl relative">
              <Slideshow mosque={mosque} />
+             {/* Gradient overlay for better look */}
+             <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
           </div>
-
         </div>
 
       </div>
