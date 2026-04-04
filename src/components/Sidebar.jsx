@@ -65,7 +65,7 @@ export default function Sidebar({ onClose }) {
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <Link to="/" onClick={onClose} className="flex items-center gap-3">
-          <img src="/favicon.png" alt="MasjidKu Smart" className="w-10 h-10 rounded-xl object-contain" />
+          <img src="/favicon.png?v=2" alt="MasjidKu Smart" className="w-10 h-10 rounded-xl object-contain" />
           <div>
             <h1 className="text-lg font-bold text-sidebar-foreground">MasjidKu</h1>
             <p className="text-xs text-sidebar-foreground/60">Pengelolaan Masjid</p>

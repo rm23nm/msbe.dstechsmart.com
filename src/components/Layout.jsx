@@ -35,7 +35,7 @@ export default function Layout() {
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <img src="/favicon.png" alt="MasjidKu Smart" className="h-8 w-8 rounded-lg object-contain" />
+            <img src="/favicon.png?v=2" alt="MasjidKu Smart" className="h-8 w-8 rounded-lg object-contain" />
             <span className="font-semibold text-primary">MasjidKu</span>
           </div>
           <NotificationBell />

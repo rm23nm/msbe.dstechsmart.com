@@ -17,7 +17,7 @@ export default defineConfig({
         description: 'Aplikasi Manajemen Masjid Modern',
         theme_color: '#16a34a',
         background_color: '#ffffff',
-        display: 'standalone',
+        display: 'fullscreen',
         icons: [
           {
             src: 'icon-192.png',

@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import { LanguageProvider } from '@/lib/useLanguage';
 import Layout from './components/Layout';
+import InstallPWA from './components/InstallPWA';
 import Dashboard from './pages/Dashboard';
 import Keuangan from './pages/Keuangan';
 import Kegiatan from './pages/Kegiatan';
@@ -146,6 +147,7 @@ function App() {
             <AuthenticatedApp />
           </Router>
           <Toaster />
+          <InstallPWA />
         </QueryClientProvider>
       </LanguageProvider>
     </AuthProvider>
