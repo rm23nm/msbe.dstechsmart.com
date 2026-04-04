@@ -62,6 +62,11 @@ const upload = multer({ storage });
 
 // Middleware to protect routes (excluding login and public APIs)
 const authenticateToken = (req, res, next) => {
+  // Allow public registration of Mosque
+  if (req.method === "POST" && req.path === "/api/entities/Mosque") {
+    return next();
+  }
+
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Missing token" });
