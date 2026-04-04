@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { smartApi } from "@/api/apiClient";
+import { smartApi, apiClient } from "@/api/apiClient";
 import { formatCurrency } from "@/lib/formatCurrency";
 import StatCard from "../../components/StatCard";
 import PageHeader from "../../components/PageHeader";
-import { Building2, Users, CreditCard, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Building2, Users, CreditCard, TrendingUp, Send } from "lucide-react";
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const COLORS = ['hsl(152, 55%, 28%)', 'hsl(42, 85%, 55%)', 'hsl(200, 60%, 45%)', 'hsl(280, 50%, 55%)'];
@@ -12,6 +13,11 @@ export default function AdminDashboard() {
   const [mosques, setMosques] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // States for Telegram Broadcast
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMsg, setBroadcastMsg] = useState("");
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -25,6 +31,23 @@ export default function AdminDashboard() {
     setMosques(m);
     setUsers(u);
     setLoading(false);
+  }
+
+  async function sendBroadcast() {
+    if (!broadcastTitle || !broadcastMsg) return;
+    setSendingBroadcast(true);
+    try {
+      const res = await apiClient.post("/integrations/telegram/broadcast", {
+        title: broadcastTitle,
+        message: broadcastMsg
+      });
+      alert(res.data.message || "Pesan broadcast berhasil dikirim!");
+      setBroadcastTitle("");
+      setBroadcastMsg("");
+    } catch (error) {
+      alert("Gagal mengirim broadcast: " + (error.response?.data?.error || error.message));
+    }
+    setSendingBroadcast(false);
   }
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -51,6 +74,43 @@ export default function AdminDashboard() {
         <StatCard title="Total Pengguna" value={users.length} icon={Users} />
         <StatCard title="Pendapatan Bulanan" value={formatCurrency(monthlyRevenue)} icon={TrendingUp} trendUp />
         <StatCard title="Langganan Aktif" value={mosques.filter(m => m.subscription_status === 'active').length} icon={CreditCard} />
+      </div>
+
+      {/* Broadcast System Update Section */}
+      <div className="bg-card rounded-xl border p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Send className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold">Broadcast Update Sistem (Telegram)</h3>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground mb-4">
+            Kirim pesan pembaruan otomatis ke seluruh grup Telegram masjid yang sudah mengaktifkan bot.
+          </p>
+          <div>
+            <label className="text-xs font-semibold mb-1 block">Judul Update / Versi</label>
+            <input 
+              type="text" 
+              value={broadcastTitle} 
+              onChange={e => setBroadcastTitle(e.target.value)} 
+              placeholder="Contoh: Update Versi 1.5 - Fitur Absensi & Analitik" 
+              className="w-full px-3 py-2 border rounded-lg text-sm bg-background"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold mb-1 block">Isi Pesan (Bisa pakai emoji)</label>
+            <textarea 
+              rows={4}
+              value={broadcastMsg} 
+              onChange={e => setBroadcastMsg(e.target.value)} 
+              placeholder="Contoh: Halo Jamaah! Kami baru saja menambahkan fitur cetak absensi dan..." 
+              className="w-full px-3 py-2 border rounded-lg text-sm bg-background resize-none"
+            />
+          </div>
+          <Button onClick={sendBroadcast} disabled={sendingBroadcast || !broadcastTitle || !broadcastMsg} className="w-full sm:w-auto gap-2">
+            {sendingBroadcast ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send className="h-4 w-4" />}
+            {sendingBroadcast ? "Mengirim..." : "Kirim Broadcast Sekarang"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

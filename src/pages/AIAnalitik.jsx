@@ -125,9 +125,16 @@ Buat laporan dengan struktur berikut (gunakan emoji yang relevan):
     setGenerating(false);
   }
 
-  if (loading || !currentMosque) return (
+  if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!currentMosque) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center">
+      <h3 className="font-semibold text-lg">Belum Ada Masjid</h3>
+      <p className="text-sm text-muted-foreground">Silakan pilih atau tambahkan masjid terlebih dahulu.</p>
     </div>
   );
 

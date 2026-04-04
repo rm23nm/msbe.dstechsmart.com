@@ -23,19 +23,28 @@ export default function AnalitikDashboard() {
       smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100),
       smartApi.entities.MosqueMember.filter({ mosque_id: currentMosque.id }),
       smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id }),
-      smartApi.entities.Asset.filter({ mosque_id: currentMosque.id }),
-    ]).then(([txns, acts, mems, anns, ast]) => {
+    ]).then(([txns, acts, mems, anns]) => {
       setTransactions(txns);
       setActivities(acts);
       setMembers(mems);
       setAnnouncements(anns);
-      setAssets(ast);
+      setAssets([]); // Removed Asset entity call to prevent API crash
     });
   }, [currentMosque?.id]);
 
-  if (loading || !currentMosque) return (
+  if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!currentMosque) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center">
+      <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-4">
+        <Package className="h-6 w-6 text-muted-foreground" />
+      </div>
+      <h3 className="font-semibold text-lg">Belum Ada Masjid</h3>
+      <p className="text-sm text-muted-foreground">Silakan pilih atau tambahkan masjid terlebih dahulu.</p>
     </div>
   );
 

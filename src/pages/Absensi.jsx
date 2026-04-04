@@ -5,7 +5,7 @@ import PageHeader from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { QrCode, Users, Calendar, Download } from "lucide-react";
+import { QrCode, Users, Calendar, Download, Printer } from "lucide-react";
 import { formatDate } from "@/lib/formatCurrency";
 
 export default function Absensi() {
@@ -58,6 +58,67 @@ export default function Absensi() {
     link.href = url;
     link.download = `absensi-${selectedActivity?.title}.csv`;
     link.click();
+  }
+
+  function printAttendance() {
+    if (!attendances.length) return;
+    const printWindow = window.open('', '_blank', 'height=600,width=800');
+    let html = `
+      <html>
+        <head>
+          <title>Daftar Kehadiran - ${selectedActivity?.title}</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #111; }
+            h2 { text-align: center; margin-bottom: 5px; }
+            .subtitle { text-align: center; color: #555; margin-top: 0; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+            th, td { border: 1px solid #000; padding: 8px 12px; text-align: left; }
+            th { background-color: #f4f4f5; }
+          </style>
+        </head>
+        <body>
+          <h2>Laporan Kehadiran Jamaah</h2>
+          <p class="subtitle">Kegiatan: <strong>${selectedActivity?.title}</strong><br>Tanggal: ${formatDate(selectedActivity?.date)}</p>
+          <table>
+            <thead>
+              <tr>
+                <th width="5%">No</th>
+                <th width="35%">Nama Lengkap</th>
+                <th width="35%">Kontak / Identitas</th>
+                <th width="25%">Waktu Check-in</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    attendances.forEach((a, i) => {
+      const time = a.checked_in_at ? new Date(a.checked_in_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
+      const contact = a.member_email || a.member_phone || '-';
+      html += `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${a.member_name}</td>
+          <td>${contact}</td>
+          <td>${time}</td>
+        </tr>
+      `;
+    });
+
+    html += `
+            </tbody>
+          </table>
+          <p style="margin-top: 30px; text-align: right; font-size: 12px;">Dicetak pada: ${new Date().toLocaleString('id-ID')}</p>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   }
 
   if (loading || !currentMosque) return (
@@ -135,9 +196,14 @@ export default function Absensi() {
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">{attendances.length} jamaah hadir</p>
               {attendances.length > 0 && (
-                <Button size="sm" variant="outline" className="gap-1" onClick={exportCSV}>
-                  <Download className="h-3.5 w-3.5" /> Export CSV
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="gap-1 border-primary text-primary hover:bg-primary/5" onClick={printAttendance}>
+                    <Printer className="h-3.5 w-3.5" /> Cetak
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={exportCSV}>
+                    <Download className="h-3.5 w-3.5" /> CSV
+                  </Button>
+                </div>
               )}
             </div>
             {loadingAttendance ? (

@@ -518,6 +518,37 @@ app.post("/api/integrations/core/uploadfile", authenticateToken, upload.single("
 });
 
 /* ==================
+   Telegram Broadcast Endpoint
+================== */
+app.post("/api/integrations/telegram/broadcast", authenticateToken, async (req, res) => {
+  const { title, message } = req.body;
+  if (!title || !message) return res.status(400).json({ error: "Title dan message wajib diisi" });
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (user.role !== "admin" && user.role !== "superadmin") {
+      return res.status(403).json({ error: "Akses ditolak. Khusus superadmin." });
+    }
+
+    const settings = await prisma.telegramSettings.findMany({ where: { bot_enabled: true } });
+    let sentCount = 0;
+
+    const msgHtml = `🚀 <b>PEMBARUAN SISTEM (SYSTEM UPDATE)</b> 🚀\n\n📌 <b>${title}</b>\n\n${message}\n\n<i>— Dikirim otomatis oleh Tim MasjidKu Smart</i>`;
+
+    for (const setting of settings) {
+      if (setting.bot_token && setting.chat_id) {
+        await telegramService.sendTelegramNotification(setting.bot_token, setting.chat_id, msgHtml);
+        sentCount++;
+      }
+    }
+
+    res.json({ message: `Pengumuman update berhasil dikirim ke ${sentCount} grup Telegram masjid.` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ==================
    Dynamic Entity CRUD Endpoints (Replaces Base44)
 ================== */
 

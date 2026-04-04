@@ -8,7 +8,7 @@ import { Heart, Calendar, Megaphone, DollarSign } from "lucide-react";
 function formatRp(n) { return "Rp " + (n || 0).toLocaleString("id-ID"); }
 
 export default function JamaahDashboard() {
-  const { currentMosque: mosque } = useMosqueContext();
+  const { currentMosque: mosque, loading } = useMosqueContext();
   const [transactions, setTransactions] = useState([]);
   const [activities, setActivities] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -23,6 +23,19 @@ export default function JamaahDashboard() {
   const totalIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + (t.amount || 0), 0);
   const totalExpense = transactions.filter(t => t.type === "expense").reduce((s, t) => s + (t.amount || 0), 0);
   const balance = totalIncome - totalExpense;
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!mosque) return (
+    <div className="flex flex-col items-center justify-center h-64 text-center">
+      <h3 className="font-semibold text-lg">Belum Ada Masjid</h3>
+      <p className="text-sm text-muted-foreground">Anda belum tergabung dalam jamaah masjid mana pun.</p>
+    </div>
+  );
 
   return (
     <div className="p-6 space-y-6">
