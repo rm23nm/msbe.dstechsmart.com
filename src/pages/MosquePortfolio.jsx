@@ -641,12 +641,7 @@ export default function MosquePortfolio() {
                     <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">BARU</span>
                   </div>
                   <div className="bg-white p-2 rounded-xl inline-block mb-3 shadow-lg relative">
-                    <QRCode value={mosqueUrl} size={110}/>
-                    {mosque.logo_url && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <img src={mosque.logo_url} alt="logo" className="w-8 h-8 rounded-full object-cover border-2 border-white shadow"/>
-                      </div>
-                    )}
+                    <QRCode value={mosqueUrl} size={110} level="H" />
                   </div>
                   <p className="text-xs text-white/50 leading-snug">Scan untuk membuka halaman <b className="text-white/70">{mosque.name}</b> di HP Anda</p>
                 </div>
