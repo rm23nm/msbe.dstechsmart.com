@@ -123,7 +123,7 @@ export default function AdminRoles() {
           <div className="space-y-2">
             <h3 className="font-semibold text-sm text-muted-foreground uppercase">Pilih Role</h3>
             <Select 
-              value={selectedRole?.role_name || ""} 
+              value={selectedRole?.role_name} 
               onValueChange={handleSelectRoleName}
             >
               <SelectTrigger>
