@@ -169,7 +169,10 @@ export default function InfoPublik() {
         {/* Prayer Times - always shown */}
         <div className="px-6 md:px-10 pb-4">
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
-            <h3 className="font-semibold text-sm mb-3 text-primary-foreground/80">🕌 Jadwal Waktu Shalat</h3>
+            <h3 className="font-semibold text-sm mb-3 text-primary-foreground/80 flex items-center gap-2">
+              <img src="/favicon.png" className="h-4 w-4 object-contain" />
+              Jadwal Waktu Shalat
+            </h3>
             <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
               {PRAYER_LABELS.map(p => (
                 <div key={p.key} className="text-center bg-white/10 rounded-lg py-2 px-1">

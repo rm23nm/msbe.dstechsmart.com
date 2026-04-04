@@ -171,6 +171,41 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+// Endpoint khusus: daftar sebagai admin masjid dari Landing Page
+app.post("/api/auth/register-mosque-admin", async (req, res) => {
+  const { full_name, email, password, mosque_id } = req.body;
+  if (!email || !password || !mosque_id) return res.status(400).json({ error: "Email, password, dan ID masjid wajib diisi" });
+  if (password.length < 6) return res.status(400).json({ error: "Password minimal 6 karakter" });
+
+  try {
+    // Cek apakah email sudah digunakan
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (user) {
+      return res.status(400).json({ error: "Email ini sudah terdaftar. Silakan login atau gunakan email lain." });
+    }
+
+    // Buat user baru dengan role admin
+    const hash = await bcrypt.hash(password, 10);
+    user = await prisma.user.create({
+      data: { email, password: hash, full_name, role: "admin", current_mosque_id: mosque_id }
+    });
+
+    // Tambahkan sebagai pengurus di masjid
+    await prisma.mosqueMember.create({
+      data: { user_email: email, user_name: full_name, mosque_id, role: "pengurus", status: "active" }
+    });
+
+    // Update mosque owner email
+    await prisma.mosque.update({ where: { id: mosque_id }, data: { email } });
+
+    const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, SECRET_KEY, { expiresIn: "7d" });
+    const { password: _, ...userData } = user;
+    res.json({ user: userData, token, message: "Akun admin berhasil dibuat" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post("/api/auth/forgot-password", async (req, res) => {
   const { email } = req.body;
   if (!email) return res.status(400).json({ error: "Email wajib diisi" });

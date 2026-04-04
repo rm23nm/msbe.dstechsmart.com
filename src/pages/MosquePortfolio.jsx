@@ -1,230 +1,253 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
 import { formatCurrency, formatDate } from "@/lib/formatCurrency";
+import QRCode from "react-qr-code";
 import {
-  MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight,
-  ArrowDownRight, Wallet, Megaphone, Instagram, Youtube,
-  Facebook, Globe, Landmark, UserPlus, Play, ChevronLeft, ChevronRight, Images,
-  Bot, X, Send, ChevronDown, MessageSquare, ExternalLink
+  MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight, ArrowDownRight,
+  Wallet, Megaphone, Instagram, Youtube, Facebook, Globe, Landmark,
+  UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
+  MessageSquare, ExternalLink, Smartphone, Home, Info, Images, DollarSign
 } from "lucide-react";
-
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-const typeLabels = {
-  shalat: "Shalat", kajian: "Kajian", pengajian: "Pengajian", ramadhan: "Ramadhan",
-  idul_adha: "Idul Adha", idul_fitri: "Idul Fitri", sosial: "Sosial", rapat: "Rapat", lainnya: "Lainnya",
-};
+const typeLabels = { shalat:"Shalat",kajian:"Kajian",pengajian:"Pengajian",ramadhan:"Ramadhan",idul_adha:"Idul Adha",idul_fitri:"Idul Fitri",sosial:"Sosial",rapat:"Rapat",lainnya:"Lainnya" };
+const priorityColors = { high:"bg-red-100 text-red-700",medium:"bg-amber-100 text-amber-700",low:"bg-blue-100 text-blue-700" };
 
-const priorityColors = {
-  high: "bg-red-100 text-red-700", medium: "bg-amber-100 text-amber-700", low: "bg-blue-100 text-blue-700"
-};
+function getYouTubeId(url) {
+  if (!url) return null;
+  return url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1] || null;
+}
 
-function GaleriMasjid({ photos, mosqueName }) {
-  const [idx, setIdx] = useState(0);
-  const prev = () => setIdx(i => (i - 1 + photos.length) % photos.length);
-  const next = () => setIdx(i => (i + 1) % photos.length);
+function parseMediaSlides(slideUrls, videoUrl, coverUrl) {
+  const slides = [];
+  if (slideUrls) {
+    slideUrls.split(',').map(u => u.trim()).filter(Boolean).forEach(url => {
+      const ytId = getYouTubeId(url);
+      if (ytId) slides.push({ type: 'video', ytId });
+      else slides.push({ type: 'photo', url });
+    });
+  }
+  if (videoUrl) {
+    const ytId = getYouTubeId(videoUrl);
+    if (ytId && !slides.some(s => s.ytId === ytId)) slides.push({ type: 'video', ytId });
+  }
+  if (slides.length === 0 && coverUrl) slides.push({ type: 'photo', url: coverUrl });
+  return slides;
+}
+
+// ── HERO SLIDER ──────────────────────────────────────────────────────────────
+function HeroSlider({ slides, mosque }) {
+  const [cur, setCur] = useState(0);
+  const timer = useRef(null);
+  const next = useCallback(() => setCur(c => (c + 1) % Math.max(slides.length, 1)), [slides.length]);
+  const prev = () => setCur(c => (c - 1 + Math.max(slides.length, 1)) % Math.max(slides.length, 1));
+
+  useEffect(() => {
+    if (slides.length <= 1 || slides[cur]?.type === 'video') return;
+    timer.current = setInterval(next, 5000);
+    return () => clearInterval(timer.current);
+  }, [cur, slides, next]);
+
+  const slide = slides[cur];
 
   return (
-    <div>
-      <h2 className="font-semibold text-xl mb-4 flex items-center gap-2">
-        <Images className="h-5 w-5 text-primary" /> Galeri Foto
-      </h2>
-      <div className="relative rounded-2xl overflow-hidden border shadow-md bg-muted group">
-        <img
-          key={idx}
-          src={photos[idx]}
-          alt={`Galeri ${mosqueName} ${idx + 1}`}
-          className="w-full h-64 md:h-80 object-cover transition-opacity duration-500"
-          onError={e => { e.target.style.display='none'; }}
-        />
-        {/* Overlay bawah */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        <div className="absolute bottom-4 left-4 text-white">
-          <p className="text-sm font-semibold">{mosqueName}</p>
-          <p className="text-xs text-white/70">Foto {idx + 1} dari {photos.length}</p>
+    <div className="relative h-72 md:h-[520px] overflow-hidden bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900 group">
+      {/* Background */}
+      {!slide && (
+        <div className="absolute inset-0 flex items-center justify-center opacity-10">
+          <Landmark className="h-48 w-48 text-white" />
         </div>
-        {/* Counter dot */}
-        {photos.length > 1 && (
-          <div className="absolute bottom-4 right-4 flex gap-1.5">
-            {photos.map((_, i) => (
-              <button key={i} onClick={() => setIdx(i)}
-                className={`w-2 h-2 rounded-full transition-all ${i === idx ? 'bg-white w-5' : 'bg-white/50'}`} />
-            ))}
-          </div>
-        )}
-        {/* Nav arrows */}
-        {photos.length > 1 && (
-          <>
-            <button onClick={prev}
-              className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button onClick={next}
-              className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/70 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        )}
-      </div>
-      {/* Thumbnail strip */}
-      {photos.length > 1 && (
-        <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
-          {photos.map((url, i) => (
-            <button key={i} onClick={() => setIdx(i)}
-              className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all ${i === idx ? 'border-primary' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-              <img src={url} alt={`thumb-${i}`} className="w-full h-full object-cover"
-                onError={e => { e.target.style.display='none'; }} />
-            </button>
+      )}
+      {slide?.type === 'photo' && (
+        <img key={slide.url} src={slide.url} alt={mosque.name}
+          className="absolute inset-0 w-full h-full object-cover transition-all duration-700"
+          onError={e => { e.target.style.opacity = 0; }} />
+      )}
+      {slide?.type === 'video' && (
+        <iframe key={slide.ytId}
+          src={`https://www.youtube-nocookie.com/embed/${slide.ytId}?autoplay=1&mute=1&loop=1&playlist=${slide.ytId}&rel=0&controls=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&disablekb=1`}
+          className="absolute inset-0 w-full h-full scale-[1.15] pointer-events-none"
+          allow="autoplay; encrypted-media" allowFullScreen title={mosque.name} />
+      )}
+
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/40 pointer-events-none" />
+
+      {/* Nav arrows */}
+      {slides.length > 1 && (
+        <>
+          <button onClick={prev} className="absolute left-3 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/80 text-white rounded-full p-2.5 backdrop-blur-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-all">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button onClick={next} className="absolute right-3 top-1/2 -translate-y-1/2 z-20 bg-black/50 hover:bg-black/80 text-white rounded-full p-2.5 backdrop-blur-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-all">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
+
+      {/* Dots */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {slides.map((s, i) => (
+            <button key={i} onClick={() => setCur(i)}
+              className={`rounded-full transition-all border border-white/40 ${i === cur ? 'w-7 h-2.5 bg-white' : 'w-2.5 h-2.5 bg-white/40'}`} />
           ))}
         </div>
       )}
+
+      {slide?.type === 'video' && (
+        <div className="absolute top-4 right-4 z-20 bg-red-600/90 text-white text-xs font-bold px-2.5 py-1 rounded-full flex items-center gap-1.5">
+          <Play className="h-3 w-3 fill-white" /> VIDEO
+        </div>
+      )}
+      {slides.length > 1 && (
+        <div className="absolute top-4 left-4 z-20 bg-black/50 text-white text-xs px-2.5 py-1 rounded-full">
+          {cur + 1}/{slides.length}
+        </div>
+      )}
+
+      {/* Hero info overlay */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 p-6 md:p-10">
+        <div className="max-w-5xl mx-auto flex items-end justify-between gap-4">
+          <div className="flex items-end gap-4">
+            {mosque.logo_url
+              ? <img src={mosque.logo_url} alt="Logo" className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-cover border-2 border-white/40 shadow-2xl bg-white flex-shrink-0" />
+              : <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-white/30 shadow-2xl flex-shrink-0"><Landmark className="h-8 w-8 text-white" /></div>
+            }
+            <div className="text-white">
+              <h1 className="text-2xl md:text-4xl font-bold drop-shadow-lg leading-tight">{mosque.name}</h1>
+              <div className="flex items-center gap-1.5 mt-1.5 text-white/80 text-sm">
+                <MapPin className="h-3.5 w-3.5" />
+                <span>{mosque.city}{mosque.province ? `, ${mosque.province}` : ''}</span>
+                {mosque.established_year && <span className="ml-2 text-white/60">• Est. {mosque.established_year}</span>}
+              </div>
+              {slides.length === 0 && (
+                <p className="text-emerald-300 text-xs mt-1 italic">Belum ada foto/video — tambahkan di Pengaturan → Layar TV</p>
+              )}
+            </div>
+          </div>
+          <div className="hidden sm:block flex-shrink-0">
+            <Link to={`/masjid/${mosque.slug || mosque.id}/login`}>
+              <Button className="bg-white text-emerald-700 hover:bg-white/90 shadow-xl gap-2 font-semibold" size="lg">
+                <UserPlus className="h-4 w-4" /> Login Jamaah
+              </Button>
+            </Link>
+          </div>
+        </div>
+        <div className="sm:hidden max-w-5xl mx-auto mt-3">
+          <Link to={`/masjid/${mosque.slug || mosque.id}/login`}>
+            <Button className="w-full bg-white text-emerald-700 hover:bg-white/90 shadow-lg gap-2 font-semibold">
+              <UserPlus className="h-4 w-4" /> Login Jamaah
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── AI CHAT WIDGET untuk Halaman Masjid ────────────────────────────────────
-function AIMosqueChatWidget({ mosque }) {
+// ── TAB NAVIGATION ────────────────────────────────────────────────────────────
+const TABS = [
+  { id: 'beranda', label: 'Beranda', icon: Home },
+  { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone },
+  { id: 'kegiatan', label: 'Kegiatan', icon: Calendar },
+  { id: 'galeri', label: 'Galeri & Video', icon: Images },
+  { id: 'keuangan', label: 'Keuangan', icon: DollarSign },
+  { id: 'tentang', label: 'Tentang', icon: Info },
+];
+
+function TabNav({ active, setActive, counts }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current?.querySelector(`[data-tab="${active}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+  }, [active]);
+
+  return (
+    <div ref={ref} className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b shadow-sm overflow-x-auto">
+      <div className="flex max-w-5xl mx-auto px-4">
+        {TABS.map(tab => {
+          const count = counts[tab.id];
+          return (
+            <button key={tab.id} data-tab={tab.id} onClick={() => setActive(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${active === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+              {count > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${active === tab.id ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>{count}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── AI CHAT ───────────────────────────────────────────────────────────────────
+function AIChatWidget({ mosque }) {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { from: 'bot', text: `Assalamu'alaikum! 👋 Saya asisten ${mosque?.name || 'Masjid'}. Ada yang bisa saya bantu?` }
-  ]);
+  const [msgs, setMsgs] = useState([{ from: 'bot', text: `Assalamu'alaikum! 👋 Saya asisten ${mosque?.name}. Ada yang bisa saya bantu?` }]);
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [showPreset, setShowPreset] = useState(true);
   const bottomRef = useRef(null);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, typing]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, typing]);
-
-  const presetQA = [
-    { q: `Di mana lokasi ${mosque?.name}?`, a: `${mosque?.name} berlokasi di ${mosque?.address || '-'}, ${mosque?.city || ''}${mosque?.province ? ', ' + mosque.province : ''}. Silakan hubungi kami untuk petunjuk arah lebih lanjut.` },
-    { q: 'Bagaimana cara menghubungi masjid?', a: `Anda bisa menghubungi ${mosque?.name} melalui:${mosque?.phone ? '\n📞 Telepon: ' + mosque.phone : ''}${mosque?.email ? '\n📧 Email: ' + mosque.email : ''}${mosque?.instagram ? '\n📸 Instagram: ' + mosque.instagram : ''}. Kami siap melayani Anda!` },
-    { q: 'Apa saja kegiatan masjid?', a: `${mosque?.name} memiliki berbagai kegiatan rutin seperti shalat berjamaah 5 waktu, kajian mingguan, dan program sosial kemasyarakatan. Lihat jadwal kegiatan di halaman ini atau hubungi pengurus untuk info terbaru.` },
-    { q: 'Bagaimana cara berdonasi?', a: `Terima kasih atas niat baik Anda untuk berdonasi ke ${mosque?.name}. Anda dapat berdonasi melalui platform online kami atau langsung menghubungi pengurus masjid. Setiap donasi Anda sangat berarti untuk kemajuan masjid.` },
-    { q: 'Kapan waktu shalat?', a: `Jadwal shalat di ${mosque?.name} mengikuti jadwal shalat resmi berdasarkan lokasi masjid di ${mosque?.city || 'kota kami'}. Silakan cek pengumuman terkini di halaman ini atau hubungi pengurus masjid.` },
+  const presets = [
+    { q: `Di mana lokasi ${mosque?.name}?`, a: `${mosque?.name} di ${mosque?.address}, ${mosque?.city}.` },
+    { q: 'Cara menghubungi masjid?', a: `${mosque?.phone ? '📞 ' + mosque.phone : ''}${mosque?.email ? '\n📧 ' + mosque.email : ''}` },
+    { q: 'Apa kegiatan masjid?', a: `${mosque?.name} memiliki shalat berjamaah, kajian, dan kegiatan sosial rutin. Lihat tab Kegiatan!` },
+    { q: 'Cara berdonasi?', a: `Donasi ke ${mosque?.name} bisa langsung ke pengurus. Jazakallah khairan! 🤲` },
   ];
 
-  function findAnswer(q) {
-    const query = q.toLowerCase();
-    for (const item of presetQA) {
-      const keywords = item.q.toLowerCase().split(' ').filter(w => w.length > 3);
-      if (keywords.some(kw => query.includes(kw))) return item.a;
-    }
-    return null;
-  }
-
-  async function sendMessage(text) {
+  async function send(text) {
     if (!text.trim()) return;
-    const userMsg = text.trim();
-    setMessages(prev => [...prev, { from: 'user', text: userMsg }]);
-    setInput('');
-    setShowPreset(false);
-    setTyping(true);
-    await new Promise(r => setTimeout(r, 800 + Math.random() * 600));
+    setMsgs(p => [...p, { from: 'user', text: text.trim() }]);
+    setInput(''); setShowPreset(false); setTyping(true);
+    await new Promise(r => setTimeout(r, 900));
     setTyping(false);
-    const answer = findAnswer(userMsg);
-    setMessages(prev => [...prev, {
-      from: 'bot',
-      text: answer || `Terima kasih atas pertanyaan Anda. Untuk informasi lebih lanjut tentang ${mosque?.name}, silakan hubungi langsung pengurus masjid${mosque?.phone ? ' di nomor ' + mosque.phone : ''}. Jazakallah khairan! 🕌`
-    }]);
+    const q = text.toLowerCase();
+    const found = presets.find(p => p.q.toLowerCase().split(' ').filter(w => w.length > 3).some(kw => q.includes(kw)));
+    setMsgs(p => [...p, { from: 'bot', text: found?.a || `Untuk info lebih lanjut, hubungi pengurus ${mosque?.name}${mosque?.phone ? ' di ' + mosque.phone : ''}. 🕌` }]);
   }
-
-  const waLink = mosque?.phone ? `https://wa.me/${mosque.phone.replace(/[^0-9]/g, '')}` : null;
 
   return (
     <>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform"
-        aria-label="Tanya AI Asisten Masjid"
-      >
+      <button onClick={() => setOpen(o => !o)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform">
         {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
         {!open && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse" />}
       </button>
-
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border overflow-hidden flex flex-col" style={{ maxHeight: '520px' }}>
+        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border overflow-hidden flex flex-col" style={{ maxHeight: '500px' }}>
           <div className="bg-gradient-to-r from-primary to-emerald-600 px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center">
-              {mosque?.logo_url
-                ? <img src={mosque.logo_url} alt="logo" className="w-full h-full rounded-full object-cover" />
-                : <span className="text-xl">🕌</span>}
+            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
+              {mosque?.logo_url ? <img src={mosque.logo_url} alt="logo" className="w-full h-full object-cover" /> : <img src="/favicon.png" className="w-6 h-6 object-contain" />}
             </div>
             <div>
-              <p className="text-white font-bold text-sm truncate max-w-[160px]">{mosque?.name || 'Asisten Masjid'}</p>
+              <p className="text-white font-bold text-sm">{mosque?.name}</p>
               <p className="text-white/70 text-xs flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-300 rounded-full" />AI Asisten Online</p>
             </div>
-            <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white">
-              <ChevronDown className="h-5 w-5" />
-            </button>
+            <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white"><ChevronDown className="h-5 w-5" /></button>
           </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-            {messages.map((m, i) => (
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
+            {msgs.map((m, i) => (
               <div key={i} className={`flex ${m.from === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {m.from === 'bot' && (
-                  <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1">
-                    <Bot className="h-4 w-4 text-primary" />
-                  </div>
-                )}
-                <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
-                  m.from === 'user'
-                    ? 'bg-primary text-white rounded-br-sm'
-                    : 'bg-white border text-gray-700 rounded-bl-sm shadow-sm'
-                }`}>{m.text}</div>
+                {m.from === 'bot' && <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1"><Bot className="h-4 w-4 text-primary" /></div>}
+                <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${m.from === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white border text-gray-700 rounded-bl-sm shadow-sm'}`}>{m.text}</div>
               </div>
             ))}
-            {typing && (
-              <div className="flex justify-start">
-                <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
-                <div className="bg-white border px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm flex gap-1">
-                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
-              </div>
-            )}
-            {showPreset && messages.length <= 1 && (
-              <div className="space-y-2">
-                <p className="text-xs text-gray-400 text-center">Pilih pertanyaan</p>
-                {presetQA.map((item, i) => (
-                  <button key={i} onClick={() => sendMessage(item.q)}
-                    className="w-full text-left text-xs px-3 py-2 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 text-gray-700 transition-colors">
-                    {item.q}
-                  </button>
-                ))}
-              </div>
-            )}
+            {typing && <div className="flex items-center gap-2"><div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center"><Bot className="h-4 w-4 text-primary" /></div><div className="bg-white border px-4 py-3 rounded-2xl flex gap-1">{[0,150,300].map(d => <span key={d} className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{animationDelay:`${d}ms`}} />)}</div></div>}
+            {showPreset && msgs.length <= 1 && <div className="space-y-1.5">{presets.map((p,i) => <button key={i} onClick={() => send(p.q)} className="w-full text-left text-xs px-3 py-2 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 text-gray-700">{p.q}</button>)}</div>}
             <div ref={bottomRef} />
           </div>
-
           <div className="p-3 border-t bg-white">
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendMessage(input)}
-                placeholder="Tanya sesuatu..."
-                className="flex-1 px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-              />
-              <button onClick={() => sendMessage(input)}
-                className="w-9 h-9 bg-primary text-white rounded-xl flex items-center justify-center hover:bg-primary/90 flex-shrink-0">
-                <Send className="h-4 w-4" />
-              </button>
+              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send(input)} placeholder="Tanya sesuatu..." className="flex-1 px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
+              <button onClick={() => send(input)} className="w-9 h-9 bg-primary text-white rounded-xl flex items-center justify-center"><Send className="h-4 w-4" /></button>
             </div>
-            {waLink && (
-              <a href={waLink} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-1.5 mt-2 text-xs text-emerald-600 hover:text-emerald-700 font-medium">
-                <Phone className="h-3 w-3" /> WhatsApp Pengurus Masjid
-              </a>
-            )}
+            {mosque?.phone && <a href={`https://wa.me/${mosque.phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 mt-2 text-xs text-emerald-600 font-medium"><Phone className="h-3 w-3" />WhatsApp Pengurus</a>}
           </div>
         </div>
       )}
@@ -232,6 +255,7 @@ function AIMosqueChatWidget({ mosque }) {
   );
 }
 
+// ── MAIN ──────────────────────────────────────────────────────────────────────
 export default function MosquePortfolio() {
   const { id } = useParams();
   const [mosque, setMosque] = useState(null);
@@ -240,443 +264,423 @@ export default function MosquePortfolio() {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [activeTab, setActiveTab] = useState('beranda');
 
+  useEffect(() => { loadData(); }, [id]);
   useEffect(() => {
-    loadData();
-  }, [id]);
-
-  // Handle auto-join from URL parameter
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (mosque && urlParams.get('join') === 'true') {
-      processJoin(mosque.id);
-    }
+    const p = new URLSearchParams(window.location.search);
+    if (mosque && p.get('join') === 'true') processJoin(mosque.id);
   }, [mosque]);
 
   async function processJoin(mosqueId) {
     try {
       const me = await smartApi.auth.me();
-      // Check if already a member
-      const existing = await smartApi.entities.MosqueMember.filter({ user_email: me.email, mosque_id: mosqueId });
-      if (existing.length === 0) {
-        await smartApi.entities.MosqueMember.create({
-          mosque_id: mosqueId,
-          user_email: me.email,
-          role: 'jamaah',
-          status: 'active'
-        });
-        toast.success("Berhasil bergabung dengan masjid!");
-      }
-      window.location.href = '/dashboard';
-    } catch (e) {
-      // User is not logged in, redirect to login with join parameter
-      smartApi.auth.redirectToLogin(window.location.pathname + '?join=true');
-    }
+      const ex = await smartApi.entities.MosqueMember.filter({ user_email: me.email, mosque_id: mosqueId });
+      if (ex.length === 0) await smartApi.entities.MosqueMember.create({ mosque_id: mosqueId, user_email: me.email, role: 'jamaah', status: 'active' });
+      toast.success("Berhasil bergabung!"); window.location.href = '/dashboard';
+    } catch { smartApi.auth.redirectToLogin(window.location.pathname + '?join=true'); }
   }
-
-  const handleJoinClick = () => {
-    processJoin(mosque?.id);
-  };
 
   async function loadData() {
     setLoading(true);
-    let mosqueData = null;
+    let m = null;
     try {
-      const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
-      if (bySlug?.length > 0) {
-        mosqueData = bySlug[0];
-      } else {
-        try {
-          const byId = await smartApi.entities.Mosque.filter({ id: id });
-          if (byId?.length > 0) mosqueData = byId[0];
-        } catch (_) {}
-      }
-    } catch (e) {
-      console.error('Error loading mosque:', e);
-    }
-
-    if (!mosqueData) {
-      setNotFound(true);
-      setLoading(false);
-      return;
-    }
-    setMosque(mosqueData);
-
+      const s = await smartApi.entities.Mosque.filter({ slug: id });
+      m = s?.[0] || null;
+      if (!m) { const r = await smartApi.entities.Mosque.filter({ id }); m = r?.[0] || null; }
+    } catch {}
+    if (!m) { setNotFound(true); setLoading(false); return; }
+    setMosque(m);
     const [acts, anns, txns] = await Promise.all([
-      smartApi.entities.Activity.filter({ mosque_id: mosqueData.id, status: "upcoming" }, "date", 6),
-      smartApi.entities.Announcement.filter({ mosque_id: mosqueData.id, status: "published" }, "-created_date", 5),
-      mosqueData.show_financial ? smartApi.entities.Transaction.filter({ mosque_id: mosqueData.id }, "-date", 100) : Promise.resolve([]),
+      smartApi.entities.Activity.filter({ mosque_id: m.id, status: "upcoming" }, "date", 20),
+      smartApi.entities.Announcement.filter({ mosque_id: m.id, status: "published" }, "-created_date", 20),
+      m.show_financial ? smartApi.entities.Transaction.filter({ mosque_id: m.id }, "-date", 100) : Promise.resolve([]),
     ]);
-    setActivities(acts);
-    setAnnouncements(anns);
-    setTransactions(txns);
+    setActivities(acts); setAnnouncements(anns); setTransactions(txns);
     setLoading(false);
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground text-sm">Memuat halaman masjid...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" /><p className="text-muted-foreground text-sm">Memuat halaman masjid...</p></div></div>;
+  if (notFound) return <div className="min-h-screen flex items-center justify-center"><div className="text-center space-y-3"><Landmark className="h-16 w-16 text-muted-foreground mx-auto" /><h1 className="text-2xl font-bold">Masjid Tidak Ditemukan</h1><Link to="/" className="text-primary hover:underline text-sm">Kembali ke Beranda</Link></div></div>;
 
-  if (notFound) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <Landmark className="h-16 w-16 text-muted-foreground mx-auto" />
-          <h1 className="text-2xl font-bold">Masjid Tidak Ditemukan</h1>
-          <p className="text-muted-foreground">Halaman masjid yang Anda cari tidak tersedia.</p>
-          <Link to="/" className="text-primary hover:underline text-sm">Kembali ke Dashboard</Link>
-        </div>
-      </div>
-    );
-  }
+  const totalIn = transactions.filter(t => t.type === 'income').reduce((s,t) => s+(t.amount||0), 0);
+  const totalOut = transactions.filter(t => t.type === 'expense').reduce((s,t) => s+(t.amount||0), 0);
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const mTxn = transactions.filter(t => t.date?.startsWith(thisMonth));
+  const mIn = mTxn.filter(t => t.type==='income').reduce((s,t) => s+(t.amount||0), 0);
+  const mOut = mTxn.filter(t => t.type==='expense').reduce((s,t) => s+(t.amount||0), 0);
 
-  const totalIncome = transactions.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
-  const totalExpense = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+  const slides = parseMediaSlides(mosque.tv_slideshow_urls, mosque.tv_video_url, mosque.cover_image_url);
+  const photoSlides = slides.filter(s => s.type === 'photo');
+  const videoSlides = slides.filter(s => s.type === 'video');
+  const mosqueUrl = `https://ms.dstechsmart.com/masjid/${mosque.slug || mosque.id}`;
 
-  // Month stats
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthTxns = transactions.filter(t => t.date?.startsWith(thisMonth));
-  const monthIncome = monthTxns.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
-  const monthExpense = monthTxns.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+  const tabCounts = {
+    beranda: 0,
+    pengumuman: announcements.length,
+    kegiatan: activities.length,
+    galeri: slides.length,
+    keuangan: transactions.length,
+    tentang: 0,
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero / Cover */}
-      <div className="relative h-64 md:h-80 bg-gradient-to-br from-primary to-primary/70 overflow-hidden">
-        {mosque.cover_image_url && (
-          <img src={mosque.cover_image_url} alt={mosque.name} className="w-full h-full object-cover opacity-40 absolute inset-0" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="relative h-full flex flex-col justify-end p-6 md:p-10 max-w-5xl mx-auto">
-          <div className="flex items-end justify-between gap-4 w-full">
-            <div className="flex items-end gap-4">
-              {mosque.logo_url ? (
-                <img src={mosque.logo_url} alt="Logo" className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-cover border-2 border-white/30 shadow-lg bg-white" />
-              ) : (
-                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center border-2 border-white/30 shadow-lg">
-                  <Landmark className="h-8 w-8 text-white" />
-                </div>
-              )}
-              <div className="text-white">
-                <h1 className="text-2xl md:text-4xl font-bold drop-shadow">{mosque.name}</h1>
-                <div className="flex items-center gap-1 mt-1 text-white/90 text-sm drop-shadow-sm">
-                  <MapPin className="h-3.5 w-3.5" /> {mosque.city}{mosque.province ? `, ${mosque.province}` : ''}
-                  {mosque.established_year && <span className="ml-2">• Est. {mosque.established_year}</span>}
-                </div>
-              </div>
-            </div>
-            
-            <div className="hidden sm:block">
-              <Link to={`/masjid/${mosque.slug || mosque.id}/login`}>
-                <Button className="bg-white text-primary hover:bg-white/90 shadow-xl drop-shadow-md gap-2" size="lg">
-                  <UserPlus className="h-4 w-4" /> Login Jamaah
-                </Button>
-              </Link>
-            </div>
-          </div>
-          <div className="sm:hidden mt-4 w-full">
-            <Link to={`/masjid/${mosque.slug || mosque.id}/login`}>
-              <Button className="w-full bg-white text-primary hover:bg-white/90 shadow-lg gap-2">
-                <UserPlus className="h-4 w-4" /> Login Jamaah
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
+      {/* ── HERO SLIDER ── */}
+      <HeroSlider slides={slides} mosque={mosque} />
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 space-y-10">
-        {/* About + Contact */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2 bg-card rounded-2xl border p-6">
-            <h2 className="font-semibold text-lg mb-3">Tentang Masjid</h2>
-            <p className="text-muted-foreground text-sm leading-relaxed">
-              {mosque.about || `${mosque.name} berlokasi di ${mosque.address}, ${mosque.city}. Masjid ini melayani jamaah dengan berbagai kegiatan ibadah dan sosial kemasyarakatan.`}
-            </p>
-            <div className="mt-4 pt-4 border-t space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <MapPin className="h-4 w-4 text-primary" /> {mosque.address}, {mosque.city}
+      {/* ── TAB NAVIGATION ── */}
+      <TabNav active={activeTab} setActive={setActiveTab} counts={tabCounts} />
+
+      {/* ── TAB CONTENT ── */}
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
+
+        {/* BERANDA */}
+        {activeTab === 'beranda' && (
+          <div className="space-y-8">
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { icon: '📢', label: 'Pengumuman', val: announcements.length, tab: 'pengumuman' },
+                { icon: '🗓️', label: 'Kegiatan', val: activities.length, tab: 'kegiatan' },
+                { icon: '🎞️', label: 'Media', val: slides.length, tab: 'galeri' },
+                { icon: '💰', label: 'Saldo Kas', val: mosque.show_financial ? formatCurrency(totalIn-totalOut) : '-', tab: 'keuangan', small: true },
+              ].map((item, i) => (
+                <button key={i} onClick={() => setActiveTab(item.tab)}
+                  className="bg-card border rounded-2xl p-4 text-center hover:shadow-md hover:border-primary/30 transition-all group">
+                  <p className="text-2xl mb-1">{item.icon}</p>
+                  <p className={`font-bold text-primary group-hover:scale-105 transition-transform ${item.small ? 'text-sm' : 'text-2xl'}`}>{item.val}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{item.label}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* About summary */}
+            <div className="bg-card rounded-2xl border p-6">
+              <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Landmark className="h-5 w-5 text-primary" />Tentang {mosque.name}</h2>
+              <p className="text-muted-foreground text-sm leading-relaxed">{mosque.about || `${mosque.name} berlokasi di ${mosque.address}, ${mosque.city}. Melayani jamaah dengan berbagai kegiatan ibadah dan sosial kemasyarakatan.`}</p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4 text-primary flex-shrink-0" />{mosque.address}, {mosque.city}</div>
+                {mosque.phone && <a href={`tel:${mosque.phone}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary"><Phone className="h-4 w-4 text-primary flex-shrink-0" />{mosque.phone}</a>}
+                {mosque.email && <a href={`mailto:${mosque.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary"><Mail className="h-4 w-4 text-primary flex-shrink-0" />{mosque.email}</a>}
+                {mosque.established_year && <div className="flex items-center gap-2 text-muted-foreground"><Calendar className="h-4 w-4 text-primary flex-shrink-0" />Berdiri sejak {mosque.established_year}</div>}
               </div>
-              {mosque.phone && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Phone className="h-4 w-4 text-primary" /> {mosque.phone}
-                </div>
-              )}
-              {mosque.email && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Mail className="h-4 w-4 text-primary" /> {mosque.email}
-                </div>
-              )}
-              {mosque.custom_domain && (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Globe className="h-4 w-4 text-primary" />
-                  <a href={`https://${mosque.custom_domain}`} target="_blank" rel="noreferrer" className="hover:text-primary hover:underline">
-                    {mosque.custom_domain}
-                  </a>
+              {(mosque.instagram||mosque.facebook||mosque.youtube) && (
+                <div className="flex gap-3 mt-4">
+                  {mosque.instagram && <a href={mosque.instagram} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-100"><Instagram className="h-5 w-5" /></a>}
+                  {mosque.facebook && <a href={mosque.facebook} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100"><Facebook className="h-5 w-5" /></a>}
+                  {mosque.youtube && <a href={mosque.youtube} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100"><Youtube className="h-5 w-5" /></a>}
                 </div>
               )}
             </div>
-            {(mosque.instagram || mosque.facebook || mosque.youtube) && (
-              <div className="flex gap-3 mt-4">
-                {mosque.instagram && (
-                  <a href={mosque.instagram} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-pink-50 text-pink-600 hover:bg-pink-100 transition-colors">
-                    <Instagram className="h-5 w-5" />
-                  </a>
-                )}
-                {mosque.facebook && (
-                  <a href={mosque.facebook} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors">
-                    <Facebook className="h-5 w-5" />
-                  </a>
-                )}
-                {mosque.youtube && (
-                  <a href={mosque.youtube} target="_blank" rel="noreferrer" className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
-                    <Youtube className="h-5 w-5" />
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* Sidebar info */}
-          <div className="space-y-4">
-            {mosque.show_financial && (
-              <div className="bg-primary text-primary-foreground rounded-2xl p-5">
-                <h3 className="font-semibold mb-4 flex items-center gap-2">
-                  <Wallet className="h-4 w-4" /> Transparansi Keuangan
-                </h3>
+            {/* Latest announcements */}
+            {announcements.slice(0, 3).length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-xl flex items-center gap-2"><Megaphone className="h-5 w-5 text-primary" />Pengumuman Terbaru</h2>
+                  <button onClick={() => setActiveTab('pengumuman')} className="text-sm text-primary hover:underline">Lihat semua →</button>
+                </div>
                 <div className="space-y-3">
-                  <div>
-                    <p className="text-primary-foreground/70 text-xs">Saldo Kas</p>
-                    <p className="text-xl font-bold">{formatCurrency(totalIncome - totalExpense)}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="bg-white/10 rounded-xl p-3">
-                      <p className="text-primary-foreground/70">Masuk Bulan Ini</p>
-                      <p className="font-semibold mt-0.5 flex items-center gap-1">
-                        <ArrowUpRight className="h-3 w-3" />{formatCurrency(monthIncome)}
-                      </p>
+                  {announcements.slice(0, 3).map(a => (
+                    <div key={a.id} className="bg-card rounded-xl border p-4 flex gap-3 hover:shadow-md transition-shadow">
+                      <span className={`text-[10px] px-2 py-1 rounded-full font-medium h-fit mt-0.5 ${priorityColors[a.priority]||priorityColors.low}`}>{a.priority==='high'?'🔴 Penting':a.priority==='medium'?'🟡 Sedang':'ℹ️ Info'}</span>
+                      <div><h3 className="font-medium">{a.title}</h3><p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{a.content}</p><p className="text-xs text-muted-foreground mt-1">{formatDate(a.created_date)}</p></div>
                     </div>
-                    <div className="bg-white/10 rounded-xl p-3">
-                      <p className="text-primary-foreground/70">Keluar Bulan Ini</p>
-                      <p className="font-semibold mt-0.5 flex items-center gap-1">
-                        <ArrowDownRight className="h-3 w-3" />{formatCurrency(monthExpense)}
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            <div className="bg-card rounded-2xl border p-5 text-sm text-muted-foreground space-y-2">
-              <p className="font-semibold text-foreground mb-1">Info</p>
-              {mosque.established_year && <p>📅 Berdiri sejak {mosque.established_year}</p>}
-              <p>🏙️ {mosque.city}{mosque.province ? `, ${mosque.province}` : ''}</p>
-              <p>📢 {announcements.length} pengumuman aktif</p>
-              <p>🗓️ {activities.length} kegiatan mendatang</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Announcements */}
-        {announcements.length > 0 && (
-          <div>
-            <h2 className="font-semibold text-xl mb-4 flex items-center gap-2">
-              <Megaphone className="h-5 w-5 text-primary" /> Pengumuman
-            </h2>
-            <div className="space-y-3">
-              {announcements.map(a => (
-                <div key={a.id} className="bg-card rounded-xl border p-4 flex items-start gap-3">
-                  <div className="mt-0.5">
-                    <span className={`text-[10px] px-2 py-1 rounded-full font-medium ${priorityColors[a.priority] || priorityColors.low}`}>
-                      {a.priority === 'high' ? 'Penting' : a.priority === 'medium' ? 'Sedang' : 'Info'}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium">{a.title}</h3>
-                    <p className="text-sm text-muted-foreground mt-1 line-clamp-3">{a.content}</p>
-                    <p className="text-xs text-muted-foreground mt-2">{formatDate(a.created_date)}</p>
-                  </div>
+            {/* Upcoming activities */}
+            {activities.slice(0, 4).length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-xl flex items-center gap-2"><Calendar className="h-5 w-5 text-primary" />Kegiatan Mendatang</h2>
+                  <button onClick={() => setActiveTab('kegiatan')} className="text-sm text-primary hover:underline">Lihat semua →</button>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── GALERI FOTO MASJID ── */}
-        {(() => {
-          const photos = mosque.tv_slideshow_urls
-            ? mosque.tv_slideshow_urls.split(',').map(u => u.trim()).filter(Boolean)
-            : mosque.cover_image_url ? [mosque.cover_image_url] : [];
-          if (photos.length === 0) return null;
-
-          return (
-            <GaleriMasjid photos={photos} mosqueName={mosque.name} />
-          );
-        })()}
-
-        {/* ── VIDEO MASJID ── */}
-        {(() => {
-          const ytUrl = mosque.tv_video_url || mosque.youtube;
-          if (!ytUrl) return null;
-          const ytId = ytUrl.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/)?.[1];
-          if (!ytId) return null;
-          return (
-            <div>
-              <h2 className="font-semibold text-xl mb-4 flex items-center gap-2">
-                <Play className="h-5 w-5 text-primary" /> Video Masjid
-              </h2>
-              <div className="rounded-2xl overflow-hidden border shadow-md aspect-video bg-black">
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1&disablekb=1&iv_load_policy=3&cc_load_policy=0`}
-                  className="w-full h-full"
-                  allow="encrypted-media; picture-in-picture"
-                  allowFullScreen
-                  title={`Video ${mosque.name}`}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activities.slice(0, 4).map(a => (
+                    <div key={a.id} className="bg-card rounded-xl border p-4 hover:shadow-md transition-shadow">
+                      <Badge variant="secondary" className="text-xs mb-2">{typeLabels[a.type]||a.type}</Badge>
+                      <h3 className="font-semibold">{a.title}</h3>
+                      {a.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.description}</p>}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3"/>{formatDate(a.date)}</span>
+                        {a.time_start && <span className="flex items-center gap-1"><Clock className="h-3 w-3"/>{a.time_start}{a.time_end?` - ${a.time_end}`:''}</span>}
+                        {a.location && <span>📍 {a.location}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            )}
 
-        {/* Activities */}
-        {activities.length > 0 && (
+            {/* Preview Gallery */}
+            {photoSlides.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-xl flex items-center gap-2"><Images className="h-5 w-5 text-primary"/>Galeri Foto</h2>
+                  <button onClick={() => setActiveTab('galeri')} className="text-sm text-primary hover:underline">Lihat semua →</button>
+                </div>
+                <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+                  {photoSlides.slice(0,8).map((s,i) => (
+                    <div key={i} className="aspect-square rounded-xl overflow-hidden border bg-muted">
+                      <img src={s.url} alt={`foto-${i+1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" onError={e => e.target.parentElement.style.display='none'} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* PENGUMUMAN */}
+        {activeTab === 'pengumuman' && (
           <div>
-            <h2 className="font-semibold text-xl mb-4 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary" /> Kegiatan Mendatang
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {activities.map(a => (
-                <div key={a.id} className="bg-card rounded-xl border p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
-                    <Badge variant="secondary" className="text-xs">{typeLabels[a.type] || a.type}</Badge>
+            <h2 className="font-semibold text-2xl mb-6 flex items-center gap-2"><Megaphone className="h-6 w-6 text-primary"/>Semua Pengumuman</h2>
+            {announcements.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground"><Megaphone className="h-12 w-12 mx-auto mb-3 opacity-30"/><p>Belum ada pengumuman</p></div>
+            ) : (
+              <div className="space-y-4">
+                {announcements.map(a => (
+                  <div key={a.id} className="bg-card rounded-xl border p-5 flex gap-3 hover:shadow-md transition-shadow">
+                    <span className={`text-[10px] px-2 py-1 rounded-full font-medium h-fit mt-0.5 ${priorityColors[a.priority]||priorityColors.low}`}>{a.priority==='high'?'🔴 Penting':a.priority==='medium'?'🟡 Sedang':'ℹ️ Info'}</span>
+                    <div className="flex-1"><h3 className="font-semibold text-base">{a.title}</h3><p className="text-sm text-muted-foreground mt-2 leading-relaxed">{a.content}</p><p className="text-xs text-muted-foreground mt-3">{formatDate(a.created_date)}</p></div>
                   </div>
-                  <h3 className="font-semibold">{a.title}</h3>
-                  {a.description && <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{a.description}</p>}
-                  <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1.5"><Calendar className="h-3 w-3" />{formatDate(a.date)}</div>
-                    {a.time_start && <div className="flex items-center gap-1.5"><Clock className="h-3 w-3" />{a.time_start}{a.time_end ? ` - ${a.time_end}` : ''}</div>}
-                    {a.imam && <div className="flex items-center gap-1.5">🎤 {a.imam}</div>}
-                    {a.location && <div className="flex items-center gap-1.5">📍 {a.location}</div>}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* KEGIATAN */}
+        {activeTab === 'kegiatan' && (
+          <div>
+            <h2 className="font-semibold text-2xl mb-6 flex items-center gap-2"><Calendar className="h-6 w-6 text-primary"/>Semua Kegiatan</h2>
+            {activities.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground"><Calendar className="h-12 w-12 mx-auto mb-3 opacity-30"/><p>Belum ada kegiatan mendatang</p></div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activities.map(a => (
+                  <div key={a.id} className="bg-card rounded-xl border p-5 hover:shadow-md transition-shadow">
+                    <Badge variant="secondary" className="text-xs mb-3">{typeLabels[a.type]||a.type}</Badge>
+                    <h3 className="font-semibold text-base">{a.title}</h3>
+                    {a.description && <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{a.description}</p>}
+                    <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2"><Calendar className="h-3 w-3"/>{formatDate(a.date)}</div>
+                      {a.time_start && <div className="flex items-center gap-2"><Clock className="h-3 w-3"/>{a.time_start}{a.time_end?` - ${a.time_end}`:''}</div>}
+                      {a.imam && <div>🎤 {a.imam}</div>}
+                      {a.location && <div>📍 {a.location}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* GALERI & VIDEO */}
+        {activeTab === 'galeri' && (
+          <div className="space-y-10">
+            {photoSlides.length > 0 && (
+              <div>
+                <h2 className="font-semibold text-2xl mb-4 flex items-center gap-2"><Images className="h-6 w-6 text-primary"/>Galeri Foto <span className="text-base text-muted-foreground font-normal">({photoSlides.length} foto)</span></h2>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {photoSlides.map((s,i) => (
+                    <div key={i} className="aspect-video rounded-xl overflow-hidden border bg-muted group">
+                      <img src={s.url} alt={`foto-${i+1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onError={e => e.target.parentElement.style.display='none'} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {videoSlides.length > 0 && (
+              <div>
+                <h2 className="font-semibold text-2xl mb-4 flex items-center gap-2"><Play className="h-6 w-6 text-primary"/>Video Masjid <span className="text-base text-muted-foreground font-normal">({videoSlides.length} video)</span></h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {videoSlides.map((s,i) => (
+                    <div key={i} className="rounded-2xl overflow-hidden border shadow-md aspect-video bg-black">
+                      <iframe src={`https://www.youtube-nocookie.com/embed/${s.ytId}?rel=0&modestbranding=1&iv_load_policy=3&cc_load_policy=0&disablekb=1`} className="w-full h-full" allow="encrypted-media; picture-in-picture" allowFullScreen title={`Video ${i+1}`} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {slides.length === 0 && (
+              <div className="text-center py-16 text-muted-foreground"><Images className="h-12 w-12 mx-auto mb-3 opacity-30"/><p>Belum ada foto atau video</p><p className="text-xs mt-1">Tambahkan di Pengaturan → Layar TV</p></div>
+            )}
+          </div>
+        )}
+
+        {/* KEUANGAN */}
+        {activeTab === 'keuangan' && (
+          <div>
+            <h2 className="font-semibold text-2xl mb-6 flex items-center gap-2"><Wallet className="h-6 w-6 text-primary"/>Laporan Keuangan</h2>
+            {!mosque.show_financial ? (
+              <div className="text-center py-16 text-muted-foreground"><Wallet className="h-12 w-12 mx-auto mb-3 opacity-30"/><p>Laporan keuangan tidak dipublikasikan</p></div>
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {[
+                    { label:'Total Pemasukan', val: formatCurrency(totalIn), icon:'📈', color:'bg-emerald-50 border-emerald-200 text-emerald-700' },
+                    { label:'Total Pengeluaran', val: formatCurrency(totalOut), icon:'📉', color:'bg-red-50 border-red-200 text-red-700' },
+                    { label:'Saldo Kas', val: formatCurrency(totalIn-totalOut), icon:'💰', color:'bg-blue-50 border-blue-200 text-blue-700' },
+                  ].map((item, i) => (
+                    <div key={i} className={`rounded-2xl border p-5 ${item.color}`}>
+                      <p className="text-2xl mb-1">{item.icon}</p>
+                      <p className="text-xs font-medium opacity-70">{item.label}</p>
+                      <p className="text-xl font-bold mt-1">{item.val}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                    <p className="text-xs text-emerald-700 font-medium">Masuk Bulan Ini</p>
+                    <p className="text-lg font-bold text-emerald-700 flex items-center gap-1 mt-1"><ArrowUpRight className="h-4 w-4"/>{formatCurrency(mIn)}</p>
+                  </div>
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                    <p className="text-xs text-red-700 font-medium">Keluar Bulan Ini</p>
+                    <p className="text-lg font-bold text-red-700 flex items-center gap-1 mt-1"><ArrowDownRight className="h-4 w-4"/>{formatCurrency(mOut)}</p>
+                  </div>
+                </div>
+                {transactions.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold mb-3">Riwayat Transaksi Terbaru</h3>
+                    <div className="space-y-2">
+                      {transactions.slice(0, 20).map(t => (
+                        <div key={t.id} className="flex items-center justify-between bg-card rounded-xl border p-3">
+                          <div className="flex items-center gap-3">
+                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${t.type==='income'?'bg-emerald-100':'bg-red-100'}`}>{t.type==='income'?'📈':'📉'}</span>
+                            <div><p className="text-sm font-medium">{t.description||t.category}</p><p className="text-xs text-muted-foreground">{formatDate(t.date)}</p></div>
+                          </div>
+                          <p className={`font-semibold text-sm ${t.type==='income'?'text-emerald-600':'text-red-600'}`}>{t.type==='income'?'+':'-'}{formatCurrency(t.amount)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TENTANG */}
+        {activeTab === 'tentang' && (
+          <div className="space-y-6">
+            <h2 className="font-semibold text-2xl flex items-center gap-2"><Info className="h-6 w-6 text-primary"/>Tentang {mosque.name}</h2>
+            <div className="bg-card rounded-2xl border p-6">
+              <p className="text-muted-foreground leading-relaxed">{mosque.about || `${mosque.name} berlokasi di ${mosque.address}, ${mosque.city}. Masjid ini melayani jamaah dengan berbagai kegiatan ibadah dan sosial kemasyarakatan.`}</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                mosque.address && { icon: <MapPin className="h-5 w-5 text-primary"/>, label:'Alamat', val: `${mosque.address}, ${mosque.city}${mosque.province?', '+mosque.province:''}` },
+                mosque.phone && { icon: <Phone className="h-5 w-5 text-primary"/>, label:'Telepon', val: mosque.phone, link: `tel:${mosque.phone}` },
+                mosque.email && { icon: <Mail className="h-5 w-5 text-primary"/>, label:'Email', val: mosque.email, link: `mailto:${mosque.email}` },
+                mosque.established_year && { icon: <Calendar className="h-5 w-5 text-primary"/>, label:'Tahun Berdiri', val: mosque.established_year },
+                mosque.custom_domain && { icon: <Globe className="h-5 w-5 text-primary"/>, label:'Website', val: mosque.custom_domain, link: `https://${mosque.custom_domain}` },
+              ].filter(Boolean).map((item, i) => (
+                <div key={i} className="bg-card rounded-xl border p-4 flex items-start gap-3">
+                  {item.icon}
+                  <div>
+                    <p className="text-xs text-muted-foreground">{item.label}</p>
+                    {item.link
+                      ? <a href={item.link} target="_blank" rel="noreferrer" className="text-sm font-medium text-primary hover:underline">{item.val}</a>
+                      : <p className="text-sm font-medium">{item.val}</p>}
                   </div>
                 </div>
               ))}
             </div>
+            {/* Social Media */}
+            {(mosque.instagram||mosque.facebook||mosque.youtube) && (
+              <div className="bg-card rounded-2xl border p-5">
+                <p className="font-semibold mb-3">Media Sosial</p>
+                <div className="flex gap-3">
+                  {mosque.instagram && <a href={mosque.instagram} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-pink-50 text-pink-600 rounded-xl text-sm font-medium hover:bg-pink-100"><Instagram className="h-4 w-4"/>Instagram</a>}
+                  {mosque.facebook && <a href={mosque.facebook} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-xl text-sm font-medium hover:bg-blue-100"><Facebook className="h-4 w-4"/>Facebook</a>}
+                  {mosque.youtube && <a href={mosque.youtube} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-xl text-sm font-medium hover:bg-red-100"><Youtube className="h-4 w-4"/>YouTube</a>}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Footer Masjid dengan Kontak Lengkap */}
-        <footer className="border-t mt-4">
-          {/* Kontak Info */}
-          <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white py-10 px-6 rounded-2xl mb-6">
+        {/* ── FOOTER ── */}
+        <footer className="mt-16 pt-8 border-t">
+          <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-2xl p-8 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Info Masjid */}
+              {/* Mosque Info */}
               <div className="md:col-span-2">
                 <div className="flex items-center gap-3 mb-4">
-                  {mosque.logo_url
-                    ? <img src={mosque.logo_url} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white/20" />
-                    : <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center"><Landmark className="h-6 w-6 text-white" /></div>
-                  }
-                  <div>
-                    <h3 className="font-bold text-lg">{mosque.name}</h3>
-                    <p className="text-white/60 text-sm">{mosque.city}{mosque.province ? `, ${mosque.province}` : ''}</p>
-                  </div>
+                  {mosque.logo_url ? <img src={mosque.logo_url} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white/20"/> : <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center"><Landmark className="h-6 w-6 text-white"/></div>}
+                  <div><h3 className="font-bold text-lg">{mosque.name}</h3><p className="text-white/60 text-sm">{mosque.city}{mosque.province?`, ${mosque.province}`:''}</p></div>
                 </div>
-                <p className="text-white/70 text-sm leading-relaxed mb-5">
-                  {mosque.about || `${mosque.name} berkomitmen melayani jamaah dengan sepenuh hati. Bergabunglah dengan kami dalam setiap kegiatan ibadah dan kemasyarakatan.`}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-start gap-3 bg-white/5 rounded-xl p-3">
-                    <MapPin className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm text-white/80">{mosque.address}, {mosque.city}</span>
-                  </div>
-                  {mosque.phone && (
-                    <a href={`tel:${mosque.phone}`} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition-colors">
-                      <Phone className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                      <span className="text-sm text-white/80">{mosque.phone}</span>
-                    </a>
-                  )}
-                  {mosque.email && (
-                    <a href={`mailto:${mosque.email}`} className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition-colors">
-                      <Mail className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                      <span className="text-sm text-white/80 truncate">{mosque.email}</span>
-                    </a>
-                  )}
-                  {mosque.custom_domain && (
-                    <a href={`https://${mosque.custom_domain}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl p-3 transition-colors">
-                      <Globe className="h-4 w-4 text-emerald-400 flex-shrink-0" />
-                      <span className="text-sm text-white/80">{mosque.custom_domain}</span>
-                      <ExternalLink className="h-3 w-3 text-white/40 ml-auto" />
-                    </a>
-                  )}
+                <p className="text-white/70 text-sm leading-relaxed mb-5">{mosque.about||`${mosque.name} berkomitmen melayani jamaah dengan sepenuh hati.`}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="flex items-center gap-3 bg-white/5 rounded-xl p-3">
+                  <img src="/favicon.png" className="h-4 w-4 object-contain mt-0.5 flex-shrink-0" />
+                  <span className="text-sm text-white/80">{mosque.address}, {mosque.city}</span>
+                </div>  {mosque.phone && <a href={`tel:${mosque.phone}`} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-xl p-3 text-sm text-white/80"><Phone className="h-4 w-4 text-emerald-400"/>{mosque.phone}</a>}
+                  {mosque.email && <a href={`mailto:${mosque.email}`} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 rounded-xl p-3 text-sm text-white/80 truncate"><Mail className="h-4 w-4 text-emerald-400 flex-shrink-0"/>{mosque.email}</a>}
                 </div>
-                {/* Social media */}
-                {(mosque.instagram || mosque.facebook || mosque.youtube) && (
+                {(mosque.instagram||mosque.facebook||mosque.youtube) && (
                   <div className="flex gap-3 mt-4">
-                    {mosque.instagram && (
-                      <a href={mosque.instagram} target="_blank" rel="noreferrer" className="p-2 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg transition-colors">
-                        <Instagram className="h-5 w-5 text-pink-400" />
-                      </a>
-                    )}
-                    {mosque.facebook && (
-                      <a href={mosque.facebook} target="_blank" rel="noreferrer" className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg transition-colors">
-                        <Facebook className="h-5 w-5 text-blue-400" />
-                      </a>
-                    )}
-                    {mosque.youtube && (
-                      <a href={mosque.youtube} target="_blank" rel="noreferrer" className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors">
-                        <Youtube className="h-5 w-5 text-red-400" />
-                      </a>
-                    )}
+                    {mosque.instagram && <a href={mosque.instagram} target="_blank" rel="noreferrer" className="p-2 bg-pink-500/20 hover:bg-pink-500/30 rounded-lg"><Instagram className="h-5 w-5 text-pink-400"/></a>}
+                    {mosque.facebook && <a href={mosque.facebook} target="_blank" rel="noreferrer" className="p-2 bg-blue-500/20 hover:bg-blue-500/30 rounded-lg"><Facebook className="h-5 w-5 text-blue-400"/></a>}
+                    {mosque.youtube && <a href={mosque.youtube} target="_blank" rel="noreferrer" className="p-2 bg-red-500/20 hover:bg-red-500/30 rounded-lg"><Youtube className="h-5 w-5 text-red-400"/></a>}
                   </div>
                 )}
               </div>
 
-              {/* CTA Bergabung */}
+              {/* QR + Join */}
               <div className="space-y-4">
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                  <h4 className="font-bold mb-2 text-sm">🤝 Bergabung Sebagai Jamaah</h4>
-                  <p className="text-white/60 text-xs mb-4 leading-relaxed">Daftar dan ikuti kegiatan {mosque.name} secara digital. Dapatkan notifikasi pengumuman dan jadwal terbaru.</p>
-                  <Link to={`/masjid/${mosque.slug || mosque.id}/login`}>
-                    <Button className="w-full bg-white text-primary hover:bg-white/90 text-sm" size="sm">
-                      <UserPlus className="h-4 w-4 mr-2" /> Login / Daftar Jamaah
-                    </Button>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-5 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <Smartphone className="h-4 w-4 text-emerald-400"/>
+                    <p className="text-sm font-semibold text-emerald-300">Aplikasi Mobile</p>
+                    <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[9px] font-bold">BARU</span>
+                  </div>
+                  <div className="bg-white p-2 rounded-xl inline-block mb-3 shadow-lg relative">
+                    <QRCode value={mosqueUrl} size={110}/>
+                    {mosque.logo_url && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <img src={mosque.logo_url} alt="logo" className="w-8 h-8 rounded-full object-cover border-2 border-white shadow"/>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-white/50 leading-snug">Scan untuk membuka halaman <b className="text-white/70">{mosque.name}</b> di HP Anda</p>
+                </div>
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                  <p className="text-sm font-bold mb-2">🤝 Bergabung Sebagai Jamaah</p>
+                  <Link to={`/masjid/${mosque.slug||mosque.id}/login`}>
+                    <Button className="w-full bg-emerald-500 hover:bg-emerald-600 text-white" size="sm"><UserPlus className="h-4 w-4 mr-2"/>Login / Daftar Jamaah</Button>
                   </Link>
                 </div>
                 {mosque.phone && (
-                  <a href={`https://wa.me/${mosque.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer"
-                    className="flex items-center gap-3 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-2xl p-4 transition-colors">
-                    <MessageSquare className="h-5 w-5 text-green-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold">WhatsApp Pengurus</p>
-                      <p className="text-xs text-white/60">{mosque.phone}</p>
-                    </div>
+                  <a href={`https://wa.me/${mosque.phone.replace(/\D/g,'')}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-2xl p-4 transition-colors">
+                    <MessageSquare className="h-5 w-5 text-green-400 flex-shrink-0"/>
+                    <div><p className="text-sm font-semibold">WhatsApp Pengurus</p><p className="text-xs text-white/60">{mosque.phone}</p></div>
                   </a>
                 )}
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
                   <p className="text-xs text-white/50 mb-1">Dikelola menggunakan</p>
-                  <Link to="/" className="text-emerald-400 hover:text-emerald-300 text-sm font-bold">🕌 MasjidKu Smart</Link>
+                  <Link to="/" className="flex items-center justify-center gap-2 text-emerald-400 hover:text-emerald-300 font-bold">
+                    <img src="/favicon.png" alt="MasjidKu Smart" className="h-6 w-6 rounded-md object-contain" />
+                    MasjidKu Smart
+                  </Link>
                   <p className="text-xs text-white/40 mt-1">Platform Digital Masjid #1 Indonesia</p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Bottom bar */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground py-4 px-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground pb-6">
             <p>© {new Date().getFullYear()} {mosque.name}. Hak cipta dilindungi.</p>
-            <Link to="/" className="hover:text-primary transition-colors hover:underline">Daftarkan masjid Anda ke MasjidKu Smart →</Link>
+            <Link to="/" className="hover:text-primary hover:underline">Daftarkan masjid Anda ke MasjidKu Smart →</Link>
           </div>
         </footer>
       </div>
 
-      {/* AI Chat Widget Masjid */}
-      <AIMosqueChatWidget mosque={mosque} />
+      <AIChatWidget mosque={mosque}/>
     </div>
   );
 }

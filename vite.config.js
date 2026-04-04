@@ -10,24 +10,25 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
         name: 'MasjidKu Smart',
         short_name: 'MasjidKu',
         description: 'Aplikasi Manajemen Masjid Modern',
-        theme_color: '#ffffff',
+        theme_color: '#16a34a',
         background_color: '#ffffff',
         display: 'standalone',
         icons: [
           {
-            src: 'favicon.svg',
+            src: 'icon-192.png',
             sizes: '192x192',
-            type: 'image/svg+xml'
+            type: 'image/png'
           },
           {
-            src: 'favicon.svg',
+            src: 'icon-512.png',
             sizes: '512x512',
-            type: 'image/svg+xml'
+            type: 'image/png',
+            purpose: 'any maskable'
           }
         ]
       }

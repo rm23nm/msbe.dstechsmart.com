@@ -46,7 +46,7 @@ export default function CariMasjid() {
             <ChevronLeft className="h-4 w-4" /> Kembali ke Login
           </Link>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-4xl">🕌</span>
+            <img src="/favicon.png" alt="MasjidKu Logo" className="h-16 w-16 mx-auto mb-4 object-contain" />
             <h1 className="text-3xl font-bold">Cari Masjid Anda</h1>
           </div>
           <p className="text-white/80 text-base mb-8 max-w-xl">
@@ -144,7 +144,7 @@ export default function CariMasjid() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <span className="text-5xl opacity-30">🕌</span>
+                      <img src="/favicon.png" className="w-12 h-12 object-contain opacity-30" />
                     </div>
                   )}
                   {/* Logo */}
@@ -206,7 +206,7 @@ export default function CariMasjid() {
 
         {/* CTA daftar */}
         <div className="mt-10 bg-gradient-to-br from-emerald-50 to-primary/5 border border-emerald-200 rounded-2xl p-8 text-center">
-          <span className="text-3xl block mb-3">🕌</span>
+          <img src="/favicon.png" alt="Logo" className="h-12 w-12 mx-auto mb-3 object-contain" />
           <h3 className="font-bold text-lg mb-2">Masjid Anda Belum Terdaftar?</h3>
           <p className="text-slate-500 text-sm mb-5 max-w-md mx-auto">
             Daftarkan masjid Anda sekarang dan nikmati semua fitur manajemen digital. Trial gratis 30 hari!

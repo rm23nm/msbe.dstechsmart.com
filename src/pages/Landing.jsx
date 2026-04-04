@@ -67,7 +67,7 @@ const MOSQUE_VIDEOS_DEFAULT = [
 
 // Fitur/dokumen masjid — statis untuk ilustrasi fitur aplikasi di landing
 const MOSQUE_ACTIVITIES = [
-  { emoji: "🕌", title: "Jadwal Shalat Harian", desc: "Jadwal shalat 5 waktu terupdate otomatis setiap hari lengkap dengan Subuh, Dzuhur, Ashar, Maghrib, dan Isya", color: "from-emerald-500 to-teal-600" },
+  { icon: <img src="/favicon.png" className="w-5 h-5 object-contain" />, title: "Jadwal Shalat Harian", desc: "Jadwal shalat 5 waktu terupdate otomatis setiap hari lengkap dengan Subuh, Dzuhur, Ashar, Maghrib, dan Isya", color: "from-emerald-500 to-teal-600" },
   { emoji: "📋", title: "Laporan Keuangan Bulanan", desc: "Dokumen laporan kas masuk, kas keluar, dan saldo masjid yang transparan dan bisa diakses jamaah kapanpun", color: "from-blue-500 to-indigo-600" },
   { emoji: "📣", title: "Pengumuman & Notifikasi", desc: "Broadcast pengumuman Jumat, peringatan hari besar Islam, dan agenda kegiatan langsung ke jamaah", color: "from-amber-500 to-orange-600" },
   { emoji: "🎓", title: "Jadwal Kajian & Ceramah", desc: "Dokumentasi jadwal kajian rutin, nama pemateri, tema, dan rekaman video kajian yang bisa diputar ulang", color: "from-purple-500 to-violet-600" },
@@ -465,7 +465,9 @@ function VideoHighlightsSection({ mosques }) {
             </div>
             {/* Keterangan masjid */}
             <div className="mt-4 p-4 bg-white/5 rounded-xl border border-white/10 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0 text-lg">🕌</div>
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                <img src="/favicon.png" className="w-6 h-6 object-contain" />
+              </div>
               <div>
                 <h3 className="font-bold text-base">{current.mosqueName}</h3>
                 <p className="text-white/50 text-sm">{current.desc}</p>
@@ -815,7 +817,7 @@ export default function Landing() {
   const [plans, setPlans] = useState([]);
   const [mosques, setMosques] = useState([]);
   const [processingPayment, setProcessingPayment] = useState(false);
-  const [registrationForm, setRegistrationForm] = useState({ name: "", email: "" });
+  const [registrationForm, setRegistrationForm] = useState({ name: "", email: "", password: "", showPassword: false });
   const [selectedPlan, setSelectedPlan] = useState("yearly");
 
   useEffect(() => {
@@ -849,25 +851,19 @@ export default function Landing() {
     : "Hubungi kami";
 
   async function handlePaymentClick() {
-    if (!registrationForm.name.trim()) {
-      toast.error("Nama masjid harus diisi");
-      return;
-    }
-    if (!registrationForm.email.trim()) {
-      toast.error("Email harus diisi");
-      return;
-    }
+    if (!registrationForm.name.trim()) { toast.error("Nama masjid harus diisi"); return; }
+    if (!registrationForm.email.trim()) { toast.error("Email harus diisi"); return; }
+    if (!registrationForm.password.trim()) { toast.error("Password harus diisi"); return; }
+    if (registrationForm.password.length < 6) { toast.error("Password minimal 6 karakter"); return; }
 
     setProcessingPayment(true);
     try {
-      // Auto-generate slug
       const slug = registrationForm.name.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").substring(0, 50) + "-" + Date.now().toString(36);
 
-      // Create mosque
+      // 1. Buat data masjid
       const mosque = await smartApi.entities.Mosque.create({
         name: registrationForm.name,
-        address: "-",
-        city: "-",
+        address: "-", city: "-",
         email: registrationForm.email,
         slug,
         subscription_plan: selectedPlan,
@@ -877,19 +873,33 @@ export default function Landing() {
         status: "active"
       });
 
+      // 2. Daftarkan user sebagai Admin Masjid
+      const { apiClient } = await import("@/api/apiClient");
+      const regRes = await apiClient.post("/auth/register-mosque-admin", {
+        full_name: registrationForm.name + " (Admin)",
+        email: registrationForm.email,
+        password: registrationForm.password,
+        mosque_id: mosque.id
+      });
+
+      // 3. Simpan token login otomatis
+      if (regRes.data?.token) {
+        localStorage.setItem("token", regRes.data.token);
+        localStorage.setItem("user", JSON.stringify(regRes.data.user));
+      }
+
       if (planPrice === 0) {
-        toast.success(`Masjid ${registrationForm.name} berhasil terdaftar! Silakan login.`);
-        setRegistrationForm({ name: "", email: "" });
-        setTimeout(() => { window.location.href = "/login"; }, 2000);
+        toast.success(`✅ Masjid ${registrationForm.name} berhasil terdaftar! Anda sudah login sebagai Admin.`);
+        setRegistrationForm({ name: "", email: "", password: "", showPassword: false });
+        setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
       } else {
-        // Redirect to WhatsApp for payment confirmation
         const waMsg = `Halo, saya ingin mendaftar MasjidKu Smart.%0ANama Masjid: ${encodeURIComponent(registrationForm.name)}%0AEmail: ${encodeURIComponent(registrationForm.email)}%0APaket: ${selectedPlan} (${priceDisplay})%0AID Masjid: ${mosque.id}%0AMohon konfirmasi pembayaran.`;
         toast.success("Masjid terdaftar! Silakan konfirmasi pembayaran via WhatsApp.");
-        setRegistrationForm({ name: "", email: "" });
+        setRegistrationForm({ name: "", email: "", password: "", showPassword: false });
         setTimeout(() => { window.open(`https://wa.me/${waNumber}?text=${waMsg}`, "_blank"); }, 1000);
       }
     } catch (err) {
-      toast.error("Error: " + err.message);
+      toast.error("Gagal: " + (err.response?.data?.error || err.message));
     } finally {
       setProcessingPayment(false);
     }
@@ -936,8 +946,8 @@ export default function Landing() {
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
             {settings?.logo_url
-              ? <img src={settings.logo_url} alt="Logo" className="h-8 rounded-lg" />
-              : <span className="text-2xl">🕌</span>}
+              ? <img src={settings.logo_url} alt="Logo" className="h-9 rounded-lg" />
+              : <img src="/favicon.png" alt="MasjidKu Smart" className="h-9 rounded-lg" />}
             <span className="font-bold text-lg text-primary">{appName}</span>
           </div>
           <div className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
@@ -947,7 +957,10 @@ export default function Landing() {
             <a href="#testimoni" className="hover:text-primary transition-colors">Testimoni</a>
             <a href="#harga" className="hover:text-primary transition-colors">Harga</a>
             <a href="#kontak" className="hover:text-primary transition-colors">Kontak</a>
-            <Link to="/cari-masjid" className="hover:text-primary transition-colors text-emerald-600 font-semibold">🕌 Cari Masjid</Link>
+            <Link to="/cari-masjid" className="flex items-center gap-1.5 hover:text-primary transition-colors text-emerald-600 font-semibold group">
+              <img src="/favicon.png" className="w-5 h-5 object-contain group-hover:scale-110 transition-transform" />
+              Cari Masjid
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/login">
@@ -1064,8 +1077,9 @@ export default function Landing() {
               
               {/* Payment Form */}
               <div className="space-y-3 mb-6 p-4 bg-primary/5 rounded-xl">
+                <p className="text-xs font-bold text-primary text-left mb-2">📋 Data Pendaftaran</p>
                 <div>
-                  <label className="block text-xs font-semibold text-left mb-1">Nama Masjid</label>
+                  <label className="block text-xs font-semibold text-left mb-1">Nama Masjid / Mushola</label>
                   <input 
                     type="text" 
                     value={registrationForm.name}
@@ -1076,7 +1090,7 @@ export default function Landing() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-left mb-1">Email</label>
+                  <label className="block text-xs font-semibold text-left mb-1">Email Admin</label>
                   <input 
                     type="email" 
                     value={registrationForm.email}
@@ -1086,6 +1100,24 @@ export default function Landing() {
                     disabled={processingPayment}
                   />
                 </div>
+                <div>
+                  <label className="block text-xs font-semibold text-left mb-1">Password <span className="text-muted-foreground font-normal">(min. 6 karakter)</span></label>
+                  <div className="relative">
+                    <input 
+                      type={registrationForm.showPassword ? "text" : "password"}
+                      value={registrationForm.password}
+                      onChange={e => setRegistrationForm({...registrationForm, password: e.target.value})}
+                      placeholder="Buat password yang kuat"
+                      className="w-full px-3 py-2 pr-10 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={processingPayment}
+                    />
+                    <button type="button" onClick={() => setRegistrationForm({...registrationForm, showPassword: !registrationForm.showPassword})}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs">
+                      {registrationForm.showPassword ? "🙈" : "👁️"}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground text-left">🔒 Email & password ini digunakan untuk login ke Dashboard Admin Masjid Anda.</p>
               </div>
               
               <Button 
@@ -1195,8 +1227,8 @@ export default function Landing() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
             {/* Brand */}
             <div className="md:col-span-2">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-3xl">🕌</span>
+              <div className="flex items-center gap-3 mb-3">
+                <img src="/favicon.png" alt="MasjidKu Smart" className="h-12 rounded-xl" />
                 <span className="font-bold text-xl">{appName}</span>
               </div>
               <p className="text-slate-400 text-sm leading-relaxed mb-4">Platform digital terlengkap untuk manajemen masjid modern. Dipercaya jutaan masjid di seluruh Indonesia.</p>

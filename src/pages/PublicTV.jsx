@@ -231,7 +231,7 @@ export default function PublicTV() {
   if (notFound || !mosque) return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
       <div className="text-center bg-black/30 p-10 rounded-3xl border border-white/5 backdrop-blur-md">
-        <div className="text-6xl mb-6">🕌</div>
+        <img src="/favicon.png" alt="Logo" className="h-24 w-24 mx-auto mb-6 object-contain" />
         <p className="text-2xl font-bold tracking-tight">Masjid Tidak Ditemukan</p>
       </div>
     </div>
@@ -330,7 +330,7 @@ export default function PublicTV() {
             {mosque.logo_url ? (
               <img src={mosque.logo_url} alt="logo" className="w-full h-full object-contain p-1" />
             ) : (
-              <div className="text-4xl">🕌</div>
+              <img src="/favicon.png" alt="Logo" className="w-12 h-12 object-contain" />
             )}
           </div>
           <div className="flex-1 min-w-0">
