@@ -7,6 +7,11 @@ const InstallPWA = () => {
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
+    // Cek apakah user sudah menutup prompt ini sebelumnya
+    if (localStorage.getItem("pwa_dismissed")) {
+      return;
+    }
+
     // Cek apakah aplikasi sudah terinstall (berjalan di mode aplikasi)
     if (
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -42,6 +47,12 @@ const InstallPWA = () => {
     return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
+  const handleDismiss = () => {
+    setSupportsPWA(false);
+    // Simpan status ditutup agar tidak muncul lagi terus menerus
+    localStorage.setItem("pwa_dismissed", "true");
+  };
+
   const onClickAndroidDesktop = (evt) => {
     evt.preventDefault();
     if (!promptInstall) {
@@ -56,7 +67,7 @@ const InstallPWA = () => {
     });
   };
 
-  if (!supportsPWA || isInstalled) {
+  if (!supportsPWA || isInstalled || localStorage.getItem("pwa_dismissed")) {
     return null;
   }
 
@@ -72,7 +83,7 @@ const InstallPWA = () => {
               Tekan ikon <b>Share</b> <span className="inline-block border border-gray-300 rounded px-1 -translate-y-0.5 mx-0.5">􀈂</span> di bawah browser Anda, lalu pilih <b>"Add to Home Screen"</b> untuk pasang aplikasi.
             </p>
             <button 
-              onClick={() => setSupportsPWA(false)} 
+              onClick={handleDismiss} 
               className="w-full py-2 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
             >
               Saya Mengerti (Tutup)
@@ -95,7 +106,7 @@ const InstallPWA = () => {
       </div>
       <div className="flex gap-2">
         <button 
-          onClick={() => setSupportsPWA(false)} 
+          onClick={handleDismiss} 
           className="px-3 py-2 text-xs font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
         >
           Nanti

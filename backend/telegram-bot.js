@@ -226,7 +226,7 @@ Ekstrak informasi berikut:
 - waktu: jam transaksi jika ada (format HH:MM)
 - nama_toko: nama toko/merchant/vendor
 - deskripsi: deskripsi singkat pembelian (maks 100 karakter)
-- total: total pembayaran dalam angka (angka saja tanpa Rp atau koma/titik ribuan)
+- total: total pembayaran dalam angka (HANYA angka tanpa Rp, tanpa koma, tanpa titik ribuan, contoh: 250000)
 - kategori: kategori pengeluaran (pilih salah satu: Operasional, Konsumsi, Kebersihan, Listrik & Air, Gaji & Honor, Perlengkapan, Pemeliharaan, Kegiatan, Donasi, Lainnya)
 - item_pembelian: array string berisi item-item yang dibeli (maks 5 item penting)
 - mata_uang: mata uang yang digunakan (IDR, USD, dll)
@@ -286,6 +286,15 @@ Contoh output:
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
+    
+    // Robust parsing untuk total amount (menghindari kesalahan parseFloat pada format IDR ribuan)
+    let amount = 0;
+    if (parsed.total) {
+      // Jika berbentuk string (misal "250.000"), hilangkan semua pemisah ribuan
+      const cleanedAmount = String(parsed.total).replace(/[^0-9]/g, '');
+      amount = parseFloat(cleanedAmount) || 0;
+    }
+
     return {
       success: true,
       data: {
@@ -293,7 +302,7 @@ Contoh output:
         time: parsed.waktu || null,
         store_name: parsed.nama_toko || null,
         description: parsed.deskripsi || "Pengeluaran dari struk",
-        amount: parseFloat(parsed.total) || 0,
+        amount: amount,
         category: parsed.kategori || "Lainnya",
         items: parsed.item_pembelian || [],
         currency: parsed.mata_uang || "IDR",

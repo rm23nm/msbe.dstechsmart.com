@@ -1,7 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { smartApi } from '@/api/apiClient';
 
-const AuthContext = createContext();
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -23,30 +23,25 @@ export const AuthProvider = ({ children }) => {
   const checkUserAuth = async () => {
     setIsLoadingAuth(true);
     setAuthError(null);
-
-    // Cek apakah ada token di localStorage sebelum request ke server
     const token = localStorage.getItem("token");
     if (!token) {
-      // Tidak ada token = belum login, ini BUKAN error
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       setUser(null);
       setAuthError({ type: "auth_required", message: "Please login" });
       return;
     }
-
     try {
       const currentUser = await smartApi.auth.me();
       setUser(currentUser);
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      // Token ada tapi tidak valid / expired
       localStorage.removeItem("token");
       setIsLoadingAuth(false);
       setIsAuthenticated(false);
       setUser(null);
-      setAuthError({ type: "auth_required", message: "Session expired, please login again" });
+      setAuthError({ type: "auth_required", message: "Session expired" });
     }
   };
 
@@ -54,32 +49,31 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem("token");
-
-    if (shouldRedirect) {
-      window.location.href = "/login";
-    }
+    if (shouldRedirect) window.location.href = "/login";
   };
 
   const navigateToLogin = () => {
     const currentPath = window.location.pathname;
-    const isAlreadyOnLogin = currentPath === "/login" || currentPath === "/";
-    if (!isAlreadyOnLogin) {
+    const publicPaths = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid"];
+    if (!publicPaths.includes(currentPath) && !currentPath.startsWith("/masjid/")) {
       window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
     }
   };
 
+  const value = {
+    user,
+    isAuthenticated,
+    isLoadingAuth,
+    isLoadingPublicSettings,
+    authError,
+    appPublicSettings,
+    logout,
+    navigateToLogin,
+    checkAppState
+  };
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated,
-      isLoadingAuth,
-      isLoadingPublicSettings,
-      authError,
-      appPublicSettings,
-      logout,
-      navigateToLogin,
-      checkAppState
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -87,8 +81,6 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

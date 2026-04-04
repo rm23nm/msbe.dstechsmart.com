@@ -382,6 +382,74 @@ app.post("/api/auth/admin-change-password", authenticateToken, async (req, res) 
   }
 });
 
+// Endpoint untuk Undang Pengguna Baru
+app.post("/api/users/invite", authenticateToken, async (req, res) => {
+  const { email, role } = req.body;
+  if (!email) return res.status(400).json({ error: "Email wajib diisi" });
+
+  try {
+    const requester = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (requester.role !== "admin") return res.status(403).json({ error: "Hanya Super Admin yang bisa mengundang" });
+
+    let user = await prisma.user.findUnique({ where: { email } });
+    if (user) return res.status(400).json({ error: "Pengguna dengan email ini sudah terdaftar" });
+
+    const tempPassword = Math.random().toString(36).substring(2, 10);
+    const hash = await bcrypt.hash(tempPassword, 10);
+    
+    user = await prisma.user.create({
+      data: { 
+        email, 
+        password: hash, 
+        role: role || "user", 
+        full_name: email.split("@")[0]
+      }
+    });
+
+    const loginUrl = `${process.env.APP_URL || "http://localhost:5173"}/login`;
+
+    if (process.env.SMTP_HOST && process.env.SMTP_USER) {
+      const nodemailer = require("nodemailer");
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT || 465,
+        secure: process.env.SMTP_PORT == 465,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      await transporter.sendMail({
+        from: `"MasjidKu Smart" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+        to: email,
+        subject: "Undangan Bergabung ke MasjidKu Smart",
+        html: `<h2>Halo!</h2>
+               <p>Anda telah diundang untuk bergabung ke platform <strong>MasjidKu Smart</strong> sebagai ${role || "member"}.</p>
+               <p>Berikut adalah kredensial login Anda:</p>
+               <div style="background:#f4f4f4;padding:15px;border-radius:8px;margin:10px 0;">
+                 <p><strong>Email:</strong> ${email}</p>
+                 <p><strong>Password:</strong> ${tempPassword}</p>
+               </div>
+               <p>Silakan login di sini: <a href="${loginUrl}">${loginUrl}</a></p>
+               <p>Jangan lupa untuk segera mengganti password Anda setelah berhasil login.</p>
+               <br/>
+               <p>Salam,<br/>Tim MasjidKu Smart</p>`
+      });
+    } else {
+      console.log(`\n=== UNDANGAN PENGGUNA BARU (SIMULASI) ===`);
+      console.log(`Tujuan   : ${email}`);
+      console.log(`Password : ${tempPassword}`);
+      console.log(`URL Login: ${loginUrl}`);
+      console.log(`==========================================\n`);
+    }
+
+    res.json({ message: `Undangan berhasil dikirim ke ${email}. Password sementara telah dibuat.`, tempPassword });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Endpoint untuk verifikasi OTP WA/SMS
 app.post("/api/auth/verify-otp", async (req, res) => {
   const { email, otp } = req.body;
@@ -1173,7 +1241,10 @@ app.post("/api/donations/create", authenticateToken, async (req, res) => {
 const frontendPath = path.join(__dirname, "../dist");
 app.use(express.static(frontendPath));
 
-app.use((req, res) => {
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api")) {
+    return res.status(404).json({ error: "API route not found" });
+  }
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 

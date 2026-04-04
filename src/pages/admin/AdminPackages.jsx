@@ -21,6 +21,9 @@ const AVAILABLE_FEATURES = [
   "Laporan & Analytics",
   "Manajemen Kegiatan",
   "Absensi & Tracking Kehadiran",
+  "Integrasi Telegram & AI Bot",
+  "Al-Quran & Tafsir Digital",
+  "Scan Struk AI (Gemini)",
 ];
 
 const PLANS = ["trial", "monthly", "yearly"];

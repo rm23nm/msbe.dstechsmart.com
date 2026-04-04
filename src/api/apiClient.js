@@ -247,3 +247,11 @@ smartApi.telegram = {
     return data;
   }
 };
+
+smartApi.users = {
+  inviteUser: async (email, role) => {
+    const { data } = await apiClient.post("/users/invite", { email, role });
+    return data;
+  }
+};
+

@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 
 const FEATURES = [
+  { icon: Bot, title: "Integrasi Telegram & AI", desc: "Bot notifikasi otomatis, tanya jawab jamaah, dan asisten digital pengurus langsung di Telegram", color: "bg-blue-50 text-blue-600" },
+  { icon: Sparkles, title: "Scan Struk AI Gemini", desc: "Analisis laporan keuangan instan hanya dengan foto struk belanja menggunakan teknologi AI Gemini", color: "bg-indigo-50 text-indigo-600" },
+  { icon: CheckCircle2, title: "Mushaf Al-Quran & Tafsir", desc: "Digital Mushaf lengkap dengan murotal audio per ayat dan tafsir untuk pengajian dan publik", color: "bg-emerald-50 text-emerald-600" },
+  { icon: CheckCircle2, title: "Absensi QR Code", desc: "Tracking kehadiran jamaah di setiap majelis ilmu dan kegiatan masjid dengan sistem barcode instan", color: "bg-violet-50 text-violet-600" },
   { icon: Calendar, title: "Jadwal Shalat & Jumat", desc: "Atur jadwal shalat 5 waktu, petugas Jumat, dan tampilkan otomatis di layar TV masjid", color: "bg-emerald-50 text-emerald-600" },
   { icon: DollarSign, title: "Manajemen Keuangan", desc: "Catat pemasukan & pengeluaran, laporan otomatis per periode dengan grafik interaktif", color: "bg-blue-50 text-blue-600" },
   { icon: Users, title: "Kelola Data Jamaah", desc: "Database jamaah terstruktur, kategori member, status, dan kirim pengingat langsung via email", color: "bg-purple-50 text-purple-600" },
@@ -18,11 +22,7 @@ const FEATURES = [
   { icon: Globe, title: "Halaman Publik Masjid", desc: "Website masjid profesional yang bisa dibagikan ke seluruh jamaah dengan custom domain", color: "bg-rose-50 text-rose-600" },
   { icon: Monitor, title: "Digital Signage (Public TV)", desc: "Tampilan otomatis layar TV untuk jadwal shalat, pengumuman, donasi, dan keuangan masjid", color: "bg-cyan-50 text-cyan-600" },
   { icon: Megaphone, title: "Pengumuman & Notifikasi", desc: "Broadcast pengumuman penting dan kirim notifikasi real-time ke seluruh jamaah", color: "bg-indigo-50 text-indigo-600" },
-  { icon: Sparkles, title: "AI Analytics & Insights", desc: "Analisis otomatis data keuangan dan kegiatan dengan rekomendasi cerdas dari AI", color: "bg-pink-50 text-pink-600" },
   { icon: Gift, title: "Manajemen Donasi & Zakat", desc: "Terima donasi online via Midtrans, tracking transparansi, dan QR code donasi", color: "bg-green-50 text-green-600" },
-  { icon: BarChart3, title: "Laporan & Analytics", desc: "Laporan keuangan detail, grafik pendapatan, cash flow analysis, dan export PDF", color: "bg-teal-50 text-teal-600" },
-  { icon: FileText, title: "Manajemen Kegiatan", desc: "Atur kajian, perayaan, rapat, dan kegiatan masjid dengan kalender terintegrasi", color: "bg-orange-50 text-orange-600" },
-  { icon: CheckCircle2, title: "Absensi & Tracking Kehadiran", desc: "Tracking kehadiran jamaah di kegiatan dengan sistem QR code yang mudah digunakan", color: "bg-violet-50 text-violet-600" },
 ];
 
 // Slide bisa berupa: { image, title, sub } atau { videoId (YouTube), title, sub, thumb }
@@ -34,7 +34,7 @@ const HERO_SLIDES = [
   },
   {
     // Slide Video — Promosi Masjid
-    videoId: "R2_FWcaazSA",
+    videoId: "xkuAToGvtW8",
     thumb: "https://images.unsplash.com/photo-1564769625905-50e93615e769?w=1600&q=80",
     title: "Profil Video Masjid Anda",
     sub: "Tampilkan video profil masjid — kajian, kegiatan, dan momen berharga jamaah di landing page",
@@ -47,7 +47,7 @@ const HERO_SLIDES = [
   },
   {
     // Slide Video — Kegiatan
-    videoId: "X4mHVQOLTzY",
+    videoId: "L8H4W78_cFA",
     thumb: "https://images.unsplash.com/photo-1466442929976-97f336a657be?w=1600&q=80",
     title: "Kegiatan & Kajian Live",
     sub: "Tayangkan video kajian, ceramah, dan kegiatan masjid secara otomatis untuk jamaah di mana saja",
@@ -215,10 +215,10 @@ function HeroSlider({ slides, waUrl, heroImage }) {
         <div className="mb-4 inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm border border-white/30 rounded-full px-4 py-1.5 text-sm">
           <Sparkles className="h-3.5 w-3.5 text-yellow-300" /> Platform Digital Masjid #1 Indonesia
         </div>
-        <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight max-w-3xl drop-shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <h1 className="text-4xl md:text-6xl font-bold mb-4 leading-tight max-w-3xl drop-shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-700">
           {s.title}
         </h1>
-        <p className="text-lg md:text-xl text-white/85 max-w-2xl mb-8 leading-relaxed">
+        <p className="text-lg md:text-xl text-white/95 max-w-2xl mb-8 leading-relaxed font-medium drop-shadow-lg [text-shadow:_0_1px_12px_rgba(0,0,0,0.6)] px-4 py-2 rounded-xl">
           {s.sub}
         </p>
         <div className="flex gap-3 flex-wrap justify-center">
@@ -228,8 +228,8 @@ function HeroSlider({ slides, waUrl, heroImage }) {
             </Button>
           </a>
           <a href="#galeri">
-            <Button size="lg" variant="outline" className="border-white/40 bg-black/20 text-white hover:bg-white hover:text-black px-8 text-base h-12 gap-2 backdrop-blur-sm transition-all duration-300">
-              <Play className="h-4 w-4" /> Lihat Galeri & Video
+            <Button size="lg" variant="outline" className="border-2 border-white/60 bg-black/40 text-white hover:bg-white hover:text-primary px-8 text-base h-12 gap-2 backdrop-blur-md transition-all duration-300 font-bold shadow-lg">
+              <Play className="h-5 w-5 fill-white" /> Lihat Galeri & Video
             </Button>
           </a>
         </div>
@@ -665,7 +665,7 @@ const AI_PRESET_QA = [
   { q: "Berapa harga berlangganan?", a: "Kami menawarkan beberapa paket berlangganan yang terjangkau. Tersedia paket Gratis (30 hari trial), paket Bulanan, dan paket Tahunan dengan fitur lebih lengkap. Silakan scroll ke bagian Harga di halaman ini untuk melihat detail lengkap." },
   { q: "Bagaimana cara daftar masjid?", a: "Cara daftar sangat mudah! Cukup isi nama masjid dan email di formulir pendaftaran bagian Harga, pilih paket, lalu klik Bayar. Tim kami akan segera menghubungi Anda untuk aktivasi akun. Proses aktivasi kurang dari 24 jam!" },
   { q: "Apakah ada demo gratis?", a: "Ya! Kami menyediakan trial gratis 30 hari tanpa syarat. Anda bisa mencoba semua fitur premium MasjidKu Smart sebelum berlangganan. Daftar sekarang dan nikmati digitalisasi masjid Anda!" },
-  { q: "Fitur apa saja yang tersedia?", a: "MasjidKu Smart memiliki 12+ fitur unggulan: Jadwal Shalat, Manajemen Keuangan, Data Jamaah, Inventory Aset, Halaman Publik, Digital Signage TV, Pengumuman & Notifikasi, AI Analytics, Donasi & Zakat, Laporan PDF, Manajemen Kegiatan, dan Absensi QR Code." },
+  { q: "Fitur apa saja yang tersedia?", a: "MasjidKu Smart memiliki 12+ fitur unggulan: Jadwal Shalat, Manajemen Keuangan, Data Jamaah, Inventory Aset, Halaman Publik, Digital Signage TV, Pengumuman & Notifikasi, AI Analytics, Donasi & Zakat, Laporan PDF, Manajemen Kegiatan, Absensi & Tracking Kehadiran, Integrasi Telegram & AI Bot, Al-Quran & Tafsir Digital, dan Scan Struk AI (Gemini)." },
   { q: "Bagaimana cara menghubungi support?", a: "Anda bisa menghubungi tim support kami melalui: WhatsApp (respon cepat), Email, atau form kontak di halaman ini. Tim kami siap membantu 7 hari seminggu dari pukul 08.00 - 20.00 WIB." },
 ];
 
@@ -1271,7 +1271,7 @@ export default function Landing() {
             <div>
               <p className="font-semibold text-sm mb-3 text-slate-300">Aplikasi Mobile <span className="bg-emerald-500 text-white px-1.5 py-0.5 rounded text-[10px] ml-1">BARU</span></p>
               <div className="bg-white p-2 text-black rounded-lg inline-block mb-2 shadow-lg">
-                <QRCode value="https://ms.dstechsmart.com" size={90} />
+                <QRCode value={window.location.origin} size={90} />
               </div>
               <p className="text-xs text-slate-400 leading-snug">Scan dengan kamera HP Anda untuk <b>Menginstal Aplikasi MasjidKu</b> secara otomatis.</p>
             </div>

@@ -14,7 +14,7 @@ import {
   MessageSquare, Bell, DollarSign, Calendar, Megaphone
 } from "lucide-react";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function TelegramIntegration() {
   const { currentMosque } = useMosqueContext();
@@ -52,23 +52,17 @@ export default function TelegramIntegration() {
   async function loadSettings() {
     setLoading(true);
     try {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`${API_BASE}/api/telegram/settings?mosque_id=${currentMosque.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const data = await smartApi.telegram.getSettings(currentMosque.id);
+      setSettings({
+        bot_token: data.bot_token || "",
+        chat_id: data.chat_id || "",
+        notify_transactions: data.notify_transactions ?? true,
+        notify_activities: data.notify_activities ?? true,
+        notify_announcements: data.notify_announcements ?? true,
+        notify_donations: data.notify_donations ?? true,
+        bot_enabled: Boolean(data.bot_enabled),
+        gemini_api_key: data.gemini_api_key || "",
       });
-      const data = await res.json();
-      if (res.ok) {
-        setSettings({
-          bot_token: data.bot_token || "",
-          chat_id: data.chat_id || "",
-          notify_transactions: data.notify_transactions ?? true,
-          notify_activities: data.notify_activities ?? true,
-          notify_announcements: data.notify_announcements ?? true,
-          notify_donations: data.notify_donations ?? true,
-          bot_enabled: data.bot_enabled ?? false,
-          gemini_api_key: data.gemini_api_key || "",
-        });
-      }
     } catch (e) {
       console.error(e);
     }
@@ -78,21 +72,11 @@ export default function TelegramIntegration() {
   async function handleSave() {
     setSaving(true);
     try {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`${API_BASE}/api/telegram/settings`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ mosque_id: currentMosque.id, ...settings }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("✅ Pengaturan Telegram berhasil disimpan!");
-        await loadSettings();
-      } else {
-        toast.error(data.error || "Gagal menyimpan pengaturan");
-      }
+      const data = await smartApi.telegram.saveSettings({ mosque_id: currentMosque.id, ...settings });
+      toast.success("✅ Pengaturan Telegram berhasil disimpan!");
+      await loadSettings();
     } catch (e) {
-      toast.error("Gagal menyimpan: " + e.message);
+      toast.error("Gagal menyimpan: " + (e.response?.data?.error || e.message));
     }
     setSaving(false);
   }
@@ -101,13 +85,7 @@ export default function TelegramIntegration() {
     setTestingBot(true);
     setBotInfo(null);
     try {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`${API_BASE}/api/telegram/test-bot`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ mosque_id: currentMosque.id, bot_token: settings.bot_token }),
-      });
-      const data = await res.json();
+      const data = await smartApi.telegram.testBot(currentMosque.id, settings.bot_token);
       if (data.success) {
         setBotInfo(data.bot);
         toast.success(`✅ Bot @${data.bot.username} berhasil terkoneksi!`);
@@ -115,7 +93,7 @@ export default function TelegramIntegration() {
         toast.error("❌ " + (data.error || "Token tidak valid"));
       }
     } catch (e) {
-      toast.error("Gagal tes koneksi: " + e.message);
+      toast.error("Gagal tes koneksi: " + (e.response?.data?.error || e.message));
     }
     setTestingBot(false);
   }
@@ -123,20 +101,14 @@ export default function TelegramIntegration() {
   async function handleTestSend() {
     setTestingSend(true);
     try {
-      const token = localStorage.getItem("auth_token");
-      const res = await fetch(`${API_BASE}/api/telegram/test-send`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ mosque_id: currentMosque.id, chat_id: settings.chat_id }),
-      });
-      const data = await res.json();
+      const data = await smartApi.telegram.testSend(currentMosque.id, settings.chat_id);
       if (data.success) {
         toast.success("✅ Pesan test berhasil dikirim ke Telegram!");
       } else {
         toast.error("❌ " + (data.error || "Gagal kirim pesan test"));
       }
     } catch (e) {
-      toast.error("Gagal: " + e.message);
+      toast.error("Gagal: " + (e.response?.data?.error || e.message));
     }
     setTestingSend(false);
   }
@@ -152,30 +124,19 @@ export default function TelegramIntegration() {
   }
 
   async function handleScanReceipt() {
-    if (!receiptFile) return;
+    if (!receiptFile || !currentMosque) return;
     setScanning(true);
     setScanResult(null);
     try {
-      const token = localStorage.getItem("auth_token");
-      const formData = new FormData();
-      formData.append("receipt", receiptFile);
-      formData.append("mosque_id", currentMosque.id);
-
-      const res = await fetch(`${API_BASE}/api/telegram/analyze-receipt`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setScanResult({ ...data.data, receipt_url: data.receipt_url });
-        toast.success("✅ Struk berhasil dibaca oleh AI!");
+      const data = await smartApi.telegram.analyzeReceipt(currentMosque.id, receiptFile);
+      if (data.success) {
+        setScanResult(data.data);
+        toast.success("✅ Struk berhasil dianalisis!");
       } else {
-        toast.error("❌ " + (data.error || "Gagal membaca struk"));
+        toast.error(data.error || "Gagal menganalisis struk");
       }
     } catch (e) {
-      toast.error("Gagal scan struk: " + e.message);
+      toast.error("Error: " + (e.response?.data?.error || e.message));
     }
     setScanning(false);
   }
@@ -246,7 +207,7 @@ export default function TelegramIntegration() {
 
       {/* Status Banner */}
       <div className={`rounded-xl border p-4 flex items-center gap-3 ${
-        settings.bot_enabled
+        Boolean(settings.bot_enabled)
           ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800"
           : "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
       }`}>
@@ -260,11 +221,11 @@ export default function TelegramIntegration() {
           )}
         </div>
         <div>
-          <p className={`font-semibold text-sm ${settings.bot_enabled ? "text-emerald-800 dark:text-emerald-200" : "text-amber-800 dark:text-amber-200"}`}>
-            {settings.bot_enabled ? "🤖 Telegram Bot Aktif" : "⚙️ Telegram Bot Belum Aktif"}
+          <p className={`font-semibold text-sm ${Boolean(settings.bot_enabled) ? "text-emerald-800 dark:text-emerald-200" : "text-amber-800 dark:text-amber-200"}`}>
+            {Boolean(settings.bot_enabled) ? "🤖 Telegram Bot Aktif" : "⚙️ Telegram Bot Belum Aktif"}
           </p>
-          <p className={`text-xs ${settings.bot_enabled ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
-            {settings.bot_enabled
+          <p className={`text-xs ${Boolean(settings.bot_enabled) ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"}`}>
+            {Boolean(settings.bot_enabled)
               ? "Bot sedang berjalan. Notifikasi otomatis dan scan struk sudah siap."
               : "Konfigurasi bot token dan Chat ID untuk mengaktifkan fitur Telegram."}
           </p>

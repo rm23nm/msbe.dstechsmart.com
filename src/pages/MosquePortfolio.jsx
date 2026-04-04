@@ -7,8 +7,9 @@ import {
   MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight, ArrowDownRight,
   Wallet, Megaphone, Instagram, Youtube, Facebook, Globe, Landmark,
   UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
-  MessageSquare, ExternalLink, Smartphone, Home, Info, Images, DollarSign
+  MessageSquare, ExternalLink, Smartphone, Home, Info, Images, DollarSign, Users, BookOpen
 } from "lucide-react";
+import QuranReader from "@/components/QuranReader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -156,6 +157,7 @@ const TABS = [
   { id: 'kegiatan', label: 'Kegiatan', icon: Calendar },
   { id: 'organisasi', label: 'Organisasi', icon: Users },
   { id: 'galeri', label: 'Galeri & Video', icon: Images },
+  { id: 'quran', label: 'Al-Quran', icon: BookOpen },
   { id: 'keuangan', label: 'Keuangan', icon: DollarSign },
   { id: 'tentang', label: 'Tentang', icon: Info },
 ];
@@ -314,7 +316,7 @@ export default function MosquePortfolio() {
   const slides = parseMediaSlides(mosque.tv_slideshow_urls, mosque.tv_video_url, mosque.cover_image_url);
   const photoSlides = slides.filter(s => s.type === 'photo');
   const videoSlides = slides.filter(s => s.type === 'video');
-  const mosqueUrl = `https://ms.dstechsmart.com/masjid/${mosque.slug || mosque.id}`;
+  const mosqueUrl = `${window.location.origin}/masjid/${mosque.slug || mosque.id}`;
 
   const tabCounts = {
     beranda: 0,
@@ -552,6 +554,14 @@ export default function MosquePortfolio() {
             {slides.length === 0 && (
               <div className="text-center py-16 text-muted-foreground"><Images className="h-12 w-12 mx-auto mb-3 opacity-30"/><p>Belum ada foto atau video</p><p className="text-xs mt-1">Tambahkan di Pengaturan → Layar TV</p></div>
             )}
+          </div>
+        )}
+
+        {/* AL-QURAN */}
+        {activeTab === 'quran' && (
+          <div className="space-y-6">
+            <h2 className="font-semibold text-2xl flex items-center gap-2"><BookOpen className="h-6 w-6 text-primary"/>Al-Quran & Tafsir</h2>
+            <QuranReader isPublic={true} />
           </div>
         )}
 

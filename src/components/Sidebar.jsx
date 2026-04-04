@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Wallet, Calendar, Users, Megaphone, Settings, Monitor,
   Building2, CreditCard, BarChart3, LogOut, ChevronDown, Landmark,
-  Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck, Send, ShieldAlert
+  Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck, Send, ShieldAlert, BookOpen
 } from "lucide-react";
 import { smartApi } from "@/api/apiClient";
 import { useState, useEffect } from "react";
@@ -39,6 +39,7 @@ function getMosqueMenuItems(t) {
     { label: t("announcements"), path: "/pengumuman", icon: Megaphone },
     { label: t("publicInfo"), path: "/info-publik", icon: Monitor },
     { label: "Integrasi Telegram", path: "/telegram", icon: Send },
+    { label: "Al-Quran & Tafsir", path: "/quran", icon: BookOpen },
     { label: t("settings"), path: "/pengaturan", icon: Settings },
   ];
 }
