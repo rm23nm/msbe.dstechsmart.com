@@ -16,6 +16,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.JWT_SECRET || "supersecretkey123";
 
+console.log(`[Database] URL: ${process.env.DATABASE_URL || "Using schema default"}`);
+console.log(`[Database] Resolved Path: ${path.resolve(process.env.DATABASE_URL?.replace("file:", "") || "./backend/prisma/dev.db")}`);
+
 // ============================
 // AUTO-START TELEGRAM BOTS
 // ============================
@@ -78,9 +81,190 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+// Middleware to check subscription status
+const checkSubscription = async (req, res, next) => {
+  // Superadmin / Admin bypass
+  if (req.user && (req.user.role === "admin" || req.user.role === "superadmin")) return next();
+
+  // Ambil ID masjid dari user session, body, atau query
+  const mosqueId = req.user?.current_mosque_id || req.body?.mosque_id || req.query?.mosque_id;
+
+  if (mosqueId) {
+    try {
+      const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+      if (mosque) {
+        const isExpired = mosque.subscription_end && new Date(mosque.subscription_end) < new Date();
+        if (isExpired) {
+          // Hanya izinkan Al-Quran (via entities Mosque), Profil (auth/me) dan Logout
+          const allowedPaths = ["/api/auth/me", "/api/auth/logout"];
+          const isMeRequest = req.path === "/api/auth/me" || req.path === "/api/auth/logout";
+          const isPublicMosqueGet = req.method === "GET" && (req.path.includes("/entities/Mosque") || req.path.includes("/entities/AppSettings") || req.path.includes("/public/"));
+          
+          if (!isMeRequest && !isPublicMosqueGet) {
+            // Blokir mutasi
+            if (req.method !== "GET") {
+              return res.status(403).json({ 
+                error: "Paket Berakhir", 
+                message: "Masa aktif paket Anda telah berakhir. Seluruh fitur (kecuali Al-Quran) diblokir hingga perpanjangan dilakukan." 
+              });
+            }
+            
+            // Blokir baca data sensitif
+            const sensitiveModels = ["Transaction", "MosqueMember", "Donation", "Activity", "Announcement", "Asset", "Attendance"];
+            const targetModel = req.params.model || (req.path.includes("attendance") ? "Attendance" : null);
+            if (sensitiveModels.includes(targetModel)) {
+              return res.status(403).json({ error: "Fitur diblokir. Paket masjid telah berakhir." });
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Subscription check error:", err);
+    }
+  }
+  next();
+};
+
 /* ==================
-   Public Endpoints
+   Public Endpoints 
    ================== */
+
+app.get("/api/test", (req, res) => res.json({ status: "ok", message: "MasjidKu Smart API is active" }));
+
+app.post("/api/ai/customer-service", async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message) return res.status(400).json({ error: "Message is required" });
+
+    const appSettings = await prisma.appSettings.findFirst();
+    const geminiKey = appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+    if (!geminiKey) return res.status(500).json({ error: "AI Service not configured" });
+
+    const systemPrompt = `
+      Anda adalah "MasjidKu Assistant", asisten cerdas garis depan dari platform MasjidKu Smart. 
+      Tugas utama Anda adalah menghandle seluruh pertanyaan awal dari calon pelanggan (Pengurus Masjid) dengan cerdas, sangat santun, dan menyejukkan.
+      
+      PENGETAHUAN LENGKAP PLATFORM:
+      1. Apa itu MasjidKu Smart? 
+         - Platform ERP dan Digitalisasi Masjid #1 di Indonesia untuk kemakmuran umat.
+         - Membantu transparansi keuangan, administrasi, dan kedekatan jamaah dengan teknologi cloud.
+      2. Fitur Spesifik:
+         - AI Gemini Scan Struk: Memotret struk belanja dan otomatis mencatat kas. Sangat efisien!
+         - Integrated Telegram Bot: Jamaah bisa cek kas & jadwal shalat via Telegram secara mandiri.
+         - Digital Signage (Public TV): Tampilan TV Masjid otomatis untuk jadwal shalat, donasi, & pengeluaran.
+         - Portfolio/Profil Masjid: Website khusus profil masjid yang bisa dibagikan ke khalayak luas.
+         - Pencarian Masjid: Fitur mencari masjid terdaftar agar jamaah mudah berinteraksi.
+         - Absensi QR Code: Modernisasi kehadiran jamaah dan pengurus rapat.
+      3. Harga & Paket Hemat (Edisi 2024):
+         - Paket Bulanan: Rp 49.000 / bln.
+         - Paket Triwulan: Rp 135.000 / 3 bln.
+         - Paket Semester: Rp 245.000 / 6 bln (Hemat 16%).
+         - Paket Tahunan: Rp 450.000 / 12 bln (SANGAT HEMAT - Diskon 25%).
+         - Paket Enterprise (Best Value): 1 Tahun penuh dengan fasilitas Upgrade Custom Domain (contoh: masjidqu.com) serta Support Team Prioritas.
+      4. Keamanan: Data tersimpan aman di infrastruktur Cloud Google/AWS dengan login multi-role.
+      
+      PROTOKOL LAYANAN (WAJIB):
+      - Awali setiap jawaban dengan salam: "Assalamu'alaikum Warahmatullahi Wabarakatuh" atau sapaan Islami yang hangat.
+      - Panggil pengguna dengan sebutan: "Akhi/Ukhti" atau "Bapak/Ibu" agar terasa akrab namun tetap sangat santun.
+      - Jawab dengan kata-kata yang baik, sabar, dan jangan biarkan pelanggan merasa kecewa.
+      
+      STRATEGI ESKALASI:
+      - JIKA Anda tidak memiliki informasi yang memadai, atau user butuh demo langsung, atau ingin bantuan teknis/pembayaran, arahkan UNTUK KLIK TOMBOL "WhatsApp Support" yang sudah muncul di bawah pesan ini.
+      - Gunakan kalimat: "Mari saya hubungkan langsung ke tim CS manusia kami untuk bantuan lebih lanjut via WhatsApp: https://wa.me/6282259494242"
+    `;
+
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+    const finalHistory = [
+      { role: "user", parts: [{ text: systemPrompt }] },
+      { role: "model", parts: [{ text: "Assalamu'alaikum! Saya Asisten MasjidKu. Ada yang bisa saya bantu terkait digitalisasi masjid Anda hari ini?" }] },
+      ...(history || [])
+    ];
+
+    console.log(`[AI][Global] Sending prompt to Gemini...`);
+    console.log(`History Steps: ${finalHistory.length}`);
+    console.log(`User Message: "${message}"`);
+
+    const chat = model.startChat({ history: finalHistory });
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log(`[AI][Global] Response received: ${text.substring(0, 50)}...`);
+    res.json({ text });
+  } catch (error) {
+    console.error("Global AI Error Trace:", error);
+    console.error("Error Payload:", { historySize: req.body?.history?.length, msg: req.body?.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/mosque-chat/:mosqueId", async (req, res) => {
+  const { mosqueId } = req.params;
+  try {
+    const { message, history } = req.body;
+
+    const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+    if (!mosque) return res.status(404).json({ error: "Mosque not found" });
+
+    const activities = await prisma.activity.findMany({ where: { mosque_id: mosqueId }, take: 10, orderBy: { date: 'desc' } });
+    
+    const tgSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+    const appSettings = await prisma.appSettings.findFirst();
+    const geminiKey = tgSettings?.gemini_api_key || appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+
+    if (!geminiKey) return res.status(500).json({ error: "AI Service not configured" });
+
+    const mosqueInfo = `
+      Anda adalah "Digital Assistant" resmi dari ${mosque.name}.
+      Tugas utama Anda adalah melayani jamaah dan masyarakat dengan informasi AKURAT tentang masjid ini saja.
+      
+      PENGETAHUAN MASJID (${mosque.name}):
+      - Alamat: ${mosque.address || 'Indonesia'}
+      - Deskripsi: ${mosque.description || 'Pusat ibadah dan dakwah.'}
+      - Program Utama: ${mosque.about || 'Kegiatan keagamaan rutin.'}
+      
+      KEGIATAN AKTIF SAAT INI:
+      ${activities.length > 0 
+        ? activities.map(a => `- ${a.title} pada tanggal ${a.date}`).join('\n')
+        : 'Belum ada jadwal kegiatan khusus yang tercatat.'}
+      
+      ATURAN KETAT:
+      1. JANGAN menjawab pertanyaan tentang masjid lain. Jika ditanya, katakan: "Mohon maaf yang sebesar-besarnya Ukhti/Akhi, saya hanya memiliki otoritas untuk memberikan informasi terkait ${mosque.name}."
+      2. PROTOKOL WA: Jika Anda tidak menemukan jawaban pasti (seperti detail teknis acara atau jadwal yang tidak ada di atas), berikan arahan ke WhatsApp pengurus: 
+         - "Mohon maaf, saya belum memiliki detail mengenai hal tersebut. Agar Akhi/Ukhti mendapat jawaban pasti, mari saya hubungkan langsung ke WhatsApp Pengurus ${mosque.name} di: https://wa.me/${(mosque.phone || '').replace(/\D/g,'')}"
+      3. GAYA BAHASA: Sangat santun, Islami, dan sabar. Panggil jamaah dengan Akhi atau Ukhti.
+    `;
+
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+    const finalHistory = [
+      { role: "user", parts: [{ text: mosqueInfo }] },
+      { role: "model", parts: [{ text: `Assalamu'alaikum! Saya asisten digital ${mosque.name}. Ada yang bisa saya bantu terkait masjid ini?` }] },
+      ...(history || [])
+    ];
+
+    console.log(`[AI][${mosque.name}] Sending prompt to Gemini...`);
+    console.log(`History Steps: ${finalHistory.length}`);
+    console.log(`User Message: "${message}"`);
+
+    const chat = model.startChat({ history: finalHistory });
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    const text = response.text();
+
+    console.log(`[AI][${mosque.name}] Response received: ${text.substring(0, 50)}...`);
+    res.json({ text });
+  } catch (error) {
+    console.error("Mosque AI Error Trace:", error);
+    console.error("Error Payload:", { historySize: req.body?.history?.length, msg: req.body?.message });
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.get("/api/public/mosque-by-domain", async (req, res) => {
   const { domain } = req.query;
@@ -520,7 +704,7 @@ app.get("/api/auth/2fa/generate", authenticateToken, async (req, res) => {
     const secret = speakeasy.generateSecret({ name: `MasjidKu (${user.email})` });
     
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: req.user.id },
       data: { two_factor_secret: secret.base32 }
     });
 
@@ -553,7 +737,7 @@ app.post("/api/auth/2fa/enable", authenticateToken, async (req, res) => {
     if (!isValid) return res.status(400).json({ error: "Kode Authenticator tidak valid" });
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: req.user.id },
       data: { two_factor_enabled: true }
     });
 
@@ -583,7 +767,7 @@ app.post("/api/auth/2fa/disable", authenticateToken, async (req, res) => {
     if (!isValid) return res.status(400).json({ error: "Kode Authenticator tidak valid" });
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id: req.user.id },
       data: { two_factor_enabled: false, two_factor_secret: null }
     });
 
@@ -681,8 +865,8 @@ app.post("/api/integrations/telegram/broadcast", authenticateToken, async (req, 
    Dynamic Entity CRUD Endpoints (Replaces Base44)
 ================== */
 
-// ✅ Public absensi endpoint — no authentication required
-app.post("/api/attendance", async (req, res) => {
+// ✅ Public absensi endpoint — with subscription check
+app.post("/api/attendance", checkSubscription, async (req, res) => {
   try {
     const { activity_id, mosque_id, member_name, member_email, member_phone } = req.body;
     if (!activity_id || !member_name) return res.status(400).json({ error: "activity_id dan member_name wajib diisi" });
@@ -695,8 +879,8 @@ app.post("/api/attendance", async (req, res) => {
   }
 });
 
-// ✅ Public endpoint GET Attendance by activity_id (for admin viewing)
-app.get("/api/attendance", async (req, res) => {
+// ✅ Public endpoint GET Attendance by activity_id (for admin viewing) — with subscription check
+app.get("/api/attendance", checkSubscription, async (req, res) => {
   try {
     const { activity_id, mosque_id } = req.query;
     const where = {};
@@ -709,7 +893,7 @@ app.get("/api/attendance", async (req, res) => {
   }
 });
 
-app.get("/api/entities/:model", async (req, res) => {
+app.get("/api/entities/:model", checkSubscription, async (req, res) => {
   const modelName = req.params.model;
   const prismaModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   if (!prisma[prismaModel]) return res.status(404).json({ error: "Invalid entity" });
@@ -735,17 +919,19 @@ app.get("/api/entities/:model", async (req, res) => {
     const data = await prisma[prismaModel].findMany(queryArgs);
     res.json(data);
   } catch (error) {
+    console.error(`[API][Entity][GET][${modelName}] Error:`, error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post("/api/entities/:model", authenticateToken, async (req, res) => {
+app.post("/api/entities/:model", authenticateToken, checkSubscription, async (req, res) => {
   const modelName = req.params.model;
   const prismaModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   if (!prisma[prismaModel]) return res.status(404).json({ error: "Invalid entity" });
 
   try {
     const { admin_password, ...data } = req.body;
+    console.log(`[API][Entity][POST][${modelName}] Creating:`, data);
     const result = await prisma[prismaModel].create({ data });
     
     // Auto provision admin_masjid user if registering a Mosque and admin_password is provided
@@ -790,17 +976,27 @@ app.post("/api/entities/:model", authenticateToken, async (req, res) => {
     
     res.json(result);
   } catch (error) {
+    console.error(`[API][Entity][POST][${modelName}] Error:`, error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
+app.patch("/api/entities/:model/:id", authenticateToken, checkSubscription, async (req, res) => {
   const modelName = req.params.model;
   const prismaModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   if (!prisma[prismaModel]) return res.status(404).json({ error: "Invalid entity" });
 
   try {
     const { admin_password, ...data } = req.body;
+
+    // Protection: Only superadmins/admins can change roles
+    if (modelName === "User" && data.role) {
+      if (req.user.role !== "admin" && req.user.role !== "superadmin") {
+        return res.status(403).json({ error: "Akses ditolak. Hanya superadmin yang dapat mengubah role." });
+      }
+    }
+
+    console.log(`[API][Entity][PATCH][${modelName}] Updating ID: ${req.params.id} with:`, data);
     const result = await prisma[prismaModel].update({ where: { id: req.params.id }, data });
     
     // Update admin_masjid password if registering/updating Mosque and admin_password is provided
@@ -821,19 +1017,22 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
     
     res.json(result);
   } catch (error) {
+    console.error(`[API][Entity][PATCH][${modelName}] Error:`, error);
     res.status(500).json({ error: error.message });
   }
 });
 
-app.delete("/api/entities/:model/:id", authenticateToken, async (req, res) => {
+app.delete("/api/entities/:model/:id", authenticateToken, checkSubscription, async (req, res) => {
   const modelName = req.params.model;
   const prismaModel = modelName.charAt(0).toLowerCase() + modelName.slice(1);
   if (!prisma[prismaModel]) return res.status(404).json({ error: "Invalid entity" });
 
   try {
+    console.log(`[API][Entity][DELETE][${modelName}] ID: ${req.params.id}`);
     const result = await prisma[prismaModel].delete({ where: { id: req.params.id } });
     res.json(result);
   } catch (error) {
+    console.error(`[API][Entity][DELETE][${modelName}] Error:`, error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -957,6 +1156,125 @@ app.post("/api/ai/analyze", authenticateToken, async (req, res) => {
   }
 });
 
+
+app.post("/api/ai/customer-service", async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message) return res.status(400).json({ error: "Message is required" });
+
+    const appSettings = await prisma.appSettings.findFirst();
+    const geminiKey = appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+    if (!geminiKey) return res.status(500).json({ error: "AI Service not configured" });
+
+    const systemPrompt = `
+      Anda adalah "MasjidKu Assistant", asisten cerdas garis depan dari platform MasjidKu Smart. 
+      Tugas utama Anda adalah menghandle seluruh pertanyaan awal dari calon pelanggan (Pengurus Masjid) dengan cerdas, sangat santun, dan menyejukkan.
+      
+      PENGETAHUAN LENGKAP PLATFORM:
+      1. Apa itu MasjidKu Smart? 
+         - Platform ERP dan Digitalisasi Masjid #1 di Indonesia untuk kemakmuran umat.
+         - Membantu transparansi keuangan, administrasi, dan kedekatan jamaah dengan teknologi cloud.
+      2. Fitur Spesifik:
+         - AI Gemini Scan Struk: Memotret struk belanja dan otomatis mencatat kas. Sangat efisien!
+         - Integrated Telegram Bot: Jamaah bisa cek kas & jadwal shalat via Telegram secara mandiri.
+         - Digital Signage (Public TV): Tampilan TV Masjid otomatis untuk jadwal shalat, donasi, & pengeluaran.
+         - Portfolio/Profil Masjid: Website khusus profil masjid yang bisa dibagikan ke khalayak luas.
+         - Pencarian Masjid: Fitur mencari masjid terdaftar agar jamaah mudah berinteraksi.
+         - Absensi QR Code: Modernisasi kehadiran jamaah dan pengurus rapat.
+      3. Harga & Paket Hemat (Edisi 2024):
+         - Paket Bulanan: Rp 49.000 / bln.
+         - Paket Triwulan: Rp 135.000 / 3 bln.
+         - Paket Semester: Rp 245.000 / 6 bln (Hemat 16%).
+         - Paket Tahunan: Rp 450.000 / 12 bln (SANGAT HEMAT - Diskon 25%).
+         - Paket Enterprise (Best Value): 1 Tahun penuh dengan fasilitas Upgrade Custom Domain (contoh: masjidqu.com) serta Support Team Prioritas.
+      4. Keamanan: Data tersimpan aman di infrastruktur Cloud Google/AWS dengan login multi-role.
+      
+      PROTOKOL LAYANAN (WAJIB):
+      - Awali setiap jawaban dengan salam: "Assalamu'alaikum Warahmatullahi Wabarakatuh" atau sapaan Islami yang hangat.
+      - Panggil pengguna dengan sebutan: "Akhi/Ukhti" atau "Bapak/Ibu" agar terasa akrab namun tetap sangat santun.
+      - Jawab dengan kata-kata yang baik, sabar, dan jangan biarkan pelanggan merasa kecewa.
+      
+      STRATEGI ESKALASI:
+      - JIKA pertanyaan di luar data di atas (misal: pertanyaan teknis mendalam atau permintaan khusus):
+        - Katakan: "Mohon maaf yang sebesar-besarnya Akhi/Ukhti, terkait detail khusus tersebut saya belum memiliki informasinya agar tidak terjadi kesalahan penyampaian. Mari saya bantu hubungkan langsung dengan tim Customer Service kami (Manusia) melalui WhatsApp agar segera dibantu secara tuntas."
+        - Berikan Link WhatsApp ini: https://wa.me/6282259494242
+    `;
+
+    // Import google generative ai dynamically or use helper
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+    const chat = model.startChat({
+      history: [
+        { role: "user", parts: [{ text: systemPrompt }] },
+        { role: "model", parts: [{ text: "Siap, saya adalah MasjidKu Assistant. Ada yang bisa saya bantu?" }] },
+        ...(history || [])
+      ],
+    });
+
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    res.json({ text: response.text() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post("/api/ai/mosque-chat/:mosqueId", async (req, res) => {
+  try {
+    const { mosqueId } = req.params;
+    const { message, history } = req.body;
+
+    const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+    if (!mosque) return res.status(404).json({ error: "Mosque not found" });
+
+    const activities = await prisma.activity.findMany({ where: { mosque_id: mosqueId }, take: 10, orderBy: { date: 'desc' } });
+    
+    const tgSettings = await prisma.telegramSettings.findUnique({ where: { mosque_id: mosqueId } });
+    const appSettings = await prisma.appSettings.findFirst();
+    const geminiKey = tgSettings?.gemini_api_key || appSettings?.gemini_api_key || process.env.GEMINI_API_KEY;
+
+    const mosqueInfo = `
+      Anda adalah "Digital Assistant" resmi dari ${mosque.name}.
+      Tugas utama Anda adalah melayani jamaah dan masyarakat dengan informasi AKURAT tentang masjid ini saja.
+      
+      PENGETAHUAN MASJID (${mosque.name}):
+      - Alamat: ${mosque.address || 'Indonesia'}
+      - Deskripsi: ${mosque.description || 'Pusat ibadah dan dakwah.'}
+      - Program Utama: ${mosque.about || 'Kegiatan keagamaan rutin.'}
+      
+      KEGIATAN AKTIF SAAT INI:
+      ${activities.length > 0 
+        ? activities.map(a => `- ${a.title} pada tanggal ${a.date}`).join('\n')
+        : 'Belum ada jadwal kegiatan khusus yang tercatat.'}
+      
+      ATURAN KETAT:
+      1. JANGAN menjawab pertanyaan tentang masjid lain. Jika ditanya, katakan: "Mohon maaf yang sebesar-besarnya Ukhti/Akhi, saya hanya memiliki otoritas untuk memberikan informasi terkait ${mosque.name}."
+      2. PROTOKOL WA: Jika Anda tidak menemukan jawaban pasti (seperti detail teknis acara atau jadwal yang tidak ada di atas), berikan arahan ke WhatsApp pengurus: 
+         - "Mohon maaf, saya belum memiliki detail mengenai hal tersebut. Agar Akhi/Ukhti mendapat jawaban pasti, mari saya hubungkan langsung ke WhatsApp Pengurus ${mosque.name} di: https://wa.me/${(mosque.phone || '').replace(/\D/g,'')}"
+      3. GAYA BAHASA: Sangat santun, Islami, dan sabar. Panggil jamaah dengan Akhi atau Ukhti.
+    `;
+
+    const { GoogleGenerativeAI } = require("@google/generative-ai");
+    const genAI = new GoogleGenerativeAI(geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+    const chat = model.startChat({
+      history: [
+        { role: "user", parts: [{ text: mosqueInfo }] },
+        { role: "model", parts: [{ text: `Assalamu'alaikum! Saya asisten digital ${mosque.name}. Ada yang bisa saya bantu terkait masjid ini?` }] },
+        ...(history || [])
+      ],
+    });
+
+    const result = await chat.sendMessage(message);
+    const response = await result.response;
+    res.json({ text: response.text() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /* ==================
    TELEGRAM INTEGRATION ENDPOINTS

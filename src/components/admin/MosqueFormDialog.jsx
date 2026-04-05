@@ -172,6 +172,8 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
                 <SelectContent>
                   <SelectItem value="trial">Trial (Free)</SelectItem>
                   <SelectItem value="monthly">Bulanan</SelectItem>
+                  <SelectItem value="triwulan">Triwulan (3 Bulan)</SelectItem>
+                  <SelectItem value="semester">Semester (6 Bulan)</SelectItem>
                   <SelectItem value="yearly">Tahunan</SelectItem>
                   <SelectItem value="enterprise">Enterprise</SelectItem>
                 </SelectContent>

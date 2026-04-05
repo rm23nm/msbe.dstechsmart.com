@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const InstallPWA = () => {
   const [supportsPWA, setSupportsPWA] = useState(false);
   const [promptInstall, setPromptInstall] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const location = useLocation();
+
+  const isExcludedPath = 
+    location.pathname === "/info-publik" || 
+    location.pathname === "/prayer-times" || 
+    location.pathname.startsWith("/tv");
 
   useEffect(() => {
     // Cek apakah user sudah menutup prompt ini sebelumnya
@@ -67,7 +74,7 @@ const InstallPWA = () => {
     });
   };
 
-  if (!supportsPWA || isInstalled || localStorage.getItem("pwa_dismissed")) {
+  if (!supportsPWA || isInstalled || localStorage.getItem("pwa_dismissed") || isExcludedPath) {
     return null;
   }
 

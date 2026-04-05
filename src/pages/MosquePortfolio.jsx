@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
 import { formatCurrency, formatDate } from "@/lib/formatCurrency";
+import { useMosqueContext } from "@/lib/useMosqueContext";
 import QRCode from "react-qr-code";
 import {
   MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight, ArrowDownRight,
   Wallet, Megaphone, Instagram, Youtube, Facebook, Globe,
   UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
-  MessageSquare, Smartphone, Home, Info, Images, DollarSign, Users as UsersIcon, BookOpen
+  MessageSquare, Smartphone, Home, Info, Images, DollarSign, Users as UsersIcon, BookOpen, Landmark
 } from "lucide-react";
 import QuranReader from "@/components/QuranReader";
 import { Badge } from "@/components/ui/badge";
@@ -188,70 +189,121 @@ function TabNav({ active, setActive, counts }) {
   );
 }
 
-// ── AI CHAT ───────────────────────────────────────────────────────────────────
+// ── AI CHAT (REFINED: SMART GEMINI) ───────────────────────────────────────────
 function AIChatWidget({ mosque }) {
   const [open, setOpen] = useState(false);
-  const [msgs, setMsgs] = useState([{ from: 'bot', text: `Assalamu'alaikum! 👋 Saya asisten ${mosque?.name}. Ada yang bisa saya bantu?` }]);
-  const [input, setInput] = useState('');
-  const [typing, setTyping] = useState(false);
-  const [showPreset, setShowPreset] = useState(true);
-  const bottomRef = useRef(null);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [msgs, typing]);
+  const [messages, setMessages] = useState([
+     { role: "model", text: `Assalamu'alaikum! 👋 Saya asisten digital ${mosque?.name}. Ada yang bisa saya bantu terkait informasi masjid kami hari ini?` }
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const chatEndRef = useRef(null);
 
-  const presets = [
-    { q: `Di mana lokasi ${mosque?.name}?`, a: `${mosque?.name} di ${mosque?.address}, ${mosque?.city}.` },
-    { q: 'Cara menghubungi masjid?', a: `${mosque?.phone ? '📞 ' + mosque.phone : ''}${mosque?.email ? '\n📧 ' + mosque.email : ''}` },
-    { q: 'Apa kegiatan masjid?', a: `${mosque?.name} memiliki shalat berjamaah, kajian, dan kegiatan sosial rutin. Lihat tab Kegiatan!` },
-    { q: 'Cara berdonasi?', a: `Donasi ke ${mosque?.name} bisa langsung ke pengurus. Jazakallah khairan! 🤲` },
-  ];
+  useEffect(() => {
+     if (open) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, open]);
 
-  async function send(text) {
-    if (!text.trim()) return;
-    setMsgs(p => [...p, { from: 'user', text: text.trim() }]);
-    setInput(''); setShowPreset(false); setTyping(true);
-    await new Promise(r => setTimeout(r, 900));
-    setTyping(false);
-    const q = text.toLowerCase();
-    const found = presets.find(p => p.q.toLowerCase().split(' ').filter(w => w.length > 3).some(kw => q.includes(kw)));
-    setMsgs(p => [...p, { from: 'bot', text: found?.a || `Untuk info lebih lanjut, hubungi pengurus ${mosque?.name}${mosque?.phone ? ' di ' + mosque.phone : ''}. 🕌` }]);
+  async function handleSend() {
+     if (!input.trim() || loading) return;
+     const userMsg = input;
+     setInput("");
+     setMessages(prev => [...prev, { role: "user", text: userMsg }]);
+     setLoading(true);
+
+     try {
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
+        const res = await fetch(`${apiUrl}/api/ai/mosque-chat/${mosque.id}`, {
+           method: "POST",
+           headers: { "Content-Type": "application/json" },
+           body: JSON.stringify({ 
+             message: userMsg, 
+             history: messages.slice(1).slice(-6).map(m => ({ role: m.role, parts: [{ text: m.text || "" }] })) 
+           })
+        });
+        const data = await res.json();
+        setMessages(prev => [...prev, { role: "model", text: data.text }]);
+     } catch (e) {
+        setMessages(prev => [...prev, { role: "model", text: "Mohon maaf yang sebesar-besarnya, sistem sedang padat. Silakan hubungi pengurus kami langsung via WhatsApp untuk respon cepat." }]);
+     } finally {
+        setLoading(false);
+     }
   }
 
   return (
     <>
-      <button onClick={() => setOpen(o => !o)} className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary shadow-2xl flex items-center justify-center text-white hover:scale-110 transition-transform">
+      {/* Floating Button */}
+      <button 
+        onClick={() => setOpen(!open)}
+        className="fixed bottom-10 right-10 z-[60] w-14 h-14 bg-emerald-600 rounded-full shadow-[0_15px_40px_rgba(5,150,105,0.4)] flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all border-4 border-white animate-bounce"
+      >
         {open ? <X className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
-        {!open && <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white animate-pulse" />}
       </button>
+
+      {/* Chat Window */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-50 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border overflow-hidden flex flex-col" style={{ maxHeight: '500px' }}>
-          <div className="bg-gradient-to-r from-primary to-emerald-600 px-4 py-3 flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
-              {mosque?.logo_url ? <img src={mosque.logo_url} alt="logo" className="w-full h-full object-cover" /> : <img src="/favicon.png" className="w-6 h-6 object-contain" />}
-            </div>
-            <div>
-              <p className="text-white font-bold text-sm">{mosque?.name}</p>
-              <p className="text-white/70 text-xs flex items-center gap-1"><span className="w-1.5 h-1.5 bg-green-300 rounded-full" />AI Asisten Online</p>
-            </div>
-            <button onClick={() => setOpen(false)} className="ml-auto text-white/70 hover:text-white"><ChevronDown className="h-5 w-5" /></button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-gray-50">
-            {msgs.map((m, i) => (
-              <div key={i} className={`flex ${m.from === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {m.from === 'bot' && <div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center mr-2 flex-shrink-0 mt-1"><Bot className="h-4 w-4 text-primary" /></div>}
-                <div className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${m.from === 'user' ? 'bg-primary text-white rounded-br-sm' : 'bg-white border text-gray-700 rounded-bl-sm shadow-sm'}`}>{m.text}</div>
+        <div className="fixed bottom-28 right-6 md:right-10 z-[60] w-[calc(100vw-3rem)] md:w-96 h-[500px] bg-white rounded-[2.5rem] shadow-2xl border overflow-hidden flex flex-col animate-in slide-in-from-bottom-10 fade-in duration-300">
+           {/* Header */}
+           <div className="bg-[#10b981] p-6 text-white bg-gradient-to-r from-emerald-600 to-teal-700">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center border border-white/50 overflow-hidden">
+                    {mosque.logo_url ? <img src={mosque.logo_url} className="w-full h-full object-cover" /> : <Bot className="h-6 w-6 text-white" />}
+                 </div>
+                 <div>
+                    <div className="font-bold text-sm truncate max-w-[200px]">{mosque.name} Assistant</div>
+                    <div className="text-[10px] flex items-center gap-1 opacity-80 uppercase tracking-widest font-black text-emerald-100">
+                       <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> Jamaah Support Online
+                    </div>
+                 </div>
               </div>
-            ))}
-            {typing && <div className="flex items-center gap-2"><div className="w-7 h-7 bg-primary/10 rounded-full flex items-center justify-center"><Bot className="h-4 w-4 text-primary" /></div><div className="bg-white border px-4 py-3 rounded-2xl flex gap-1">{[0,150,300].map(d => <span key={d} className="w-2 h-2 bg-primary/40 rounded-full animate-bounce" style={{animationDelay:`${d}ms`}} />)}</div></div>}
-            {showPreset && msgs.length <= 1 && <div className="space-y-1.5">{presets.map((p,i) => <button key={i} onClick={() => send(p.q)} className="w-full text-left text-xs px-3 py-2 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 text-gray-700">{p.q}</button>)}</div>}
-            <div ref={bottomRef} />
-          </div>
-          <div className="p-3 border-t bg-white">
-            <div className="flex gap-2">
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send(input)} placeholder="Tanya sesuatu..." className="flex-1 px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50" />
-              <button onClick={() => send(input)} className="w-9 h-9 bg-primary text-white rounded-xl flex items-center justify-center"><Send className="h-4 w-4" /></button>
-            </div>
-            {mosque?.phone && <a href={`https://wa.me/${mosque.phone.replace(/\D/g,'')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-1 mt-2 text-xs text-emerald-600 font-medium"><Phone className="h-3 w-3" />WhatsApp Pengurus</a>}
-          </div>
+           </div>
+
+           {/* Messages */}
+           <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50 scrollbar-hide">
+              {messages.map((m, i) => (
+                 <div key={i} className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}>
+                    <div className={`max-w-[85%] p-4 rounded-2xl text-[13px] leading-relaxed shadow-sm ${m.role === 'user' ? 'bg-emerald-600 text-white rounded-tr-none' : 'bg-white text-slate-700 rounded-tl-none border border-slate-100'}`}>
+                       {m.text}
+                    </div>
+                 </div>
+              ))}
+              {loading && (
+                 <div className="flex justify-start">
+                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-slate-100 shadow-sm">
+                       <div className="flex gap-1">
+                          {[0, 150, 300].map(d => <span key={d} className="w-1.5 h-1.5 bg-emerald-300 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+                       </div>
+                    </div>
+                 </div>
+              )}
+              <div ref={chatEndRef} />
+           </div>
+
+           {/* Input */}
+           <div className="p-4 bg-white border-t">
+              <div className="relative">
+                 <input 
+                    value={input}
+                    onChange={e => setInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSend()}
+                    placeholder="Tanya jadwal, kegiatan, atau info lainnya..."
+                    className="w-full h-12 bg-slate-100 rounded-2xl pl-4 pr-12 text-[13px] focus:bg-white focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all border-none font-medium"
+                 />
+                 <button 
+                  onClick={handleSend}
+                  disabled={loading}
+                  className="absolute right-2 top-2 w-8 h-8 bg-emerald-600 text-white rounded-xl flex items-center justify-center hover:bg-emerald-700 disabled:bg-slate-300 transition-colors"
+                 >
+                    <Send className="h-4 w-4" />
+                 </button>
+              </div>
+              {mosque.phone && (
+                <div className="text-center mt-3">
+                   <a href={`https://wa.me/${mosque.phone.replace(/\D/g,'')}`} target="_blank" className="text-[10px] text-emerald-600 font-black uppercase tracking-widest hover:underline flex items-center justify-center gap-1">
+                      <MessageSquare className="h-3 w-3" /> Chat Pengurus Via WhatsApp
+                   </a>
+                </div>
+              )}
+           </div>
         </div>
       )}
     </>
@@ -261,6 +313,8 @@ function AIChatWidget({ mosque }) {
 // ── MAIN ──────────────────────────────────────────────────────────────────────
 export default function MosquePortfolio() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [mosque, setMosque] = useState(null);
   const [activities, setActivities] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -269,7 +323,24 @@ export default function MosquePortfolio() {
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState('beranda');
 
+  useEffect(() => {
+    smartApi.auth.me().then(setUser).catch(() => {});
+  }, []);
+
   useEffect(() => { loadData(); }, [id]);
+  
+  useEffect(() => {
+    if (mosque && user) {
+       const isExpired = mosque.subscription_end && new Date(mosque.subscription_end) < new Date();
+       const isMyMosque = user.current_mosque_id === mosque.id || (user.email === mosque.email && user.role !== 'user');
+       
+       if (isExpired && isMyMosque) {
+          toast.warning("Masa aktif paket masjid Anda berakhir. Silakan lakukan perpanjangan.");
+          navigate('/paket');
+       }
+    }
+  }, [mosque, user]);
+
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     if (mosque && p.get('join') === 'true') processJoin(mosque.id);
@@ -288,18 +359,49 @@ export default function MosquePortfolio() {
     setLoading(true);
     let m = null;
     try {
+      // Coba cari berdasarkan slug dulu
       const s = await smartApi.entities.Mosque.filter({ slug: id });
-      m = s?.[0] || null;
-      if (!m) { const r = await smartApi.entities.Mosque.filter({ id }); m = r?.[0] || null; }
-    } catch {}
-    if (!m) { setNotFound(true); setLoading(false); return; }
+      if (s && s.length > 0) {
+        m = s[0];
+      } else {
+        // Jika tidak ada slug, coba cari berdasarkan ID (UUID)
+        const r = await smartApi.entities.Mosque.filter({ id: id });
+        if (r && r.length > 0) {
+          m = r[0];
+        }
+      }
+    } catch (err) {
+      console.error("Error loading mosque:", err);
+    }
+
+    if (!m) {
+      setNotFound(true);
+      setLoading(false);
+      return;
+    }
+
+    // Cek apakah paket sudah berakhir
+    const isExpired = m.subscription_end && new Date(m.subscription_end) < new Date();
+    if (isExpired) {
+      // Jika expired, hanya biarkan tab Quran yang terbuka (atau beri peringatan)
+      setActiveTab('quran');
+    }
+
     setMosque(m);
-    const [acts, anns, txns] = await Promise.all([
-      smartApi.entities.Activity.filter({ mosque_id: m.id, status: "upcoming" }, "date", 20),
-      smartApi.entities.Announcement.filter({ mosque_id: m.id, status: "published" }, "-created_date", 20),
-      m.show_financial ? smartApi.entities.Transaction.filter({ mosque_id: m.id }, "-date", 100) : Promise.resolve([]),
-    ]);
-    setActivities(acts); setAnnouncements(anns); setTransactions(txns);
+    
+    try {
+      const [acts, anns, txns] = await Promise.all([
+        smartApi.entities.Activity.filter({ mosque_id: m.id, status: "upcoming" }, "date", 20),
+        smartApi.entities.Announcement.filter({ mosque_id: m.id, status: "published" }, "-created_date", 20),
+        m.show_financial && !isExpired ? smartApi.entities.Transaction.filter({ mosque_id: m.id }, "-date", 100) : Promise.resolve([]),
+      ]);
+      setActivities(acts);
+      setAnnouncements(anns);
+      setTransactions(txns);
+    } catch (e) {
+      console.warn("Failed to load some data:", e);
+    }
+    
     setLoading(false);
   }
 
@@ -327,16 +429,45 @@ export default function MosquePortfolio() {
     tentang: 0,
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* ── HERO SLIDER ── */}
-      <HeroSlider slides={slides} mosque={mosque} />
+    // Cek apakah paket sudah berakhir
+    const isExpired = mosque?.subscription_end && new Date(mosque.subscription_end) < new Date();
+    const filteredTabs = TABS.filter(t => {
+      // Jika expired, hanya Quran dan Tentang yang tampil publik
+      if (isExpired) return t.id === 'quran' || t.id === 'tentang';
+      return true;
+    });
 
-      {/* ── TAB NAVIGATION ── */}
-      <TabNav active={activeTab} setActive={setActiveTab} counts={tabCounts} />
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        {/* TOP BANNER WARNING IF EXPIRED */}
+        {isExpired && (
+          <div className="bg-destructive text-destructive-foreground py-3 px-6 text-center text-sm font-bold animate-pulse sticky top-0 z-[60] shadow-xl">
+            ⚠️ Layanan Publik Masjid Ini Sedang Dinonaktifkan (Masa Aktif Paket Berakhir) - Hanya Fitur Al-Quran yang Tersedia.
+          </div>
+        )}
 
-      {/* ── TAB CONTENT ── */}
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
+        {/* ── HERO SLIDER ── */}
+        <HeroSlider slides={slides} mosque={mosque} />
+
+        {/* ── TAB NAVIGATION ── */}
+        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b shadow-sm overflow-x-auto no-scrollbar">
+          <div className="flex max-w-5xl mx-auto px-4">
+            {filteredTabs.map(tab => {
+              const count = tabCounts[tab.id];
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-4 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-primary/30'}`}>
+                  <tab.icon className="h-4 w-4" />
+                  {tab.label}
+                  {count > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${activeTab === tab.id ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── TAB CONTENT ── */}
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 flex-1">
 
         {/* BERANDA */}
         {activeTab === 'beranda' && (
@@ -488,7 +619,7 @@ export default function MosquePortfolio() {
           <div className="space-y-8">
             <div className="text-center md:text-left">
               <h2 className="font-semibold text-2xl flex items-center justify-center md:justify-start gap-2">
-                <Users className="h-6 w-6 text-primary" />
+                <UsersIcon className="h-6 w-6 text-primary" />
                 Struktur Organisasi {mosque.name}
               </h2>
               <p className="text-muted-foreground mt-2">Daftar pengurus dan struktur manajemen DKM (Dewan Kemakmuran Masjid).</p>

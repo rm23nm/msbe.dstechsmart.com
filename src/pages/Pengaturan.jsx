@@ -374,32 +374,49 @@ export default function Pengaturan() {
               </div>
             </div>
 
-            {/* Custom Domain */}
+            {/* Custom Domain - Restricted to Enterprise */}
             <div className="bg-card rounded-xl border p-6 space-y-4">
               <h3 className="font-semibold flex items-center gap-2">
                 <Globe className="h-4 w-4 text-primary" /> Domain Kustom
               </h3>
-              <div className="space-y-2">
-                <Label>Domain Masjid</Label>
-                <Input
-                  value={form.custom_domain || ""}
-                  onChange={e => setForm({ ...form, custom_domain: e.target.value })}
-                  disabled={!canEdit}
-                  placeholder="masjidalikhlas.com"
-                />
-                <p className="text-xs text-muted-foreground">Masukkan domain tanpa "https://". Contoh: masjidalikhlas.com</p>
-              </div>
-              {form.custom_domain && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 space-y-2">
-                  <p className="font-semibold">📋 Cara Menghubungkan Domain:</p>
-                  <ol className="list-decimal list-inside space-y-1 text-xs">
-                    <li>Login ke panel registrar domain Anda (GoDaddy, Niagahoster, dll.)</li>
-                    <li>Buka pengaturan DNS untuk domain <strong>{form.custom_domain}</strong></li>
-                    <li>Tambahkan record CNAME: <code className="bg-amber-100 px-1 rounded">www → {window.location.hostname}</code></li>
-                    <li>Atau tambahkan record A: arahkan ke IP server MasjidKu</li>
-                    <li>Tunggu propagasi DNS (bisa 1-24 jam)</li>
-                    <li>Hubungi tim support untuk aktivasi domain</li>
-                  </ol>
+              
+              {currentMosque?.subscription_plan === 'enterprise' ? (
+                <>
+                  <div className="space-y-2">
+                    <Label>Domain Masjid</Label>
+                    <Input
+                      value={form.custom_domain || ""}
+                      onChange={e => setForm({ ...form, custom_domain: e.target.value })}
+                      disabled={!canEdit}
+                      placeholder="masjidalikhlas.com"
+                    />
+                    <p className="text-xs text-muted-foreground">Masukkan domain tanpa "https://". Contoh: masjidalikhlas.com</p>
+                  </div>
+                  {form.custom_domain && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 space-y-2">
+                      <p className="font-semibold">📋 Cara Menghubungkan Domain:</p>
+                      <ol className="list-decimal list-inside space-y-1 text-xs">
+                        <li>Login ke panel registrar domain Anda (GoDaddy, Niagahoster, dll.)</li>
+                        <li>Buka pengaturan DNS untuk domain <strong>{form.custom_domain}</strong></li>
+                        <li>Tambahkan record CNAME: <code className="bg-amber-100 px-1 rounded">www → {window.location.hostname}</code></li>
+                        <li>Tunggu propagasi DNS (bisa 1-24 jam)</li>
+                        <li>Hubungi tim support untuk aktivasi domain</li>
+                      </ol>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="bg-muted/30 border border-dashed rounded-xl p-6 text-center">
+                  <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="h-6 w-6 text-amber-600" />
+                  </div>
+                  <h4 className="font-bold text-sm">Fitur Khusus Paket Enterprise</h4>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+                    Kustom domain mandiri hanya tersedia untuk pengguna <strong>Paket Enterprise 1 Tahun</strong>. Silakan upgrade paket Anda untuk menggunakan domain sendiri.
+                  </p>
+                  <Button type="button" variant="link" className="mt-2 text-xs" onClick={() => setActiveTab('subscription')}>
+                    Cara Upgrade →
+                  </Button>
                 </div>
               )}
             </div>

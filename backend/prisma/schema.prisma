@@ -204,15 +204,28 @@ model TelegramSettings {
 }
 
 model PlanFeatures {
-  id          String  @id @default(uuid())
-  name        String? // Legacy field
-  plan        String  @unique // trial, monthly, yearly
-  price       Float   @default(0)
-  description String?
-  features    String  @default("[]") // JSON array string
-  is_popular  Boolean @default(false)
-  max_mosques Int     @default(-1)
-  storage_gb  Int     @default(-1)
+  id             String  @id @default(uuid())
+  name           String? // Legacy field
+  plan           String  @unique // trial, monthly, yearly
+  price          Float   @default(0)
+  original_price Float   @default(0) // Harga normal sebelum diskon
+  description    String?
+  features       String  @default("[]") // JSON array string
+  is_popular     Boolean @default(false)
+  max_mosques    Int     @default(-1)
+  storage_gb     Int     @default(-1)
+}
+
+model Voucher {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  discount    Float    // Nilai diskon (misal 50000 atau 0.5 untuk 50%)
+  type        String   @default("percentage") // percentage, nominal
+  expiry_date String?  // YYYY-MM-DD
+  max_uses    Int      @default(-1)
+  used_count  Int      @default(0)
+  status      String   @default("active") // active, inactive
+  createdAt   DateTime @default(now())
 }
 
 model Attendance {

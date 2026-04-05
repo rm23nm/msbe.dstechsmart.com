@@ -8,7 +8,7 @@ import RecentTransactions from "../components/dashboard/RecentTransactions";
 import UpcomingActivities from "../components/dashboard/UpcomingActivities";
 import CashFlowChart from "../components/dashboard/CashFlowChart";
 import AnnouncementsList from "../components/dashboard/AnnouncementsList";
-import { TrendingUp, TrendingDown, PiggyBank, Calendar, Landmark } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, Calendar, Landmark, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -83,6 +83,20 @@ export default function Dashboard() {
         </div>
         <MosqueSwitcher mosques={mosques} currentMosque={currentMosque} onSwitch={switchMosque} />
       </div>
+
+      {currentMosque?.subscription_end && new Date(currentMosque.subscription_end) < new Date() && (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-center gap-3 text-destructive animate-pulse shadow-sm">
+          <Landmark className="h-5 w-5" />
+          <div className="flex-1 text-sm font-medium">
+            Paket <strong>{currentMosque?.subscription_plan}</strong> berakhir pada {new Date(currentMosque.subscription_end).toLocaleDateString()}. Akses fitur manajemen dibatasi. Silakan upgrade ke paket berbayar (Minimal 1 Bulan).
+          </div>
+          <Link to="/paket">
+            <Button variant="default" size="sm" className="bg-destructive hover:bg-destructive/90 text-white shadow-lg shadow-destructive/20 transition-all hover:scale-105 active:scale-95">
+              <Sparkles className="h-4 w-4 mr-1.5" /> Upgrade Sekarang
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

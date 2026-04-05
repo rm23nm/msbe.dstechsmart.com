@@ -35,6 +35,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import PageNotFound from "@/lib/PageNotFound";
 import InstallPWA from "@/components/InstallPWA";
 import QuranTafsir from "./pages/QuranTafsir";
+import SubscriptionPackage from "./pages/SubscriptionPackage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import AdminMosques from "@/pages/admin/AdminMosques";
 import AdminUsers from "@/pages/admin/AdminUsers";
@@ -43,12 +44,13 @@ import AdminPackages from "@/pages/admin/AdminPackages";
 import AdminReports from "@/pages/admin/AdminReports";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminRoles from "@/pages/admin/AdminRoles";
+import AdminBroadcast from "@/pages/admin/AdminBroadcast";
 import Layout from "@/components/Layout";
 
 const queryClientInstance = new QueryClient();
 
 function isPublicPath(pathname) {
-  const publicSegments = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid", "/quran"];
+  const publicSegments = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid", "/quran", "/paket"];
   return (
     publicSegments.includes(pathname) ||
     pathname.startsWith("/masjid/") ||
@@ -106,6 +108,7 @@ const AuthenticatedApp = () => {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/cari-masjid" element={<CariMasjid />} />
         <Route path="/quran" element={<QuranTafsir />} />
+        <Route path="/paket" element={<SubscriptionPackage />} />
         <Route path="/masjid/:id" element={<MosquePortfolio />} />
         <Route path="/donasi/:id" element={<Donasi />} />
         <Route path="/tv/:mosqueId" element={<PublicTV />} />
@@ -137,6 +140,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/reports" element={<AdminReports />} />
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/roles" element={<AdminRoles />} />
+        <Route path="/admin/broadcast" element={<AdminBroadcast />} />
 
         {/* Mosque Routes */}
         <Route path="/dashboard" element={<Dashboard />} />
@@ -155,8 +159,8 @@ const AuthenticatedApp = () => {
         <Route path="/telegram" element={<TelegramIntegration />} />
         <Route path="/aset" element={<Aset />} />
         <Route path="/quran" element={<QuranTafsir />} />
+        <Route path="/paket" element={<SubscriptionPackage />} />
         <Route path="/laporan-keuangan" element={<LaporanKeuangan />} />
-        <Route path="/info-publik" element={<InfoPublik />} />
         <Route path="/absensi" element={<Absensi />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
@@ -171,9 +175,9 @@ const App = () => {
         <QueryClientProvider client={queryClientInstance}>
           <Router>
             <AuthenticatedApp />
+            <InstallPWA />
           </Router>
           <Toaster />
-          <InstallPWA />
         </QueryClientProvider>
       </LanguageProvider>
     </AuthProvider>

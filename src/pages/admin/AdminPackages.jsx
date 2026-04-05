@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, Package } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Save, Package, Ticket, Plus, Trash2, Tag, Calendar, Users, Percent, DollarSign } from "lucide-react";
 import { toast } from "sonner";
+import { formatCurrency } from "@/lib/formatCurrency";
 
 const AVAILABLE_FEATURES = [
   "Jadwal Shalat & Jumat",
@@ -24,51 +26,72 @@ const AVAILABLE_FEATURES = [
   "Integrasi Telegram & AI Bot",
   "Al-Quran & Tafsir Digital",
   "Scan Struk AI (Gemini)",
+  "Update Kustom Domain Mandiri",
+  "Team Support Cepat",
+  "Team Support Khusus",
 ];
 
-const PLANS = ["trial", "monthly", "yearly"];
+const PLANS = ["trial", "monthly", "triwulan", "semester", "yearly", "enterprise"];
 
 export default function AdminPackages() {
+  const [activeTab, setActiveTab] = useState("paket");
   const [plans, setPlans] = useState({});
+  const [vouchers, setVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [newVoucher, setNewVoucher] = useState({
+    code: "",
+    discount: 0,
+    type: "percentage",
+    expiry_date: "",
+    max_uses: -1
+  });
 
   useEffect(() => {
-    loadPlans();
+    loadData();
   }, []);
 
-  async function loadPlans() {
+  async function loadData() {
     setLoading(true);
-    const data = await smartApi.entities.PlanFeatures.list();
-    const planMap = {};
-    PLANS.forEach(p => {
-      const existing = data.find(d => d.plan === p);
-      let featuresArr = [];
-      if (existing?.features) {
-        try { featuresArr = JSON.parse(existing.features); } 
-        catch (_) { featuresArr = existing.features ? existing.features.split(',').map(f => f.trim()).filter(Boolean) : []; }
-      }
-      planMap[p] = {
-        id: existing?.id,
-        plan: p,
-        features: Array.isArray(featuresArr) ? featuresArr : [],
-        description: existing?.description || "",
-        price: existing?.price || 0,
-        max_mosques: existing?.max_mosques !== undefined ? existing.max_mosques : -1,
-        storage_gb: existing?.storage_gb !== undefined ? existing.storage_gb : -1,
-      };
-    });
-    setPlans(planMap);
-    setLoading(false);
+    try {
+      const planData = await smartApi.entities.PlanFeatures.list();
+      const planMap = {};
+      PLANS.forEach(p => {
+        const existing = planData.find(d => d.plan === p);
+        let featuresArr = [];
+        if (existing?.features) {
+          try { featuresArr = JSON.parse(existing.features); } 
+          catch (_) { featuresArr = existing.features ? existing.features.split(',').map(f => f.trim()).filter(Boolean) : []; }
+        }
+        planMap[p] = {
+          id: existing?.id,
+          plan: p,
+          features: Array.isArray(featuresArr) ? featuresArr : [],
+          description: existing?.description || "",
+          price: existing?.price || 0,
+          original_price: existing?.original_price || 0,
+          max_mosques: existing?.max_mosques !== undefined ? existing.max_mosques : -1,
+          storage_gb: existing?.storage_gb !== undefined ? existing.storage_gb : -1,
+        };
+      });
+      setPlans(planMap);
+
+      const voucherData = await smartApi.entities.Voucher.list();
+      setVouchers(voucherData || []);
+    } catch (err) {
+      toast.error("Gagal memuat data: " + err.message);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  async function handleSave(planKey) {
+  async function handleSavePlan(planKey) {
     setSaving(true);
     try {
       const plan = plans[planKey];
       const payload = {
         ...plan,
-        features: JSON.stringify(plan.features || []), // Simpan sebagai JSON string
+        features: JSON.stringify(plan.features || []),
       };
       if (plan.id) {
         await smartApi.entities.PlanFeatures.update(plan.id, payload);
@@ -76,11 +99,41 @@ export default function AdminPackages() {
         await smartApi.entities.PlanFeatures.create(payload);
       }
       toast.success(`Paket ${planKey} berhasil disimpan`);
-      await loadPlans();
+      await loadData();
     } catch (err) {
-      toast.error("Error: " + err.message);
+      toast.error("Gagal menyimpan: " + err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleCreateVoucher() {
+    if (!newVoucher.code) return toast.error("Kode voucher wajib diisi");
+    try {
+      const payload = {
+        ...newVoucher,
+        code: newVoucher.code.toUpperCase(),
+        discount: Number(newVoucher.discount),
+        max_uses: Number(newVoucher.max_uses),
+        status: "active"
+      };
+      await smartApi.entities.Voucher.create(payload);
+      toast.success("Voucher berhasil dibuat");
+      setNewVoucher({ code: "", discount: 0, type: "percentage", expiry_date: "", max_uses: -1 });
+      await loadData();
+    } catch (err) {
+      toast.error("Gagal membuat voucher: " + err.message);
+    }
+  }
+
+  async function handleDeleteVoucher(id) {
+    if (!confirm("Hapus voucher ini?")) return;
+    try {
+      await smartApi.entities.Voucher.delete(id);
+      toast.success("Voucher dihapus");
+      await loadData();
+    } catch (err) {
+      toast.error("Gagal menghapus");
     }
   }
 
@@ -96,115 +149,177 @@ export default function AdminPackages() {
     }));
   }
 
-  if (loading) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
+  if (loading) return <div>Memuat data...</div>;
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Manajemen Paket & Fitur" description="Atur fitur yang tersedia untuk setiap paket langganan" />
+    <div className="space-y-6 pb-20">
+      <PageHeader title="Manajemen Paket & Voucher" description="Atur harga dan kode promo layanan" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {PLANS.map(planKey => (
-          <div key={planKey} className="bg-card rounded-xl border p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-4">
-              <Package className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold capitalize text-lg">{planKey}</h3>
-              <Badge variant="secondary" className="ml-auto capitalize">{planKey}</Badge>
-            </div>
+      <div className="flex gap-2 bg-muted p-1 rounded-xl w-fit">
+        <button onClick={() => setActiveTab("paket")} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'paket' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground'}`}>
+           Paket Langganan
+        </button>
+        <button onClick={() => setActiveTab("voucher")} className={`px-6 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'voucher' ? 'bg-card shadow-sm text-primary' : 'text-muted-foreground'}`}>
+           Master Voucher
+        </button>
+      </div>
 
-            <div className="space-y-3">
-              <div>
-                <Label className="text-xs">Deskripsi</Label>
-                <input
-                  type="text"
-                  value={plans[planKey].description}
-                  onChange={e => setPlans(prev => ({
-                    ...prev,
-                    [planKey]: { ...prev[planKey], description: e.target.value }
-                  }))}
-                  placeholder="Deskripsi paket"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+      {activeTab === "paket" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {PLANS.map(planKey => (
+            <div key={planKey} className="bg-card border rounded-2xl p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-4 pb-4 border-b">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Package className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold capitalize">{planKey}</h3>
+                    <Badge variant="outline" className="text-[10px] uppercase">{planKey === 'trial' ? 'Free' : 'Premium'}</Badge>
+                  </div>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => handleSavePlan(planKey)} disabled={saving}>
+                  <Save className="h-4 w-4" />
+                </Button>
               </div>
 
-              <div>
-                <Label className="text-xs">Harga Per Tahun (Rp)</Label>
-                <input
-                  type="number"
-                  value={plans[planKey].price}
-                  onChange={e => setPlans(prev => ({
-                    ...prev,
-                    [planKey]: { ...prev[planKey], price: Number(e.target.value) }
-                  }))}
-                  placeholder="0"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
+              <div className="space-y-4 mb-4">
+                <div>
+                  <Label className="text-xs font-semibold">Deskripsi</Label>
+                  <Input 
+                    value={plans[planKey].description} 
+                    onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], description: e.target.value}})}
+                    placeholder="Deskripsi singkat..."
+                  />
+                </div>
 
-              <div>
-                <Label className="text-xs">Max Masjid (-1 = unlimited)</Label>
-                <input
-                  type="number"
-                  value={plans[planKey].max_mosques}
-                  onChange={e => setPlans(prev => ({
-                    ...prev,
-                    [planKey]: { ...prev[planKey], max_mosques: Number(e.target.value) }
-                  }))}
-                  placeholder="-1"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs">Storage GB (-1 = unlimited)</Label>
-                <input
-                  type="number"
-                  value={plans[planKey].storage_gb}
-                  onChange={e => setPlans(prev => ({
-                    ...prev,
-                    [planKey]: { ...prev[planKey], storage_gb: Number(e.target.value) }
-                  }))}
-                  placeholder="-1"
-                  className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-
-            <div className="pt-2 border-t">
-              <Label className="text-xs font-semibold">Fitur Aktif</Label>
-              <div className="mt-3 space-y-2">
-                {AVAILABLE_FEATURES.map(feature => (
-                  <label key={feature} className="flex items-center gap-2 cursor-pointer hover:bg-muted p-2 rounded transition-colors">
-                    <Checkbox
-                      checked={plans[planKey].features.includes(feature)}
-                      onCheckedChange={() => toggleFeature(planKey, feature)}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-semibold">Harga Normal (Rp)</Label>
+                    <Input 
+                      type="number"
+                      value={plans[planKey].original_price} 
+                      onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], original_price: Number(e.target.value)}})}
+                      className="text-slate-400 line-through"
                     />
-                    <span className="text-xs">{feature}</span>
-                  </label>
-                ))}
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold text-primary">Harga Promo (Rp)</Label>
+                    <Input 
+                      type="number"
+                      value={plans[planKey].price} 
+                      onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], price: Number(e.target.value)}})}
+                      className="font-bold text-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Limit Masjid</Label>
+                    <Input 
+                      type="number"
+                      value={plans[planKey].max_mosques} 
+                      onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], max_mosques: Number(e.target.value)}})}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Storage (GB)</Label>
+                    <Input 
+                      type="number"
+                      value={plans[planKey].storage_gb} 
+                      onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], storage_gb: Number(e.target.value)}})}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-1 mt-2 border-t pt-2">
+                <Label className="text-xs font-bold mb-2 block">Daftar Fitur</Label>
+                <div className="space-y-1 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {AVAILABLE_FEATURES.map(f => (
+                    <label key={f} className="flex items-center gap-2 p-1.5 hover:bg-muted rounded text-xs cursor-pointer">
+                      <Checkbox 
+                        checked={plans[planKey].features.includes(f)}
+                        onCheckedChange={() => toggleFeature(planKey, f)}
+                      />
+                      <span>{f}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
+          ))}
+        </div>
+      )}
 
-            <Button
-              onClick={() => handleSave(planKey)}
-              disabled={saving}
-              className="w-full gap-2"
-            >
-              <Save className="h-4 w-4" /> {saving ? "Menyimpan..." : "Simpan"}
-            </Button>
+      {activeTab === "voucher" && (
+        <div className="space-y-8">
+          <div className="bg-card border rounded-2xl p-6 shadow-sm">
+            <h3 className="font-bold flex items-center gap-2 mb-6">
+              <Plus className="h-5 w-5 text-primary" /> Tambah Voucher Baru
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+              <div className="space-y-2">
+                <Label>Kode Voucher</Label>
+                <Input placeholder="MASJIDKU50" value={newVoucher.code} onChange={e => setNewVoucher({...newVoucher, code: e.target.value.toUpperCase()})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Diskon</Label>
+                <div className="flex gap-2">
+                   <select className="border rounded bg-muted text-xs p-1" value={newVoucher.type} onChange={e => setNewVoucher({...newVoucher, type: e.target.value})}>
+                      <option value="percentage">%</option>
+                      <option value="nominal">Rp</option>
+                   </select>
+                   <Input type="number" placeholder="0.5 / 50000" value={newVoucher.discount} onChange={e => setNewVoucher({...newVoucher, discount: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Tgl Expired</Label>
+                <Input type="date" value={newVoucher.expiry_date} onChange={e => setNewVoucher({...newVoucher, expiry_date: e.target.value})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Max Pakai</Label>
+                <Input type="number" value={newVoucher.max_uses} onChange={e => setNewVoucher({...newVoucher, max_uses: e.target.value})} />
+              </div>
+              <Button className="w-full gap-2" onClick={handleCreateVoucher}>
+                <Ticket className="h-4 w-4" /> Simpan
+              </Button>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
-        <p className="font-semibold mb-2">📌 Info:</p>
-        <ul className="list-disc list-inside space-y-1 text-xs">
-          <li>Trial: Paket gratis untuk masjid baru (30 hari)</li>
-          <li>Monthly: Paket bulanan dengan harga lebih mahal</li>
-          <li>Yearly: Paket tahunan dengan harga lebih murah</li>
-          <li>Centang fitur yang ingin diaktifkan untuk setiap paket</li>
-          <li>Max Mosques: Jumlah masjid yang bisa didaftar (use -1 untuk unlimited)</li>
-        </ul>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+             {vouchers.map(v => (
+               <div key={v.id} className="bg-card border rounded-xl p-5 shadow-sm space-y-3 relative group">
+                  <button onClick={() => handleDeleteVoucher(v.id)} className="absolute top-2 right-2 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded-lg">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                     <Tag className="h-4 w-4 text-primary" />
+                     <span className="font-bold text-lg tracking-wider text-primary">{v.code}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs font-medium">
+                     <div className="bg-muted p-2 rounded-lg flex items-center gap-2">
+                        {v.type === 'percentage' ? <Percent className="h-3 w-3" /> : <DollarSign className="h-3 w-3" />}
+                        {v.type === 'percentage' ? (v.discount * 100) + '%' : formatCurrency(v.discount)}
+                     </div>
+                     <div className="bg-muted p-2 rounded-lg flex items-center gap-2">
+                        <Calendar className="h-3 w-3" />
+                        {v.expiry_date ? v.expiry_date : 'No Exp'}
+                     </div>
+                     <div className="bg-muted p-2 rounded-lg flex items-center gap-2 col-span-2">
+                        <Users className="h-3 w-3" />
+                        Terpakai: {v.used_count} / {v.max_uses === -1 ? '∞' : v.max_uses}
+                     </div>
+                  </div>
+                  <Badge variant={v.status === 'active' ? 'default' : 'secondary'} className="w-full justify-center py-1">
+                    {v.status === 'active' ? 'Aktif' : 'Non-aktif'}
+                  </Badge>
+               </div>
+             ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

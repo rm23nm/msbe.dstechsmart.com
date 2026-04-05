@@ -120,7 +120,7 @@ export const smartApi = {
 };
 
 // Dinamically create all entities that match smartApi
-const models = ["User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures", "RolePermission"];
+const models = ["User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures", "RolePermission", "Voucher"];
 
 models.forEach(model => {
   smartApi.entities[model] = {

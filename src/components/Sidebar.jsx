@@ -20,6 +20,7 @@ function getAdminMenuItems(t) {
     { label: t("reports"), path: "/admin/reports", icon: BarChart3 },
     { label: t("appSettings"), path: "/admin/settings", icon: Settings },
     { label: "Pengaturan Roles", path: "/admin/roles", icon: ShieldAlert },
+    { label: "Broadcast Promo", path: "/admin/broadcast", icon: Megaphone },
   ];
 }
 
@@ -40,6 +41,7 @@ function getMosqueMenuItems(t) {
     { label: t("publicInfo"), path: "/info-publik", icon: Monitor },
     { label: "Integrasi Telegram", path: "/telegram", icon: Send },
     { label: "Al-Quran & Tafsir", path: "/quran", icon: BookOpen },
+    { label: "Kelola Paket", path: "/paket", icon: Sparkles },
     { label: t("settings"), path: "/pengaturan", icon: Settings },
   ];
 }
@@ -58,8 +60,29 @@ export default function Sidebar({ onClose }) {
   const adminMenuItems = getAdminMenuItems(t);
   const mosqueMenuItems = getMosqueMenuItems(t);
   const isAdmin = user?.role === "superadmin" || user?.role === "admin";
-  const isMosqueAdmin = isAdmin || user?.role === "mosque_admin" || user?.role === "pengurus";
+  const isMosqueAdmin = isAdmin || user?.role === "mosque_admin" || user?.role === "pengurus" || user?.role === "admin_masjid";
+  
+  // LOGIKA PAKET KADALUWARSA
+  const [currentMosque, setCurrentMosque] = useState(null);
+  useEffect(() => {
+    if (user?.current_mosque_id) {
+      smartApi.entities.Mosque.list().then(list => {
+        const m = list.find(x => x.id === user.current_mosque_id);
+        if (m) setCurrentMosque(m);
+      });
+    }
+  }, [user]);
+
+  const isExpired = currentMosque?.subscription_end && new Date(currentMosque.subscription_end) < new Date();
   const roleLabel = user?.role === "superadmin" ? "Super Admin" : user?.role === "mosque_admin" ? "Pengurus" : user?.role === "user" ? "Jamaah" : (user?.role || "...");
+
+  const filteredMosqueMenu = mosqueMenuItems.filter(item => {
+    // Jika paket habis, hanya Quran, Dashboard, Pengaturan, Kelola Paket, dan Info Publik yang tampil
+    if (isExpired && !isAdmin) {
+       return ["Al-Quran & Tafsir", "Dashboard", "Pengaturan", "Kelola Paket", "Info Publik"].includes(item.label);
+    }
+    return true;
+  });
 
   return (
     <div className="h-full bg-sidebar text-sidebar-foreground flex flex-col">
@@ -109,7 +132,7 @@ export default function Sidebar({ onClose }) {
             <ChevronDown className={`h-3 w-3 transition-transform ${mosqueOpen ? '' : '-rotate-90'}`} />
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-1 mt-1">
-            {mosqueMenuItems.map((item) => {
+            {filteredMosqueMenu.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
