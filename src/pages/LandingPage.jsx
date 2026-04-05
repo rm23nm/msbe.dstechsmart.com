@@ -5,7 +5,7 @@ import { smartApi } from "@/api/apiClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
-  CheckCircle, Star, Users, Calendar, DollarSign, Package, Globe, Sparkles, Monitor, ChevronLeft, ChevronRight,
+  CheckCircle, Star, Users as UsersIcon, Calendar, DollarSign, Package, Globe, Sparkles, Monitor, ChevronLeft, ChevronRight,
   Play, Pause, MessageSquare, TrendingUp, Shield, Wifi, Megaphone,
   Gift, FileText, CheckCircle2, Phone, Mail, MapPin, Send, Bot, X, ChevronDown
 } from "lucide-react";
@@ -17,7 +17,7 @@ const FEATURES = [
   { icon: CheckCircle2, title: "Absensi QR Code", desc: "Tracking kehadiran jamaah di setiap majelis ilmu dan kegiatan masjid dengan sistem barcode instan", color: "bg-violet-50 text-violet-600" },
   { icon: Calendar, title: "Jadwal Shalat & Jumat", desc: "Atur jadwal shalat 5 waktu, petugas Jumat, dan tampilkan otomatis di layar TV masjid", color: "bg-emerald-50 text-emerald-600" },
   { icon: DollarSign, title: "Manajemen Keuangan", desc: "Catat pemasukan & pengeluaran, laporan otomatis per periode dengan grafik interaktif", color: "bg-blue-50 text-blue-600" },
-  { icon: Users, title: "Kelola Data Jamaah", desc: "Database jamaah terstruktur, kategori member, status, dan kirim pengingat langsung via email", color: "bg-purple-50 text-purple-600" },
+  { icon: UsersIcon, title: "Kelola Data Jamaah", desc: "Database jamaah terstruktur, kategori member, status, dan kirim pengingat langsung via email", color: "bg-purple-50 text-purple-600" },
   { icon: Package, title: "Inventory Aset Masjid", desc: "Catat, pantau, dan kelola semua aset masjid lengkap dengan kondisi dan pemeliharaan", color: "bg-amber-50 text-amber-600" },
   { icon: Globe, title: "Halaman Publik Masjid", desc: "Website masjid profesional yang bisa dibagikan ke seluruh jamaah dengan custom domain", color: "bg-rose-50 text-rose-600" },
   { icon: Monitor, title: "Digital Signage (Public TV)", desc: "Tampilan otomatis layar TV untuk jadwal shalat, pengumuman, donasi, dan keuangan masjid", color: "bg-cyan-50 text-cyan-600" },

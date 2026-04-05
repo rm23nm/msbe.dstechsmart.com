@@ -7,7 +7,7 @@ import {
   MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight, ArrowDownRight,
   Wallet, Megaphone, Instagram, Youtube, Facebook, Globe,
   UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
-  MessageSquare, Smartphone, Home, Info, Images, DollarSign, Users, BookOpen
+  MessageSquare, Smartphone, Home, Info, Images, DollarSign, Users as UsersIcon, BookOpen
 } from "lucide-react";
 import QuranReader from "@/components/QuranReader";
 import { Badge } from "@/components/ui/badge";
@@ -155,7 +155,7 @@ const TABS = [
   { id: 'beranda', label: 'Beranda', icon: Home },
   { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone },
   { id: 'kegiatan', label: 'Kegiatan', icon: Calendar },
-  { id: 'organisasi', label: 'Organisasi', icon: Users },
+  { id: 'organisasi', label: 'Organisasi', icon: UsersIcon },
   { id: 'galeri', label: 'Galeri & Video', icon: Images },
   { id: 'quran', label: 'Al-Quran', icon: BookOpen },
   { id: 'keuangan', label: 'Keuangan', icon: DollarSign },
@@ -514,7 +514,7 @@ export default function MosquePortfolio() {
               </div>
             ) : (
               <div className="bg-card border rounded-2xl p-12 text-center text-muted-foreground">
-                <Users className="h-16 w-16 mx-auto mb-4 opacity-20" />
+                <UsersIcon className="h-16 w-16 mx-auto mb-4 opacity-20" />
                 <h3 className="font-semibold text-lg text-foreground">Gambar Struktur Belum Tersedia</h3>
                 <p className="text-sm max-w-sm mx-auto mt-2 italic">Pengurus belum mengunggah gambar struktur organisasi masjid ini.</p>
                 {/* Petunjuk buat admin (hanya info teks) */}
