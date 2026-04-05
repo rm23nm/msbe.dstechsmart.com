@@ -68,7 +68,7 @@ const AuthenticatedApp = () => {
   useEffect(() => {
     async function checkDomain() {
       const hostname = window.location.hostname;
-      if (hostname === "ms.dstechsmart.com" || hostname === "localhost" || hostname.includes("127.0.0.1")) {
+      if (hostname === "ms.dstechsmart.com" || hostname === "msbe.dstechsmart.com" || hostname === "localhost" || hostname.includes("127.0.0.1")) {
         setResolvingDomain(false);
         return;
       }
