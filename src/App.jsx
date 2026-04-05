@@ -46,12 +46,13 @@ import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminRoles from "@/pages/admin/AdminRoles";
 import AdminBroadcast from "@/pages/admin/AdminBroadcast";
 import AdminLicenses from "@/pages/admin/AdminLicenses";
+import BuyStandalone from "@/pages/BuyStandalone";
 import Layout from "@/components/Layout";
 
 const queryClientInstance = new QueryClient();
 
 function isPublicPath(pathname) {
-  const publicSegments = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid", "/quran", "/paket"];
+  const publicSegments = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid", "/quran", "/paket", "/beli-mandiri"];
   return (
     publicSegments.includes(pathname) ||
     pathname.startsWith("/masjid/") ||
@@ -116,6 +117,7 @@ const AuthenticatedApp = () => {
         <Route path="/absensi/:mosqueId/:activityId" element={<AbsensiPublic />} />
         <Route path="/absensi/:activityId" element={<AbsensiPublic />} />
         <Route path="/scan/:activityId" element={<AbsensiPublic />} />
+        <Route path="/beli-mandiri" element={<BuyStandalone />} />
       </Routes>
     );
   }

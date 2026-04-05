@@ -48,6 +48,7 @@ import {
   Search,
   Map,
   Loader2,
+  ArrowRight,
 } from "lucide-react";
 
 // --- DATA STATIS ---
@@ -627,6 +628,39 @@ export default function LandingPage() {
                   </div>
                 );
               })}
+              
+              {/* PAKET EKSKLUSIF STANDALONE */}
+              <div className="bg-slate-900 border-none rounded-3xl p-8 flex flex-col hover:shadow-2xl transition-all relative overflow-hidden group">
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/20 rounded-full blur-3xl group-hover:bg-emerald-500/40 transition-all"></div>
+                <div className="relative z-10">
+                  <Badge className="bg-emerald-500 text-white border-none mb-4 px-3 py-1 text-[10px] font-black uppercase tracking-tighter">
+                    💎 DSTech White-Label
+                  </Badge>
+                  <h3 className="font-black text-white text-xl mb-4 leading-tight">Paket Eksklusif Mandiri (Sub)</h3>
+                  <div className="mb-8">
+                    <div className="text-3xl font-black text-emerald-400">Rp 5.000.000</div>
+                    <div className="text-[10px] text-slate-400 uppercase font-black tracking-widest mt-1 italic">Bayar Sekali Selamanya</div>
+                  </div>
+                  <ul className="space-y-4 mb-10">
+                    {[
+                      "Domain & Hosting Mandiri",
+                      "Full Branding Nama Masjid",
+                      "Bebas Iklan & Batch Branding",
+                      "Laporan Keuangan Otomatis",
+                      "Pusat Update DSTech"
+                    ].map((f, i) => (
+                      <li key={i} className="flex gap-2 text-xs font-bold text-slate-300">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500 flex-shrink-0" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link to="/beli-mandiri" className="mt-auto">
+                    <Button className="w-full bg-emerald-500 hover:bg-emerald-600 h-14 rounded-2xl text-sm font-black text-white shadow-xl shadow-emerald-500/10 gap-2">
+                       Miliki Sekarang <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </section>
