@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { 
   LayoutDashboard, Wallet, Calendar, Users, Megaphone, Settings, Monitor,
   Building2, CreditCard, BarChart3, LogOut, ChevronDown, Landmark,
-  Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck, Send, ShieldAlert, BookOpen
+  Package, FileBarChart, Heart, HandHeart, Sparkles, ClipboardCheck, Send, ShieldAlert, BookOpen, Key
 } from "lucide-react";
 import { smartApi } from "@/api/apiClient";
 import { useState, useEffect } from "react";
@@ -22,6 +22,7 @@ function getAdminMenuItems(t) {
     { label: t("appSettings"), path: "/admin/settings", icon: Settings },
     { label: "Pengaturan Roles", path: "/admin/roles", icon: ShieldAlert },
     { label: "Broadcast Promo", path: "/admin/broadcast", icon: Megaphone },
+    { label: "Lisensi & Sub-Produk", path: "/admin/licenses", icon: Key },
   ];
 }
 
@@ -71,6 +72,7 @@ export default function Sidebar({ onClose }) {
   }, [user]);
 
   const isExpired = currentMosque?.subscription_end && new Date(currentMosque.subscription_end) < new Date();
+  const isStandalone = import.meta.env.VITE_SINGLE_MOSQUE_MODE === 'true';
   const roleLabel = user?.role === "superadmin" ? "Super Admin" : user?.role === "mosque_admin" ? "Pengurus" : user?.role === "user" ? "Jamaah" : (user?.role || "...");
 
   const filteredMosqueMenu = mosqueMenuItems.filter(item => {
@@ -78,25 +80,31 @@ export default function Sidebar({ onClose }) {
     if (isExpired && !isAdmin) {
        return ["Al-Quran & Tafsir", "Dashboard", "Pengaturan", "Kelola Paket", "Info Publik"].includes(item.label);
     }
+    // Sembunyikan menu paket jika standalone (pembayaran biasanya via pengurus pusat secara manual)
+    if (isStandalone && item.label === "Kelola Paket") return false;
     return true;
   });
+
+  // Branding Logic
+  const appName = isStandalone && currentMosque ? currentMosque.name : "MasjidKu";
+  const appLogo = isStandalone && currentMosque?.logo_url ? currentMosque.logo_url : "/favicon.png?v=2";
 
   return (
     <div className="h-full bg-sidebar text-sidebar-foreground flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <Link to="/" onClick={onClose} className="flex items-center gap-3">
-          <img src="/favicon.png?v=2" alt="MasjidKu Smart" className="w-10 h-10 rounded-xl object-contain" />
-          <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">MasjidKu</h1>
-            <p className="text-xs text-sidebar-foreground/60">Pengelolaan Masjid</p>
+          <img src={appLogo} alt={appName} className="w-10 h-10 rounded-xl object-contain bg-white" />
+          <div className="flex-1 min-w-0">
+            <h1 className="text-base font-bold text-sidebar-foreground truncate">{appName}</h1>
+            <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-widest">{isStandalone ? "Sistem Digital" : "Pengelolaan Masjid"}</p>
           </div>
         </Link>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-        {isAdmin && (
+        {!isStandalone && isAdmin && (
           <Collapsible open={adminOpen} onOpenChange={setAdminOpen}>
             <CollapsibleTrigger className="flex items-center justify-between w-full px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50 hover:text-sidebar-foreground/70">
               {t("superAdmin")}

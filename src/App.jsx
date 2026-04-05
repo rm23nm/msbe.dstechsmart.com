@@ -45,6 +45,7 @@ import AdminReports from "@/pages/admin/AdminReports";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminRoles from "@/pages/admin/AdminRoles";
 import AdminBroadcast from "@/pages/admin/AdminBroadcast";
+import AdminLicenses from "@/pages/admin/AdminLicenses";
 import Layout from "@/components/Layout";
 
 const queryClientInstance = new QueryClient();
@@ -141,6 +142,7 @@ const AuthenticatedApp = () => {
         <Route path="/admin/settings" element={<AdminSettings />} />
         <Route path="/admin/roles" element={<AdminRoles />} />
         <Route path="/admin/broadcast" element={<AdminBroadcast />} />
+        <Route path="/admin/licenses" element={<AdminLicenses />} />
 
         {/* Mosque Routes */}
         <Route path="/dashboard" element={<Dashboard />} />

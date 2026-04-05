@@ -79,6 +79,19 @@ model Mosque {
   organization_structure_url String?
   latitude                   Float?
   longitude                  Float?
+  licenses                   License[]
+}
+
+model License {
+  id              String   @id @default(uuid())
+  key             String   @unique
+  mosque_id       String
+  mosque          Mosque   @relation(fields: [mosque_id], references: [id])
+  domain          String?  // Domain yang diizinkan (misal: masjid-raya.com)
+  status          String   @default("active") // active, revoked, expired
+  expired_at      DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
 }
 
 model MosqueMember {

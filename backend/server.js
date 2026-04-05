@@ -64,6 +64,47 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+/** =============================
+ *  SUB-PRODUCT PROTECTION (Sub)
+ *  ============================= */
+let isLicenseValid = true;
+let standaloneMosqueId = null;
+
+if (process.env.LICENSE_KEY) {
+  isLicenseValid = false; // Start as invalid, verify on boot
+  console.log("[License] Standalone mode detected. Verifying key...");
+  
+  const verifyLicenseOnBoot = async () => {
+    try {
+      const serverUrl = process.env.LICENSE_SERVER_URL || "https://masjidkusmart.com";
+      const res = await axios.post(`${serverUrl}/api/license/verify`, {
+        license_key: process.env.LICENSE_KEY,
+        domain: process.env.SERVER_BASE_URL
+      });
+      
+      if (res.data.valid) {
+        isLicenseValid = true;
+        standaloneMosqueId = res.data.mosque.id;
+        console.log(`[License] VALID! App locked to: ${res.data.mosque.name}`);
+      } else {
+        console.error(`[License] INVALID KEY! Server will be restricted.`);
+      }
+    } catch (e) {
+      console.error("[License] Connection to master server failed. Retrying...");
+      setTimeout(verifyLicenseOnBoot, 30000); // Retry every 30s
+    }
+  };
+  verifyLicenseOnBoot();
+}
+
+// Global License Guard
+app.use((req, res, next) => {
+  if (process.env.LICENSE_KEY && !isLicenseValid && !req.path.includes("/api/test")) {
+    return res.status(403).json({ error: "LISENSI TIDAK VALID", message: "Hubungi Admin MasjidKuSmart untuk aktifasi." });
+  }
+  next();
+});
+
 // Middleware to protect routes (excluding login and public APIs)
 const authenticateToken = (req, res, next) => {
   // Allow public registration of Mosque
@@ -281,6 +322,41 @@ app.get("/api/public/mosque-by-domain", async (req, res) => {
     res.json(mosque);
   } catch (error) {
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/** ==========================
+ *  LICENSE SYSTEM (Master)
+ *  ========================== */
+app.post("/api/license/verify", async (req, res) => {
+  const { license_key, domain } = req.body;
+  
+  if (!license_key) return res.status(400).json({ error: "License key required" });
+
+  try {
+    const license = await prisma.license.findUnique({
+      where: { key: license_key },
+      include: { mosque: true }
+    });
+
+    if (!license) return res.status(404).json({ error: "License not found", valid: false });
+    
+    // Validasi Domain (Opsional, agar lisensi tidak dimaling ke domain lain)
+    if (license.domain && domain && !domain.includes(license.domain)) {
+       return res.status(403).json({ error: "Domain mismatch", valid: false });
+    }
+
+    if (license.status !== 'active') {
+       return res.status(403).json({ error: "License is revoked or expired", valid: false });
+    }
+
+    res.json({ 
+      valid: true, 
+      mosque: { id: license.mosque.id, name: license.mosque.name },
+      message: "License activated" 
+    });
+  } catch (error) {
+    res.status(500).json({ error: "License verification failed" });
   }
 });
 
@@ -904,7 +980,17 @@ app.get("/api/entities/:model", checkSubscription, async (req, res) => {
     let queryArgs = {};
 
     if (filter) {
-      try { queryArgs.where = JSON.parse(filter); } catch (e) {}
+      try { 
+        let parsedFilter = JSON.parse(filter);
+        // FORCE ISOLATION FOR STANDALONE
+        if (standaloneMosqueId) {
+          parsedFilter.mosque_id = standaloneMosqueId;
+        }
+        queryArgs.where = parsedFilter; 
+      } catch (e) {}
+    } else if (standaloneMosqueId) {
+      // FORCE ISOLATION EVEN IF NO FILTER PROVIDED
+      queryArgs.where = { mosque_id: standaloneMosqueId };
     }
     
     if (sort) {
@@ -987,6 +1073,12 @@ app.post("/api/entities/:model", authenticateToken, checkSubscription, async (re
 
   try {
     const { admin_password, ...data } = req.body;
+    
+    // FORCE ISOLATION FOR STANDALONE
+    if (standaloneMosqueId) {
+      data.mosque_id = standaloneMosqueId;
+    }
+
     console.log(`[API][Entity][POST][${modelName}] Creating:`, data);
     const result = await prisma[prismaModel].create({ data });
     

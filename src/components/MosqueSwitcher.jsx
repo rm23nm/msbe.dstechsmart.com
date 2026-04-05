@@ -8,6 +8,8 @@ import {
 import { Landmark } from "lucide-react";
 
 export default function MosqueSwitcher({ mosques, currentMosque, onSwitch }) {
+  const isStandalone = import.meta.env.VITE_SINGLE_MOSQUE_MODE === 'true';
+  if (isStandalone) return null;
   if (!mosques || mosques.length <= 1) return null;
 
   return (
