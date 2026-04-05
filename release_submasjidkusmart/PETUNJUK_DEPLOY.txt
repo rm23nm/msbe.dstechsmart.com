@@ -1,0 +1,4 @@
+Silakan copy folder "release_submasjidkusmart" ini ke VPS Client. 
+Step 1: Jalankan npm install di folder ini. 
+Step 2: Edit file .env masukan LICENSE_KEY. 
+Step 3: Jalankan pm2 start backend/server.js. 

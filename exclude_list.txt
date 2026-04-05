@@ -1,0 +1,12 @@
+node_modules\
+.git\
+.env
+dev.db
+.DS_Store
+dist\
+submasjidkusmart\
+release_submasjidkusmart\
+exclude_list.txt
+SIAP_DEPLOY.bat
+push-msbe.bat
+SIAP_DEPLOY.bat

@@ -164,47 +164,73 @@ export default function AdminLicenses() {
         <div className="space-y-6">
           <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform"><Key className="w-32 h-32" /></div>
-            <h3 className="text-xl font-bold flex items-center gap-2 mb-4">
-              <Server className="w-6 h-6" /> Panduan Instalasi Sub-Produk
+            <h3 className="text-xl font-bold flex items-center gap-2 mb-6">
+              <Server className="w-6 h-6" /> Alur Bisnis Sub-Produk
             </h3>
-            <div className="space-y-6 text-sm text-indigo-100 relative z-10 leading-relaxed">
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-black">1</div>
-                <div>Paste kode lisensi di file <code className="bg-white/10 px-1 rounded text-white-100">.env</code> server client.</div>
+            
+            <div className="space-y-8 relative z-10">
+              {/* Tahap 1 */}
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-300">Tahap 1: Pembungkusan (Packaging)</p>
+                <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                  <p className="text-xs leading-relaxed mb-3">Klik file <code className="bg-emerald-500 px-1 rounded">SIAP_DEPLOY.bat</code> di komputer Anda. Ini akan me-build frontend secara aman & membersihkan source code.</p>
+                  <Button variant="outline" size="sm" onClick={() => copyToClipboard("SIAP_DEPLOY.bat")} className="bg-white/5 border-white/20 text-[10px] gap-2 h-8">
+                     <Copy className="w-3 h-3" /> Copy Nama Skrip
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-black">2</div>
-                <div>Set <code className="bg-white/10 px-1 rounded text-white-100">VITE_SINGLE_MOSQUE_MODE=true</code></div>
+
+              {/* Tahap 2 */}
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-300">Tahap 2: Registrasi Lisensi</p>
+                <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                  <p className="text-xs leading-relaxed">Terbitkan kunci lisensi baru di tabel sebelah kiri. Pastikan <b>Domain Client</b> diisi jika ingin proteksi ketat.</p>
+                </div>
               </div>
-              <div className="flex gap-4 border-t border-white/10 pt-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-400 text-emerald-900 flex items-center justify-center font-black"><CheckCircle2 className="w-5 h-5" /></div>
-                <div className="text-xs">
-                  <p className="font-bold text-white uppercase tracking-wider mb-2">Verifikasi Berhasil?</p>
-                  <p>Aplikasi akan otomatis mengunci UI dan mengganti branding ke nama masjid berlisensi.</p>
+
+              {/* Tahap 3 */}
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase font-black tracking-widest text-indigo-300">Tahap 3: Deployment di VPS Client</p>
+                <div className="bg-white/10 p-4 rounded-2xl border border-white/10 space-y-3">
+                  <p className="text-xs leading-relaxed">Ekstrak folder <code>release_submasjidkusmart</code> di VPS client, lalu jalankan perintah instalasi berikut:</p>
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-slate-300">1. Instal Dependensi & Hubungkan Database:</p>
+                    <div className="bg-black/40 p-2 rounded-lg font-mono text-[9px] flex justify-between items-center group/btn">
+                      <span>cd backend && npm install && npx prisma db push</span>
+                      <Copy className="w-3 h-3 opacity-0 group-hover/btn:opacity-50 cursor-pointer hover:text-emerald-400" onClick={() => copyToClipboard("cd backend && npm install && npx prisma db push")} />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] text-slate-300">2. Aktifkan Server (PM2):</p>
+                    <div className="bg-black/40 p-2 rounded-lg font-mono text-[9px] flex justify-between items-center group/btn">
+                      <span>pm2 start server.js --name "sub-masjid"</span>
+                      <Copy className="w-3 h-3 opacity-0 group-hover/btn:opacity-50 cursor-pointer hover:text-emerald-400" onClick={() => copyToClipboard("pm2 start server.js --name 'sub-masjid'")} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Quick Config Card */}
           <div className="bg-slate-900 p-8 rounded-[2rem] text-slate-300 border border-slate-800 shadow-xl">
-             <div className="flex items-center gap-2 mb-6 text-emerald-500">
-               <Terminal className="w-6 h-6" />
-               <span className="font-bold text-sm uppercase tracking-widest">Update Terminal</span>
+             <div className="flex items-center gap-2 mb-6 text-emerald-500 uppercase tracking-widest text-xs font-bold">
+               <Info className="w-5 h-5" /> Config Template (.env)
              </div>
-             <div className="bg-black/50 p-4 rounded-xl font-mono text-[11px] leading-relaxed relative group">
+             <p className="text-[10px] mb-4 text-slate-500">Pastikan file <code>.env</code> milik client berisi baris penting ini agar sistem mengunci dashboard masjid mereka:</p>
+             <div className="bg-black/50 p-4 rounded-xl font-mono text-[10px] leading-relaxed relative group border border-slate-800">
                 <pre className="whitespace-pre-wrap break-all text-slate-400">
-                  cd /www/wwwroot/ms.client.com && git pull origin main && npm install && npm run build && pm2 restart all
+LICENSE_KEY=KODE-ANDA-DISINI
+LICENSE_SERVER_URL=https://masjidkusmart.com
+VITE_SINGLE_MOSQUE_MODE=true
                 </pre>
                 <button 
-                  onClick={() => copyToClipboard("cd /www/wwwroot/ms.client.com && git pull origin main && npm install && npm run build && pm2 restart all")}
-                  className="absolute top-2 right-2 p-2 hover:bg-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => copyToClipboard("LICENSE_KEY=KODE-ANDA-DISINI\nLICENSE_SERVER_URL=https://masjidkusmart.com\nVITE_SINGLE_MOSQUE_MODE=true")}
+                  className="absolute top-2 right-2 p-2 hover:bg-white/11 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Copy className="w-4 h-4" />
                 </button>
              </div>
-             <p className="text-[10px] mt-4 text-slate-500 italic flex gap-2">
-               <Info className="w-3 h-3" /> Jalankan ini di VPS client untuk update fitur terbaru dari pusat.
-             </p>
           </div>
         </div>
       </div>
