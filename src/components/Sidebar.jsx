@@ -8,6 +8,7 @@ import { smartApi } from "@/api/apiClient";
 import { useState, useEffect } from "react";
 import { useLanguage } from "@/lib/useLanguage";
 import LanguageSwitcher from "./LanguageSwitcher";
+import { useAuth } from "@/lib/AuthContext";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 function getAdminMenuItems(t) {
@@ -49,13 +50,9 @@ function getMosqueMenuItems(t) {
 export default function Sidebar({ onClose }) {
   const location = useLocation();
   const { t } = useLanguage();
-  const [user, setUser] = useState(null);
+  const { user } = useAuth();
   const [adminOpen, setAdminOpen] = useState(true);
   const [mosqueOpen, setMosqueOpen] = useState(true);
-
-  useEffect(() => {
-    smartApi.auth.me().then(setUser).catch(() => {});
-  }, []);
 
   const adminMenuItems = getAdminMenuItems(t);
   const mosqueMenuItems = getMosqueMenuItems(t);

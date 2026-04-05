@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const axios = require("axios");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -917,6 +918,61 @@ app.get("/api/entities/:model", checkSubscription, async (req, res) => {
     }
 
     const data = await prisma[prismaModel].findMany(queryArgs);
+
+    // ============================================
+    // AUTOMATED PRAYER TIMES SYNC
+    // ============================================
+    if (modelName === "PrayerTime" && queryArgs.where?.mosque_id) {
+      const mosqueId = queryArgs.where.mosque_id;
+      const todayDate = new Date().toISOString().slice(0, 10);
+      
+      const existingToday = data.find(p => p.created_date === todayDate);
+      
+      if (!existingToday) {
+        try {
+          const mosque = await prisma.mosque.findUnique({ where: { id: mosqueId } });
+          if (mosque) {
+            console.log(`[PrayerSync] Automating update for ${mosque.name} (${todayDate})`);
+            
+            let url;
+            if (mosque.latitude && mosque.longitude) {
+              // Priority 1: LAT/LNG for accuracy
+              url = `https://api.aladhan.com/v1/timings?latitude=${mosque.latitude}&longitude=${mosque.longitude}&method=20`;
+            } else if (mosque.city) {
+              // Priority 2: City
+              url = `https://api.aladhan.com/v1/timingsByCity?city=${encodeURIComponent(mosque.city)}&country=Indonesia&method=20`;
+            }
+
+            if (url) {
+              const response = await axios.get(url);
+              const timings = response.data?.data?.timings;
+              
+              if (timings) {
+                const newData = {
+                  mosque_id: mosqueId,
+                  subuh: timings.Fajr,
+                  dzuhur: timings.Dhuhr,
+                  ashar: timings.Asr,
+                  maghrib: timings.Maghrib,
+                  isya: timings.Isha,
+                  created_date: todayDate
+                };
+
+                // Save to database
+                const created = await prisma.prayerTime.create({ data: newData });
+                console.log(`[PrayerSync] Success: Today schedules saved for ${mosque.name}`);
+                
+                // Return the new data along with existing ones
+                return res.json([created, ...data]);
+              }
+            }
+          }
+        } catch (syncErr) {
+          console.error(`[PrayerSync] Failed for mosque ${mosqueId}:`, syncErr.message);
+        }
+      }
+    }
+
     res.json(data);
   } catch (error) {
     console.error(`[API][Entity][GET][${modelName}] Error:`, error);

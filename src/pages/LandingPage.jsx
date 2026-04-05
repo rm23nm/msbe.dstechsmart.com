@@ -303,38 +303,26 @@ export default function LandingPage() {
               </span>
             </Link>
             <div className="hidden lg:flex items-center gap-6 text-[13px] font-semibold text-slate-500">
+              <a href="#cari" className="flex items-center gap-1.5 text-primary">
+                <Search className="h-3.5 w-3.5" /> Cari Masjid
+              </a>
               <a href="#fitur" className="hover:text-primary transition-colors">
                 Fitur
               </a>
-              <a
-                href="#galeri"
-                className="hover:text-primary transition-colors"
-              >
+              <a href="#galeri" className="hover:text-primary transition-colors">
                 Galeri
               </a>
               <a href="#video" className="hover:text-primary transition-colors">
                 Video
               </a>
-              <a
-                href="#testimoni"
-                className="hover:text-primary transition-colors"
-              >
+              <a href="#testimoni" className="hover:text-primary transition-colors">
                 Testimoni
               </a>
               <a href="#harga" className="hover:text-primary transition-colors">
                 Harga
               </a>
-              <a
-                href="#kontak"
-                className="hover:text-primary transition-colors"
-              >
+              <a href="#kontak" className="hover:text-primary transition-colors">
                 Kontak
-              </a>
-              <a
-                href="#cari"
-                className="flex items-center gap-1.5 text-primary"
-              >
-                <Search className="h-3.5 w-3.5" /> Cari Masjid
               </a>
             </div>
             <div className="flex items-center gap-2">
@@ -346,7 +334,7 @@ export default function LandingPage() {
                   Masuk
                 </Button>
               </Link>
-              <Link to="/admin/roles">
+              <Link to="/admin">
                 <Button
                   variant="outline"
                   className="text-xs font-bold border-slate-200"

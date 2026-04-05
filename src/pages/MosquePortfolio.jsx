@@ -154,13 +154,13 @@ function HeroSlider({ slides, mosque }) {
 // ── TAB NAVIGATION ────────────────────────────────────────────────────────────
 const TABS = [
   { id: 'beranda', label: 'Beranda', icon: Home },
+  { id: 'tentang', label: 'Tentang', icon: Info },
   { id: 'pengumuman', label: 'Pengumuman', icon: Megaphone },
   { id: 'kegiatan', label: 'Kegiatan', icon: Calendar },
   { id: 'organisasi', label: 'Organisasi', icon: UsersIcon },
   { id: 'galeri', label: 'Galeri & Video', icon: Images },
   { id: 'quran', label: 'Al-Quran', icon: BookOpen },
   { id: 'keuangan', label: 'Keuangan', icon: DollarSign },
-  { id: 'tentang', label: 'Tentang', icon: Info },
 ];
 
 function TabNav({ active, setActive, counts }) {
@@ -311,7 +311,7 @@ function AIChatWidget({ mosque }) {
 }
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────
-export default function MosquePortfolio() {
+export default function MosquePortfolio({ mosque: initialMosque }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -327,7 +327,16 @@ export default function MosquePortfolio() {
     smartApi.auth.me().then(setUser).catch(() => {});
   }, []);
 
-  useEffect(() => { loadData(); }, [id]);
+  useEffect(() => {
+    if (initialMosque) {
+      setMosque(initialMosque);
+      setLoading(false);
+      // Tetap load data pendukung (kegiatan, dll) menggunakan ID dari initialMosque
+      loadSupportData(initialMosque.id, initialMosque.show_financial, initialMosque.subscription_end);
+    } else {
+      loadData();
+    }
+  }, [id, initialMosque]);
   
   useEffect(() => {
     if (mosque && user) {
@@ -380,20 +389,22 @@ export default function MosquePortfolio() {
       return;
     }
 
-    // Cek apakah paket sudah berakhir
-    const isExpired = m.subscription_end && new Date(m.subscription_end) < new Date();
+    setMosque(m);
+    await loadSupportData(m.id, m.show_financial, m.subscription_end);
+    setLoading(false);
+  }
+
+  async function loadSupportData(mosqueId, showFinancial, subscriptionEnd) {
+    const isExpired = subscriptionEnd && new Date(subscriptionEnd) < new Date();
     if (isExpired) {
-      // Jika expired, hanya biarkan tab Quran yang terbuka (atau beri peringatan)
       setActiveTab('quran');
     }
 
-    setMosque(m);
-    
     try {
       const [acts, anns, txns] = await Promise.all([
-        smartApi.entities.Activity.filter({ mosque_id: m.id, status: "upcoming" }, "date", 20),
-        smartApi.entities.Announcement.filter({ mosque_id: m.id, status: "published" }, "-created_date", 20),
-        m.show_financial && !isExpired ? smartApi.entities.Transaction.filter({ mosque_id: m.id }, "-date", 100) : Promise.resolve([]),
+        smartApi.entities.Activity.filter({ mosque_id: mosqueId, status: "upcoming" }, "date", 20),
+        smartApi.entities.Announcement.filter({ mosque_id: mosqueId, status: "published" }, "-created_date", 20),
+        showFinancial && !isExpired ? smartApi.entities.Transaction.filter({ mosque_id: mosqueId }, "-date", 100) : Promise.resolve([]),
       ]);
       setActivities(acts);
       setAnnouncements(anns);
@@ -401,8 +412,6 @@ export default function MosquePortfolio() {
     } catch (e) {
       console.warn("Failed to load some data:", e);
     }
-    
-    setLoading(false);
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" /><p className="text-muted-foreground text-sm">Memuat halaman masjid...</p></div></div>;

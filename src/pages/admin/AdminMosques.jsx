@@ -97,7 +97,7 @@ export default function AdminMosques() {
                     <TableCell className="text-sm">{m.subscription_end ? formatDate(m.subscription_end) : '-'}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Link to={`/masjid/${m.id}`} target="_blank">
+                        <Link to={`/masjid/${m.slug || m.id}`} target="_blank">
                           <Button size="icon" variant="ghost" className="h-7 w-7"><ExternalLink className="h-3 w-3" /></Button>
                         </Link>
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { setEditItem(m); setShowForm(true); }}>

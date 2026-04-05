@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Save, Globe, ExternalLink, Copy, Upload, ShieldCheck, Users, KeyRound } from "lucide-react";
+import { Settings, Save, Globe, ExternalLink, Copy, Upload, ShieldCheck, Users, KeyRound, Sparkles, Navigation } from "lucide-react";
 import NotificationSettings from "../components/NotificationSettings";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -85,6 +85,7 @@ export default function Pengaturan() {
         tv_show_activities: currentMosque.tv_show_activities ?? true,
         tv_show_announcements: currentMosque.tv_show_announcements ?? true,
         tv_show_qrcode: currentMosque.tv_show_qrcode ?? true,
+        tv_live_mode: currentMosque.tv_live_mode || false,
         tv_slideshow_urls: currentMosque.tv_slideshow_urls || "",
         tv_video_url: currentMosque.tv_video_url || "",
         tv_prayer_overlay_text: currentMosque.tv_prayer_overlay_text || "Mohon matikan handphone. Luruskan dan rapatkan shaf.",
@@ -99,16 +100,31 @@ export default function Pengaturan() {
     e.preventDefault();
     setSaving(true);
     const cleanForm = { ...form };
+    
+    // Pastikan koordinat dikirim sebagai angka atau null jika kosong
+    if (cleanForm.latitude === "" || cleanForm.latitude === undefined) cleanForm.latitude = null;
+    else cleanForm.latitude = parseFloat(cleanForm.latitude);
+
+    if (cleanForm.longitude === "" || cleanForm.longitude === undefined) cleanForm.longitude = null;
+    else cleanForm.longitude = parseFloat(cleanForm.longitude);
+
     if (cleanForm.logo_url?.startsWith('data:')) cleanForm.logo_url = currentMosque.logo_url || '';
     if (cleanForm.cover_image_url?.startsWith('data:')) cleanForm.cover_image_url = currentMosque.cover_image_url || '';
-    await smartApi.entities.Mosque.update(currentMosque.id, cleanForm);
-    toast.success("Pengaturan berhasil disimpan");
-    await reload();
-    setSaving(false);
+    
+    try {
+      await smartApi.entities.Mosque.update(currentMosque.id, cleanForm);
+      toast.success("Pengaturan berhasil disimpan");
+      await reload();
+    } catch (err) {
+      console.error(err);
+      toast.error("Gagal menyimpan: " + (err.response?.data?.error || err.message));
+    } finally {
+      setSaving(false);
+    }
   }
 
   function copyPortfolioLink() {
-    const url = `${window.location.origin}/masjid/${currentMosque.id}`;
+    const url = `${window.location.origin}/masjid/${currentMosque.slug || currentMosque.id}`;
     navigator.clipboard.writeText(url);
     toast.success("Link disalin!");
   }
@@ -116,11 +132,12 @@ export default function Pengaturan() {
   if (loading || !currentMosque) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
 
   const canEdit = isMosqueAdmin || isAdmin;
-  const portfolioUrl = `/masjid/${currentMosque.id}`;
+  const portfolioUrl = `/masjid/${currentMosque.slug || currentMosque.id}`;
   const tabs = [
     { key: "info", label: "Info Masjid" },
     { key: "portfolio", label: "Halaman Publik" },
     { key: "layar_tv", label: "Layar TV" },
+    { key: "jadwal", label: "Jadwal Shalat" },
     ...(isMosqueAdmin || isAdmin ? [{ key: "pembayaran", label: "Pembayaran" }] : []),
     { key: "notifikasi", label: "Notifikasi" },
     { key: "subscription", label: "Langganan" },
@@ -132,117 +149,201 @@ export default function Pengaturan() {
       <PageHeader title="Pengaturan" description="Kelola informasi dan konfigurasi masjid" />
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted p-1 rounded-xl w-fit">
+      <div className="flex gap-1 bg-muted p-1 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${activeTab === t.key ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === t.key ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
             {t.label}
           </button>
         ))}
       </div>
 
-      <form onSubmit={handleSave} className="max-w-2xl space-y-6">
-
-        {/* INFO TAB */}
+      <form onSubmit={handleSave} className="grid grid-cols-1 gap-6 max-w-5xl">
+        {/* INFO MASJID */}
         {activeTab === "info" && (
-          <div className="bg-card rounded-xl border p-6 space-y-4">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="bg-card border rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b pb-4">
               <Settings className="h-5 w-5 text-primary" />
               <h3 className="font-semibold">Informasi Masjid</h3>
             </div>
-            <div className="space-y-2">
-              <Label>Nama Masjid</Label>
-              <Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} disabled={!canEdit} />
-            </div>
-            <div className="space-y-2">
-              <Label>Tentang Masjid</Label>
-              <Textarea value={form.about || ""} onChange={e => setForm({ ...form, about: e.target.value })} disabled={!canEdit} rows={3} placeholder="Deskripsi singkat masjid..." />
-            </div>
-            <div className="space-y-2">
-              <Label>Alamat</Label>
-              <Textarea value={form.address || ""} onChange={e => setForm({ ...form, address: e.target.value })} disabled={!canEdit} rows={2} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Kota</Label>
-                <Input value={form.city || ""} onChange={e => setForm({ ...form, city: e.target.value })} disabled={!canEdit} />
-              </div>
-              <div className="space-y-2">
-                <Label>Provinsi</Label>
-                <Input value={form.province || ""} onChange={e => setForm({ ...form, province: e.target.value })} disabled={!canEdit} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Telepon</Label>
-                <Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value })} disabled={!canEdit} />
-              </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" value={form.email || ""} onChange={e => setForm({ ...form, email: e.target.value })} disabled={!canEdit} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Tahun Berdiri</Label>
-                <Input value={form.established_year || ""} onChange={e => setForm({ ...form, established_year: e.target.value })} disabled={!canEdit} placeholder="contoh: 1985" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Logo Masjid</Label>
-              <p className="text-xs text-muted-foreground">Ukuran ideal: 200×200 px (format PNG/JPG, maks 500KB)</p>
-              <div className="flex gap-2 items-center">
-                {form.logo_url && <img src={form.logo_url} alt="logo" className="w-12 h-12 rounded-lg object-cover border" />}
-                <Input value={form.logo_url || ""} onChange={e => setForm({ ...form, logo_url: e.target.value })} disabled={!canEdit} placeholder="https://... atau upload di bawah" />
-              </div>
-              {canEdit && (
-                <div className="flex items-center gap-2">
-                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm hover:bg-muted transition-colors">
-                    <Upload className="h-4 w-4" /> Upload Logo
-                    <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                      const file = e.target.files[0]; if (!file) return;
-                      const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
-                      setForm(f => ({ ...f, logo_url: file_url }));
-                    }} />
-                  </label>
-                  <span className="text-xs text-muted-foreground">atau tempel link URL</span>
+            <div className="space-y-4">
+              <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-bold text-emerald-800">Koordinat Lokasi (GPS)</h4>
+                    <p className="text-[10px] text-emerald-600">Digunakan untuk sinkronisasi jadwal shalat otomatis sesuai daerah.</p>
+                  </div>
+                  {canEdit && (
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 text-[10px] gap-1.5 bg-white"
+                      onClick={() => {
+                        if (!navigator.geolocation) return toast.error("Browser tidak mendukung geolokasi");
+                        toast.loading("Mencari koordinat...");
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => {
+                            setForm(f => ({ ...f, latitude: pos.coords.latitude, longitude: pos.coords.longitude }));
+                            toast.dismiss();
+                            toast.success("Koordinat berhasil didapatkan!");
+                          },
+                          (err) => {
+                            toast.dismiss();
+                            toast.error("Gagal mendapatkan lokasi: " + err.message);
+                          }
+                        );
+                      }}
+                    >
+                      <Navigation className="h-3 w-3" /> Ambil Lokasi Saya
+                    </Button>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Foto Sampul / Hero</Label>
-              <p className="text-xs text-muted-foreground">Ukuran ideal: 1200×400 px (format PNG/JPG, maks 2MB)</p>
-              <div className="space-y-2">
-                {form.cover_image_url && <img src={form.cover_image_url} alt="cover" className="w-full h-28 rounded-lg object-cover border" />}
-                <Input value={form.cover_image_url || ""} onChange={e => setForm({ ...form, cover_image_url: e.target.value })} disabled={!canEdit} placeholder="https://... atau upload di bawah" />
-              </div>
-              {canEdit && (
-                <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm hover:bg-muted transition-colors">
-                  <Upload className="h-4 w-4" /> Upload Foto Sampul
-                  <input type="file" accept="image/*" className="hidden" onChange={async e => {
-                    const file = e.target.files[0]; if (!file) return;
-                    const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
-                    setForm(f => ({ ...f, cover_image_url: file_url }));
-                  }} />
-                </label>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Warna Utama Masjid</Label>
-                <div className="flex items-center gap-2">
-                  <input type="color" value={form.primary_color || "#2d6a4f"} onChange={e => setForm({ ...form, primary_color: e.target.value })} disabled={!canEdit} className="w-10 h-9 rounded border cursor-pointer" />
-                  <Input value={form.primary_color || ""} onChange={e => setForm({ ...form, primary_color: e.target.value })} disabled={!canEdit} placeholder="#2d6a4f" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Latitude</Label>
+                    <Input 
+                      type="number" 
+                      step="any"
+                      value={form.latitude || ""} 
+                      onChange={e => setForm({ ...form, latitude: parseFloat(e.target.value) || "" })} 
+                      disabled={!canEdit} 
+                      placeholder="-6.1754"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px]">Longitude</Label>
+                    <Input 
+                      type="number" 
+                      step="any"
+                      value={form.longitude || ""} 
+                      onChange={e => setForm({ ...form, longitude: parseFloat(e.target.value) || "" })} 
+                      disabled={!canEdit} 
+                      placeholder="106.8272"
+                      className="h-9"
+                    />
+                  </div>
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label>Zona Waktu</Label>
-                <select value={form.timezone || "Asia/Jakarta"} onChange={e => setForm({ ...form, timezone: e.target.value })} disabled={!canEdit}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm">
-                  <option value="Asia/Jakarta">WIB (Jakarta)</option>
-                  <option value="Asia/Makassar">WITA (Makassar)</option>
-                  <option value="Asia/Jayapura">WIT (Jayapura)</option>
-                </select>
+                <Label>Nama Masjid</Label>
+                <Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} disabled={!canEdit} />
+              </div>
+              <div className="space-y-2">
+                <Label>Tentang Masjid</Label>
+                <Textarea value={form.about || ""} onChange={e => setForm({ ...form, about: e.target.value })} disabled={!canEdit} rows={3} placeholder="Deskripsi singkat masjid..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Alamat</Label>
+                <Textarea value={form.address || ""} onChange={e => setForm({ ...form, address: e.target.value })} disabled={!canEdit} rows={2} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Kota</Label>
+                  <Input value={form.city || ""} onChange={e => setForm({ ...form, city: e.target.value })} disabled={!canEdit} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Provinsi</Label>
+                  <Input value={form.province || ""} onChange={e => setForm({ ...form, province: e.target.value })} disabled={!canEdit} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Telepon</Label>
+                  <Input value={form.phone || ""} onChange={e => setForm({ ...form, phone: e.target.value })} disabled={!canEdit} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input type="email" value={form.email || ""} onChange={e => setForm({ ...form, email: e.target.value })} disabled={!canEdit} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tahun Berdiri</Label>
+                  <Input value={form.established_year || ""} onChange={e => setForm({ ...form, established_year: e.target.value })} disabled={!canEdit} placeholder="1985" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Logo Masjid</Label>
+                <div className="flex gap-2 items-center">
+                  {form.logo_url && <img src={form.logo_url} alt="logo" className="w-12 h-12 rounded-lg object-cover border" />}
+                  <Input value={form.logo_url || ""} onChange={e => setForm({ ...form, logo_url: e.target.value })} disabled={!canEdit} placeholder="https://..." />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Warna Utama</Label>
+                  <div className="flex items-center gap-2">
+                    <input type="color" value={form.primary_color || "#2d6a4f"} onChange={e => setForm({ ...form, primary_color: e.target.value })} disabled={!canEdit} className="w-10 h-9 rounded border" />
+                    <Input value={form.primary_color || ""} onChange={e => setForm({ ...form, primary_color: e.target.value })} disabled={!canEdit} placeholder="#2d6a4f" />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Zona Waktu</Label>
+                  <select value={form.timezone || "Asia/Jakarta"} onChange={e => setForm({ ...form, timezone: e.target.value })} disabled={!canEdit}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm">
+                    <option value="Asia/Jakarta">WIB</option>
+                    <option value="Asia/Makassar">WITA</option>
+                    <option value="Asia/Jayapura">WIT</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            {canEdit && <Button type="submit" className="w-full" disabled={saving}>{saving ? "Menyimpan..." : "Simpan Informasi Masjid"}</Button>}
+          </div>
+        )}
+
+        {/* JADWAL SHALAT */}
+        {activeTab === "jadwal" && (
+          <JadwalShalatManager mosque={currentMosque} canEdit={canEdit} />
+        )}
+
+        {/* LAYAR TV */}
+        {activeTab === "layar_tv" && (
+          <div className="bg-card border rounded-2xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center gap-3 border-b pb-4">
+              <KeyRound className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Konfigurasi Layar TV (Digital Signage)</h3>
+            </div>
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-500" />
+                    <div>
+                      <Label className="font-bold">Mode Live (CCTV / Streaming)</Label>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 italic">Aktifkan untuk menampilkan Live Kamera (Khatib) di TV.</p>
+                    </div>
+                  </div>
+                  <Switch checked={form.tv_live_mode} onCheckedChange={v => setForm({...form, tv_live_mode: v})} />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs">URL Video / Live Streaming</Label>
+                  <Input 
+                    value={form.tv_video_url || ""} 
+                    onChange={e => setForm({...form, tv_video_url: e.target.value})} 
+                    placeholder="Contoh: https://www.youtube.com/watch?v=..." 
+                  />
+                  <p className="text-[9px] text-muted-foreground leading-relaxed">
+                    *Gunakan link YouTube Live masjid Anda atau link streaming lain yang didukung sistem (seperti HLS/Embed).
+                  </p>
+                </div>
+                
+                <hr className="border-emerald-100" />
+
+                <div className="flex items-center justify-between">
+                  <Label>Tampilkan Petugas Jumat</Label>
+                <Switch checked={form.tv_show_jumat} onCheckedChange={v => setForm({...form, tv_show_jumat: v})} />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Tampilkan Keuangan</Label>
+                <Switch checked={form.tv_show_finance} onCheckedChange={v => setForm({...form, tv_show_finance: v})} />
+              </div>
+              <div className="space-y-2">
+                <Label>Durasi Overlay Shalat (Menit)</Label>
+                <Input type="number" value={form.tv_prayer_overlay_duration} onChange={e => setForm({...form, tv_prayer_overlay_duration: parseInt(e.target.value)})} />
               </div>
             </div>
           </div>
@@ -251,15 +352,12 @@ export default function Pengaturan() {
         {/* PORTFOLIO TAB */}
         {activeTab === "portfolio" && (
           <div className="space-y-5">
-            {/* Portfolio Link */}
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-5">
               <h3 className="font-semibold flex items-center gap-2 mb-3">
                 <Globe className="h-4 w-4 text-primary" /> Link Halaman Publik
               </h3>
               <div className="flex items-center gap-2">
-                <code className="flex-1 bg-card border rounded-lg px-3 py-2 text-sm text-muted-foreground truncate">
-                  {window.location.origin}/masjid/{currentMosque.id}
-                </code>
+                  {window.location.origin}/masjid/{currentMosque.slug || currentMosque.id}
                 <Button type="button" size="icon" variant="outline" onClick={copyPortfolioLink}><Copy className="h-4 w-4" /></Button>
                 <Link to={portfolioUrl} target="_blank">
                   <Button type="button" size="icon" variant="outline"><ExternalLink className="h-4 w-4" /></Button>
@@ -836,6 +934,146 @@ export default function Pengaturan() {
           </Button>
         )}
       </form>
+    </div>
+  );
+}
+
+function JadwalShalatManager({ mosque, canEdit }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [isNew, setIsNew] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  useEffect(() => {
+    loadData();
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, [mosque.id]);
+
+  async function loadData() {
+    setLoading(true);
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const list = await smartApi.entities.PrayerTime.filter({ mosque_id: mosque.id, created_date: today });
+      if (list.length > 0) {
+        setData(list[0]);
+        setIsNew(false);
+      } else {
+        // Jika data belum ada hari ini, coba sinkron otomatis dulu via API filter (backend akan fetch otomatis jika kita panggil)
+        const res = await smartApi.entities.PrayerTime.filter({ mosque_id: mosque.id });
+        const list2 = await smartApi.entities.PrayerTime.filter({ mosque_id: mosque.id, created_date: today });
+        if (list2.length > 0) {
+          setData(list2[0]);
+          setIsNew(false);
+        } else {
+          setData({ mosque_id: mosque.id, subuh: "04:30", dzuhur: "12:00", ashar: "15:15", maghrib: "18:00", isya: "19:15", created_date: today });
+          setIsNew(true);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSync() {
+    toast.loading("Mensinkronkan dengan Kemenag RI...");
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      // Panggil filter lagi dengan params hari ini untuk memicu auto-sync backend
+      const list = await smartApi.entities.PrayerTime.filter({ mosque_id: mosque.id, created_date: today });
+      if (list.length > 0) {
+        setData(list[0]);
+        setIsNew(false);
+        toast.dismiss();
+        toast.success("Jadwal hari ini berhasil diperbarui");
+      }
+    } catch (e) {
+      toast.dismiss();
+      toast.error("Gagal sinkronisasi otomatis");
+    }
+  }
+
+  async function handleSaveLocal() {
+    if (!canEdit) return;
+    setSaving(true);
+    try {
+      if (isNew) {
+        const res = await smartApi.entities.PrayerTime.create(data);
+        setData(res);
+        setIsNew(false);
+      } else {
+        await smartApi.entities.PrayerTime.update(data.id, data);
+      }
+      toast.success("Jadwal manual berhasil disimpan");
+    } catch (e) {
+      toast.error("Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className="text-center py-20 opacity-50"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2" />Memuat jadwal...</div>;
+  if (!data) return <div className="p-10 text-center">Gagal memuat data jadwal.</div>;
+
+  return (
+    <div className="bg-card border rounded-2xl overflow-hidden shadow-sm">
+      <div className="bg-gradient-to-r from-emerald-600 to-teal-800 p-6 text-white text-center">
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-2">Konfigurasi Jadwal</p>
+        <h3 className="text-2xl font-black">Waktu Shalat Hari Ini</h3>
+        <p className="text-xs opacity-70 mt-1">{currentTime.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+      </div>
+      
+      <div className="p-6 space-y-6">
+        <div className="flex items-stretch justify-between gap-4 p-4 bg-emerald-50 border border-emerald-100 rounded-xl">
+          <div className="flex-1">
+            <h4 className="text-sm font-bold text-emerald-900 flex items-center gap-2 italic">
+              <Sparkles className="h-4 w-4 text-emerald-500" /> Sinkronisasi Otomatis Aktif
+            </h4>
+            <p className="text-[10px] text-emerald-600 mt-1 leading-relaxed">
+              Sistem akan otomatis mengambil jadwal dari Kemenag RI setiap hari berdasarkan lokasi GPS masjid Anda.
+            </p>
+          </div>
+          {canEdit && (
+            <Button type="button" variant="outline" size="sm" onClick={handleSync} className="h-full px-4 bg-white font-bold gap-2 text-xs border-emerald-200 hover:bg-emerald-50">
+              Sinkronkan Sekarang
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {['subuh', 'dzuhur', 'ashar', 'maghrib', 'isya'].map(key => (
+            <div key={key} className="space-y-2 p-3 bg-muted/30 border rounded-xl group hover:border-primary/50 transition-colors">
+              <Label className="flex justify-between items-center capitalize font-black text-[10px] tracking-widest text-muted-foreground group-hover:text-primary">
+                {key}
+              </Label>
+              <Input 
+                type="text" 
+                value={data[key] || ""} 
+                onChange={e => setData({ ...data, [key]: e.target.value })} 
+                disabled={!canEdit}
+                placeholder="00:00"
+                className="font-bold text-lg h-10 bg-white text-center"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-4 flex gap-3 italic">
+          <Settings className="h-5 w-5 text-amber-600 flex-shrink-0" />
+          <p className="text-[10px] text-amber-700 leading-normal">
+            <b>Catatan:</b> Anda dapat menyesuaikan jadwal di atas secara manual jika terdapat selisih menit. Tekan "Simpan Jadwal Manual" untuk menetapkan waktu pilihan Anda.
+          </p>
+        </div>
+
+        {canEdit && (
+          <Button type="button" onClick={handleSaveLocal} className="w-full h-12 font-black tracking-widest shadow-lg shadow-emerald-500/20 bg-emerald-600 hover:bg-emerald-700" disabled={saving}>
+            {saving ? "Menyimpan..." : "SIMPAN JADWAL MANUAL"}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

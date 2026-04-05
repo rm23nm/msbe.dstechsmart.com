@@ -128,7 +128,7 @@ export default function InfoPublik() {
               </Button>
             </>
           )}
-          <Link to={`/tv/${currentMosque.id}`} target="_blank">
+          <Link to={`/tv/${currentMosque.slug || currentMosque.id}`} target="_blank">
             <Button variant="default" className="gap-2">
               <Tv className="h-4 w-4" /> Buka Tampilan TV
             </Button>

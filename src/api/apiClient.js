@@ -77,7 +77,10 @@ export const smartApi = {
         const { data } = await apiClient.get("/auth/me");
         return data;
       } catch (e) {
-        throw new Error("auth_required");
+        if (e.response && e.response.status === 401) {
+          throw new Error("auth_required");
+        }
+        throw e; // Rethrow other errors (500, timeout, etc.)
       }
     },
     updateMe: async (payload) => {

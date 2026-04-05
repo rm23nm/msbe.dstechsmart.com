@@ -52,9 +52,16 @@ export const AuthProvider = ({ children }) => {
     if (shouldRedirect) window.location.href = "/login";
   };
 
+  const updateUser = (data) => {
+    setUser(prev => prev ? ({ ...prev, ...data }) : null);
+  };
+
   const navigateToLogin = () => {
     const currentPath = window.location.pathname;
     const publicPaths = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid"];
+    
+    if (currentPath === "/login") return; // Arrive safely
+    
     if (!publicPaths.includes(currentPath) && !currentPath.startsWith("/masjid/")) {
       window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
     }
@@ -69,7 +76,8 @@ export const AuthProvider = ({ children }) => {
     appPublicSettings,
     logout,
     navigateToLogin,
-    checkAppState
+    checkAppState,
+    updateUser
   };
 
   return (

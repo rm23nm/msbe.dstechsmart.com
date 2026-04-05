@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { smartApi } from "@/api/apiClient";
+import { useAuth } from "./AuthContext";
 
 // Roles yang dianggap sebagai admin tingkat atas (superadmin/admin)
 const SUPERADMIN_ROLES = ["superadmin", "admin"];
@@ -7,123 +8,138 @@ const SUPERADMIN_ROLES = ["superadmin", "admin"];
 const MOSQUE_ADMIN_ROLES = ["mosque_admin", "pengurus", "admin_masjid", "bendahara"];
 
 export function useMosqueContext() {
-  const [user, setUser] = useState(null);
+  const { user, updateUser } = useAuth();
   const [mosques, setMosques] = useState([]);
+  const [allMosques, setAllMosques] = useState([]);
   const [currentMosque, setCurrentMosque] = useState(null);
   const [membership, setMembership] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadContext();
-  }, []);
-
   async function loadContext() {
     setLoading(true);
     try {
-      const me = await smartApi.auth.me();
-      setUser(me);
+      // 1. Dapatkan user terkini
+      let me = user;
+      if (!me) {
+        try {
+          me = await smartApi.auth.me();
+        } catch (e) {
+          // Tidak login? Tetap lanjut untuk mode publik
+        }
+      }
 
-      const allMosques = await smartApi.entities.Mosque.list();
+      // 2. Ambil semua masjid (untuk mode publik/cari)
+      const list = await smartApi.entities.Mosque.list() || [];
+      setAllMosques(list);
+
+      let currentMosqueId = me?.current_mosque_id;
       let userMosques = [];
-      let members = [];
+      let currentMemberships = [];
 
-      const isSuperAdmin = SUPERADMIN_ROLES.includes(me.role);
+      // 3. Jika login, ambil data keanggotaan
+      if (me?.email) {
+        try {
+          const isSuperAdmin = SUPERADMIN_ROLES.includes(me.role);
+          
+          if (isSuperAdmin) {
+            userMosques = list;
+            setMembership({ role: "admin_masjid", mosque_id: currentMosqueId });
+          } else {
+            currentMemberships = await smartApi.entities.MosqueMember.filter({ user_email: me.email }) || [];
+            const mosqueIds = currentMemberships.map(m => m.mosque_id);
+            userMosques = list.filter(m => mosqueIds.includes(m.id));
+            
+            // Fallback ke current_mosque_id jika tidak ada di member filter tapi ada di profil
+            if (userMosques.length === 0 && currentMosqueId) {
+              const pref = list.find(m => m.id === currentMosqueId);
+              if (pref) userMosques = [pref];
+            }
+          }
+          
+          setMosques(userMosques);
 
-      if (isSuperAdmin) {
-        // Superadmin bisa lihat semua masjid
-        userMosques = allMosques;
-      } else if (MOSQUE_ADMIN_ROLES.includes(me.role)) {
-        // Pengurus hanya bisa lihat masjid yang dia bagian dari anggotanya
-        members = await smartApi.entities.MosqueMember.filter({ user_email: me.email });
-        const mosqueIds = members.map(m => m.mosque_id);
-        userMosques = allMosques.filter(m => mosqueIds.includes(m.id));
-        // Jika tidak ada hasil dari filter member, gunakan current_mosque_id
-        if (userMosques.length === 0 && me.current_mosque_id) {
-          userMosques = allMosques.filter(m => m.id === me.current_mosque_id);
-        }
-      } else {
-        // Jamaah biasa
-        members = await smartApi.entities.MosqueMember.filter({ user_email: me.email });
-        const mosqueIds = members.map(m => m.mosque_id);
-        userMosques = allMosques.filter(m => mosqueIds.includes(m.id));
-        // Fallback ke current_mosque_id jika anggota belum tercatat
-        if (userMosques.length === 0 && me.current_mosque_id) {
-          userMosques = allMosques.filter(m => m.id === me.current_mosque_id);
+          // Tentukan masjid aktif
+          if (!currentMosqueId && userMosques.length > 0) {
+            currentMosqueId = userMosques[0].id;
+          }
+
+          if (currentMosqueId && !isSuperAdmin) {
+            const mship = currentMemberships.find(m => m.mosque_id === currentMosqueId);
+            setMembership(mship || { role: me.role });
+          }
+        } catch (err) {
+          console.error("Failed to load user content:", err);
         }
       }
 
-      if (userMosques.length > 0) {
-        setMosques(userMosques);
-
-        // Set current mosque
-        const preferredId = me.current_mosque_id;
-        const current = userMosques.find(m => m.id === preferredId) || userMosques[0];
-        setCurrentMosque(current);
-
-        // Set membership role for current mosque
-        if (isSuperAdmin) {
-          setMembership({ role: "admin_masjid" }); // Virtual admin role untuk superadmin
+      // 4. Cari objek masjid aktif
+      if (currentMosqueId) {
+        const found = list.find(m => m.id === currentMosqueId);
+        setCurrentMosque(found || (list.length > 0 ? list[0] : null));
+      } else if (list.length > 0) {
+        // Mode publik: Cek URL params jika di halaman portfolio
+        const path = window.location.pathname;
+        if (path.startsWith('/masjid/')) {
+          const slugOrId = path.split('/')[2];
+          const found = list.find(m => m.id === slugOrId || m.slug === slugOrId);
+          setCurrentMosque(found || list[0]);
         } else {
-          const currentMembership = members.find(m => m.mosque_id === current?.id);
-          setMembership(currentMembership || { role: me.role }); // fallback ke role user
+          setCurrentMosque(list[0]);
         }
-      } else if (allMosques.length > 0) {
-        // Jamaah belum punya masjid — tampilkan masjid pertama sebagai default
-        const activeMosque = allMosques.find(m => m.status === "active") || allMosques[0];
-        setCurrentMosque(activeMosque);
-        setMosques([activeMosque]);
-        setMembership({ role: "jamaah" });
       }
+
     } catch (err) {
-      // User tidak login — load masjid pertama sebagai default publik
-      try {
-        const allMosques = await smartApi.entities.Mosque.list();
-        const activeMosque = allMosques.find(m => m.status === "active") || allMosques[0];
-        if (activeMosque) {
-          setCurrentMosque(activeMosque);
-          setMosques([activeMosque]);
-        }
-      } catch (_) {
-        // Tidak ada koneksi backend
-      }
+      console.error("useMosqueContext load error:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function switchMosque(mosqueId) {
-    if (user && typeof smartApi.auth.updateMe === "function") {
-      try {
+    if (!mosqueId) return;
+    try {
+      if (typeof smartApi.auth.updateMe === "function") {
         await smartApi.auth.updateMe({ current_mosque_id: mosqueId });
-      } catch (err) {}
-    }
-    const mosque = mosques.find(m => m.id === mosqueId);
-    setCurrentMosque(mosque);
-
-    const isSuperAdmin = SUPERADMIN_ROLES.includes(user?.role);
-    if (isSuperAdmin) {
-      setMembership({ role: "admin_masjid" });
-    } else if (user) {
-      const members = await smartApi.entities.MosqueMember.filter({ user_email: user.email, mosque_id: mosqueId });
-      setMembership(members[0] || { role: user.role });
+      } else if (typeof smartApi.auth.update === "function") {
+        await smartApi.auth.update({ current_mosque_id: mosqueId });
+      }
+      
+      if (updateUser) {
+        updateUser({ current_mosque_id: mosqueId });
+      }
+      
+      // Update local state immediately for performance
+      const found = allMosques.find(m => m.id === mosqueId);
+      if (found) {
+        setCurrentMosque(found);
+      }
+      
+    } catch (error) {
+      console.error("Switch mosque error:", error);
     }
   }
+
+  useEffect(() => {
+    loadContext();
+  }, [user?.current_mosque_id]);
 
   const isSuperAdmin = SUPERADMIN_ROLES.includes(user?.role);
   const isMosqueAdmin = isSuperAdmin || MOSQUE_ADMIN_ROLES.includes(membership?.role);
   const isBendahara = isSuperAdmin || membership?.role === "bendahara";
-  const isPengurus = isSuperAdmin || MOSQUE_ADMIN_ROLES.includes(membership?.role);
 
   return {
     user,
-    mosques,
     currentMosque,
-    membership,
+    mosques,
+    allMosques,
     loading,
-    switchMosque,
+    membership,
+    isSuperAdmin,
     isAdmin: isSuperAdmin,
     isMosqueAdmin,
     isBendahara,
-    isPengurus,
+    isPengurus: isMosqueAdmin,
+    switchMosque,
     reload: loadContext,
   };
 }
