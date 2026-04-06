@@ -58,6 +58,7 @@ const authenticateToken = (req, res, next) => {
   )) || (req.method === "GET" && (
     url.includes("/entities/Mosque") || 
     url.includes("/entities/PlanFeatures") ||
+    url.includes("/entities/AppSettings") ||
     url.includes("/public/") ||
     url.includes("/attendance/fast-checkin")
   ));
@@ -463,16 +464,35 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
         orderBy: orderConfig,
         include: include
       });
+
+      // SECURITY: Scrub sensitive keys from AppSettings if called publicly
+      if (model.toLowerCase() === "appsettings" && !req.headers["authorization"]) {
+        return res.json(data.map(s => {
+          const { midtrans_server_key, midtrans_client_key, gemini_api_key, ...safe } = s;
+          return safe;
+        }));
+      }
+
       return res.json(data);
     } catch (dbErr) {
       console.warn(`[Server] Falling back to ID sort for ${model}:`, dbErr.message);
-      const fallbackData = await prisma[prismaModel].findMany({
-        where: filters,
-        take: limit,
-        orderBy: { id: "desc" },
-        include: include
-      });
-      return res.json(fallbackData);
+      try {
+        const fallbackData = await prisma[prismaModel].findMany({
+          where: filters,
+          take: limit,
+          orderBy: { id: "desc" },
+          include: include
+        });
+        return res.json(fallbackData);
+      } catch (fallbackErr) {
+        // Absolute last resort: No sorting
+        const rawData = await prisma[prismaModel].findMany({
+          where: filters,
+          take: limit,
+          include: include
+        });
+        return res.json(rawData);
+      }
     }
   } catch (e) {
     console.error("Critical Generic List Error:", e.message);
