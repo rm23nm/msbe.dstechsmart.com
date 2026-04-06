@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
-import { Clock, Navigation, Calendar, Megaphone, CheckCircle2 } from "lucide-react";
+import { Clock, Navigation, Calendar, Megaphone, CheckCircle2, QrCode, TrendingUp, UserCheck } from "lucide-react";
+import FinancialChart from "@/components/dashboard/FinancialChart";
+import QRCode from "react-qr-code";
 
 const PRAYER_LABELS = [
   { key: 'subuh', label: 'Subuh' },
@@ -146,7 +148,7 @@ function RunningText({ text }) {
 }
 
 export default function PublicTV() {
-  const { id } = useParams();
+  const { mosqueId } = useParams();
   const [mosque, setMosque] = useState(null);
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [jumatOfficer, setJumatOfficer] = useState(null);
@@ -166,20 +168,20 @@ export default function PublicTV() {
     loadAll();
     const interval = setInterval(loadAll, 60000);
     return () => clearInterval(interval);
-  }, [id]);
+  }, [mosqueId]);
 
   async function loadAll() {
     try {
       // 1. CARI DATA LANGSUNG (Pencarian Spesifik)
       let m = null;
       try {
-        const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
+        const bySlug = await smartApi.entities.Mosque.filter({ slug: mosqueId });
         if (bySlug?.length > 0) m = bySlug[0];
       } catch (_) {}
       
       if (!m) {
         try {
-          const byId = await smartApi.entities.Mosque.filter({ id: id });
+          const byId = await smartApi.entities.Mosque.filter({ id: mosqueId });
           if (byId?.length > 0) m = byId[0];
         } catch (_) {}
       }
@@ -198,13 +200,13 @@ export default function PublicTV() {
 
       if (prayers.length) setPrayerTimes(prayers[0]);
       if (jumat.length) setJumatOfficer(jumat[0]);
-      setActivities(acts.filter(a => a.status === 'upcoming').slice(0, 5));
+      setActivities(acts.filter(a => a.status === 'upcoming' || a.status === 'ongoing').slice(0, 5));
       setAnnouncements(anns.slice(0, 4));
       setTransactions(txns);
     } catch (e) { console.error(e); setLoading(false); }
   }
 
-  if (loading || !mosque) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-bold uppercase"><span className="animate-pulse">Menghubungkan ke {id}...</span></div>;
+  if (loading || !mosque) return <div className="min-h-screen bg-black flex items-center justify-center text-emerald-500 font-bold uppercase"><span className="animate-pulse">Menghubungkan ke {mosqueId}...</span></div>;
 
   const timezone = mosque.timezone || 'Asia/Jakarta';
   const timeHours = currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: timezone });
@@ -216,6 +218,9 @@ export default function PublicTV() {
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=1&format=png&data=${encodeURIComponent(`${window.location.origin}/donasi/${mosque.id}`)}`;
   const activePrayer = getActivePrayerOverlay(prayerTimes, currentTime, mosque.tv_prayer_overlay_duration || 15);
   const runningTexts = announcements.map(a => a.title).join('   ⭐   ') || `Sambut Rahmat Allah di ${mosque.name}`;
+  
+  const ongoingActivity = activities.find(a => a.status === 'ongoing') || activities[0];
+  const absensiUrl = ongoingActivity ? `${window.location.origin}/absensi/${mosque?.id}/${ongoingActivity.id}` : null;
 
   return (
     <div ref={containerRef} className="h-screen w-screen bg-slate-950 text-white flex flex-col relative overflow-hidden select-none">
@@ -298,13 +303,50 @@ export default function PublicTV() {
                </SectionBox>
             </div>
             <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-               <div className="bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex justify-around items-center shadow-2xl backdrop-blur-xl">
-                  <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Infaq Bulan Ini</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalIncome)}</p></div>
-                  <div className="text-center px-12 border-x border-white/5"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Saldo Saat Ini</p><p className="font-black text-4xl text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">{formatRp(balance)}</p></div>
-                  <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Pengeluaran</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalExpense)}</p></div>
+               <div className="flex-1 bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl backdrop-blur-xl overflow-hidden">
+                  <div className="flex justify-around items-center mb-6 border-b border-white/5 pb-6">
+                    <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Infaq Bulan Ini</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalIncome)}</p></div>
+                    <div className="text-center px-12 border-x border-white/5"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Saldo Saat Ini</p><p className="font-black text-4xl text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">{formatRp(balance)}</p></div>
+                    <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Pengeluaran</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalExpense)}</p></div>
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingUp className="w-3 h-3 text-emerald-500" />
+                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Tren Kas 6 Bulan Terakhir</span>
+                    </div>
+                    <FinancialChart transactions={transactions} height={180} isDark={true} />
+                  </div>
                </div>
-               <div className="flex-1 rounded-[3rem] overflow-hidden border-2 border-white/10 relative shadow-[0_30px_60px_-15px_rgba(0,0,0,0.7)] group">
-                  <Slideshow mosque={mosque} />
+               <div className="flex-1 rounded-[3rem] overflow-hidden border-2 border-white/10 relative shadow-[0_30px_60px_-15px_rgba(0,0,0,0.7)] group bg-emerald-950/20">
+                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
+                  
+                  {/* Smart Attendance Kiosk Toggle */}
+                  <div className="absolute top-8 right-8 z-50 animate-bounce">
+                    <div className="bg-emerald-600 px-4 py-2 rounded-2xl flex items-center gap-2 shadow-xl border border-emerald-400/30">
+                      <UserCheck className="w-4 h-4" />
+                      <span className="text-[10px] font-black uppercase tracking-widest">Absensi ON</span>
+                    </div>
+                  </div>
+
+                  {ongoingActivity && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center animate-in fade-in zoom-in duration-1000 z-40 bg-black/40 backdrop-blur-sm">
+                      <div className="mb-6 space-y-2">
+                        <h3 className="text-3xl font-black tracking-tight">{ongoingActivity.title}</h3>
+                        <p className="text-emerald-400 font-bold uppercase tracking-[0.3em] text-xs">Silakan Scan Kartu / Aplikasi Untuk Absen</p>
+                      </div>
+                      
+                      <div className="bg-white p-6 rounded-[2.5rem] shadow-[0_0_50px_rgba(16,185,129,0.3)] border-8 border-emerald-500/20 group-hover:scale-105 transition-transform duration-700">
+                        <QRCode value={absensiUrl} size={220} fgColor="#064e3b" level="H" />
+                      </div>
+                      
+                      <div className="mt-8 flex items-center gap-3 px-6 py-3 bg-white/5 rounded-2xl border border-white/10">
+                        <QrCode className="w-5 h-5 text-emerald-500" />
+                        <span className="text-sm font-medium opacity-60">Arahkan kamera HP Anda ke layar TV</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {!ongoingActivity && <Slideshow mosque={mosque} />}
                   <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                </div>
             </div>

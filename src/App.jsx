@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { smartApi } from "@/api/apiClient";
 import { AuthProvider, useAuth } from "@/lib/AuthContext";
 import { LanguageProvider } from "@/lib/useLanguage";
+import { ThemeProvider } from "@/lib/ThemeContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 
@@ -16,11 +17,15 @@ import PublicTV from "@/pages/PublicTV";
 import Pengaturan from "@/pages/Pengaturan";
 import Jamaah from "@/pages/Jamaah";
 import Keuangan from "@/pages/Keuangan";
+import ZakatCenter from "@/pages/ZakatCenter";
 import LaporanKeuangan from "@/pages/LaporanKeuangan";
+import Qurban from "@/pages/Qurban";
 import Kegiatan from "@/pages/Kegiatan";
 import Aset from "@/pages/Aset";
+import Mustahik from "@/pages/Mustahik";
 import Absensi from "@/pages/Absensi";
 import AbsensiPublic from "@/pages/AbsensiPublic";
+import LaporAset from "@/pages/LaporAset";
 import Pengumuman from "@/pages/Pengumuman";
 import Donasi from "@/pages/Donasi";
 import InfoPublik from "@/pages/InfoPublik";
@@ -34,9 +39,10 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import PageNotFound from "@/lib/PageNotFound";
 import InstallPWA from "@/components/InstallPWA";
-import QuranTafsir from "./pages/QuranTafsir";
-import SubscriptionPackage from "./pages/SubscriptionPackage";
+import QuranTafsir from "@/pages/QuranTafsir";
+import SubscriptionPackage from "@/pages/SubscriptionPackage";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AuditLogs from "@/pages/admin/AuditLogs";
 import AdminMosques from "@/pages/admin/AdminMosques";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminBilling from "@/pages/admin/AdminBilling";
@@ -46,6 +52,7 @@ import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminRoles from "@/pages/admin/AdminRoles";
 import AdminBroadcast from "@/pages/admin/AdminBroadcast";
 import AdminLicenses from "@/pages/admin/AdminLicenses";
+import MosqueRoles from "@/pages/MosqueRoles";
 import BuyStandalone from "@/pages/BuyStandalone";
 import Layout from "@/components/Layout";
 
@@ -59,9 +66,12 @@ function isPublicPath(pathname) {
     pathname.startsWith("/tv/") ||
     pathname.startsWith("/absensi/") ||
     pathname.startsWith("/scan/") ||
+    pathname.startsWith("/lapor-aset/") ||
     pathname.startsWith("/reset-password/")
   );
 }
+
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -78,7 +88,16 @@ const AuthenticatedApp = () => {
       }
       try {
         const m = await smartApi.mosque.getByDomain(hostname);
-        if (m) setCustomMosque(m);
+        if (m) {
+          const hasDomainFeature = m.plan_features?.some(f => 
+            f.toLowerCase().includes("domain kustom")
+          );
+          if (hasDomainFeature) {
+            setCustomMosque(m);
+          } else {
+            console.warn("[SECURITY] Domain Kustom detected but feature not active for this mosque.");
+          }
+        }
       } catch (e) { }
       setResolvingDomain(false);
     }
@@ -111,12 +130,12 @@ const AuthenticatedApp = () => {
         <Route path="/cari-masjid" element={<CariMasjid />} />
         <Route path="/quran" element={<QuranTafsir />} />
         <Route path="/paket" element={<SubscriptionPackage />} />
-        <Route path="/masjid/:id" element={<MosquePortfolio />} />
-        <Route path="/donasi/:id" element={<Donasi />} />
-        <Route path="/tv/:mosqueId" element={<PublicTV />} />
-        <Route path="/absensi/:mosqueId/:activityId" element={<AbsensiPublic />} />
-        <Route path="/absensi/:activityId" element={<AbsensiPublic />} />
-        <Route path="/scan/:activityId" element={<AbsensiPublic />} />
+        <Route path="/masjid/:id" element={<ProtectedRoute isPublic feature="Portofolio Digital"><MosquePortfolio /></ProtectedRoute>} />
+        <Route path="/donasi/:id" element={<ProtectedRoute isPublic feature="Donasi Online"><Donasi /></ProtectedRoute>} />
+        <Route path="/tv/:mosqueId" element={<ProtectedRoute isPublic feature="Tampilan TV Masjid"><PublicTV /></ProtectedRoute>} />
+        <Route path="/absensi/:activityId" element={<ProtectedRoute isPublic feature="Absensi QR"><AbsensiPublic /></ProtectedRoute>} />
+        <Route path="/scan/:activityId" element={<ProtectedRoute isPublic feature="Absensi QR"><AbsensiPublic /></ProtectedRoute>} />
+        <Route path="/lapor-aset/:qrId" element={<LaporAset />} />
         <Route path="/beli-mandiri" element={<BuyStandalone />} />
       </Routes>
     );
@@ -134,38 +153,45 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route element={<Layout />}>
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/admin/mosques" element={<AdminMosques />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
-        <Route path="/admin/billing" element={<AdminBilling />} />
-        <Route path="/admin/packages" element={<AdminPackages />} />
-        <Route path="/admin/reports" element={<AdminReports />} />
-        <Route path="/admin/settings" element={<AdminSettings />} />
-        <Route path="/admin/roles" element={<AdminRoles />} />
-        <Route path="/admin/broadcast" element={<AdminBroadcast />} />
-        <Route path="/admin/licenses" element={<AdminLicenses />} />
+        {/* Admin Routes - Lock for Superadmin Only */}
+        <Route path="/admin" element={<ProtectedRoute isAdminOnly><AdminDashboard /></ProtectedRoute>} />
+        <Route path="/admin/mosques" element={<ProtectedRoute isAdminOnly><AdminMosques /></ProtectedRoute>} />
+        <Route path="/admin/users" element={<ProtectedRoute isAdminOnly><AdminUsers /></ProtectedRoute>} />
+        <Route path="/admin/billing" element={<ProtectedRoute isAdminOnly><AdminBilling /></ProtectedRoute>} />
+        <Route path="/admin/packages" element={<ProtectedRoute isAdminOnly><AdminPackages /></ProtectedRoute>} />
+        <Route path="/admin/reports" element={<ProtectedRoute isAdminOnly><AdminReports /></ProtectedRoute>} />
+        <Route path="/admin/settings" element={<ProtectedRoute isAdminOnly><AdminSettings /></ProtectedRoute>} />
+        <Route path="/admin/roles" element={<ProtectedRoute isAdminOnly><AdminRoles /></ProtectedRoute>} />
+        <Route path="/admin/broadcast" element={<ProtectedRoute isAdminOnly><AdminBroadcast /></ProtectedRoute>} />
+        <Route path="/admin/licenses" element={<ProtectedRoute isAdminOnly><AdminLicenses /></ProtectedRoute>} />
 
-        {/* Mosque Routes */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/pengaturan" element={<Pengaturan />} />
-        <Route path="/jamaah" element={<Jamaah />} />
-        <Route path="/keuangan" element={<Keuangan />} />
-        <Route path="/kegiatan" element={<Kegiatan />} />
-        <Route path="/pengumuman" element={<Pengumuman />} />
-        <Route path="/pembayaran-donasi" element={<Donasi />} />
-        <Route path="/info-publik" element={<InfoPublik />} />
-        <Route path="/prayer-times" element={<InfoPublik />} />
-        <Route path="/jamaah-dashboard" element={<JamaahDashboard />} />
-        <Route path="/analitik" element={<AnalitikDashboard />} />
-        <Route path="/ai-analitik" element={<AIAnalitik />} />
-        <Route path="/donasi-masjid" element={<KonfirmasiDonasi />} />
-        <Route path="/telegram" element={<TelegramIntegration />} />
-        <Route path="/aset" element={<Aset />} />
-        <Route path="/quran" element={<QuranTafsir />} />
-        <Route path="/paket" element={<SubscriptionPackage />} />
-        <Route path="/laporan-keuangan" element={<LaporanKeuangan />} />
-        <Route path="/absensi" element={<Absensi />} />
+        {/* Mosque Functional Routes - Protected by Permissions */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/audit-logs" element={<ProtectedRoute isAdminOnly><AuditLogs /></ProtectedRoute>} />
+        <Route path="/pengaturan" element={<ProtectedRoute><Pengaturan /></ProtectedRoute>} />
+        
+        <Route path="/jamaah" element={<ProtectedRoute permission="jamaah"><Jamaah /></ProtectedRoute>} />
+        <Route path="/keuangan" element={<ProtectedRoute permission="keuangan"><Keuangan /></ProtectedRoute>} />
+        <Route path="/laporan-keuangan" element={<ProtectedRoute permission="keuangan"><LaporanKeuangan /></ProtectedRoute>} />
+        <Route path="/zakat" element={<ProtectedRoute permission="keuangan" feature="Manajemen Zakat"><ZakatCenter /></ProtectedRoute>} />
+        <Route path="/qurban" element={<ProtectedRoute permission="keuangan" feature="Manajemen Qurban"><Qurban /></ProtectedRoute>} />
+        <Route path="/kegiatan" element={<ProtectedRoute permission="kegiatan"><Kegiatan /></ProtectedRoute>} />
+        <Route path="/mustahik" element={<ProtectedRoute permission="mustahik" feature="Manajemen Zakat"><Mustahik /></ProtectedRoute>} />
+        <Route path="/aset" element={<ProtectedRoute permission="aset" feature="Aset Masjid"><Aset /></ProtectedRoute>} />
+        <Route path="/analitik" element={<ProtectedRoute permission="analitik" feature="Analitik Lanjutan"><AnalitikDashboard /></ProtectedRoute>} />
+        <Route path="/ai-analitik" element={<ProtectedRoute permission="analitik" feature="AI OCR Struk"><AIAnalitik /></ProtectedRoute>} />
+        
+        <Route path="/pengumuman" element={<ProtectedRoute><Pengumuman /></ProtectedRoute>} />
+        <Route path="/pembayaran-donasi" element={<ProtectedRoute feature="Donasi Online"><Donasi /></ProtectedRoute>} />
+        <Route path="/info-publik" element={<ProtectedRoute permission="info-publik"><InfoPublik /></ProtectedRoute>} />
+        <Route path="/prayer-times" element={<ProtectedRoute permission="info-publik"><InfoPublik /></ProtectedRoute>} />
+        <Route path="/jamaah-dashboard" element={<ProtectedRoute permission="jamaah"><JamaahDashboard /></ProtectedRoute>} />
+        <Route path="/donasi-masjid" element={<ProtectedRoute feature="Donasi Online" permission="donasi-masjid"><KonfirmasiDonasi /></ProtectedRoute>} />
+        <Route path="/telegram" element={<ProtectedRoute feature="Telegram Bot"><TelegramIntegration /></ProtectedRoute>} />
+        <Route path="/quran" element={<ProtectedRoute><QuranTafsir /></ProtectedRoute>} />
+        <Route path="/paket" element={<ProtectedRoute><SubscriptionPackage /></ProtectedRoute>} />
+        <Route path="/absensi" element={<ProtectedRoute feature="Absensi QR"><Absensi /></ProtectedRoute>} />
+        <Route path="/hak-akses" element={<ProtectedRoute><MosqueRoles /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<PageNotFound />} />
     </Routes>
@@ -176,13 +202,15 @@ const App = () => {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <QueryClientProvider client={queryClientInstance}>
-          <Router>
-            <AuthenticatedApp />
-            <InstallPWA />
-          </Router>
-          <Toaster />
-        </QueryClientProvider>
+        <ThemeProvider>
+          <QueryClientProvider client={queryClientInstance}>
+            <Router>
+              <AuthenticatedApp />
+              <InstallPWA />
+            </Router>
+            <Toaster />
+          </QueryClientProvider>
+        </ThemeProvider>
       </LanguageProvider>
     </AuthProvider>
   );

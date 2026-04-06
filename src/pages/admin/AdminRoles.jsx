@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { smartApi } from "@/api/apiClient";
 import PageHeader from "@/components/PageHeader";
-import { ShieldAlert, Save } from "lucide-react";
+import { ShieldAlert, Save, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
+import { useMosqueContext } from "@/lib/useMosqueContext";
 
 const AVAILABLE_MENUS = [
   // Mosque Menus
@@ -24,6 +25,8 @@ const AVAILABLE_MENUS = [
   { id: "pengumuman", label: "Pengumuman" },
   { id: "info-publik", label: "Info Publik" },
   { id: "telegram", label: "Integrasi Telegram" },
+  { id: "portfolio", label: "Portofolio Digital" },
+  { id: "tv", label: "TV Masjid Smart" },
   { id: "pengaturan", label: "Pengaturan Masjid" },
   
   // Superadmin Menus
@@ -37,58 +40,90 @@ const AVAILABLE_MENUS = [
   { id: "admin-roles", label: "Superadmin: Hak Akses Role" }
 ];
 
-const STANDARD_ROLES = ["superadmin", "admin_masjid", "bendahara", "pengurus", "user", "jamaah"];
+const DEFAULT_ROLES = ["superadmin", "admin_masjid", "bendahara", "pengurus", "user", "jamaah", "ketua_dkm", "sekretaris", "imam", "marbot", "amil", "humas"];
 
 export default function AdminRoles() {
-  const [rolePermissions, setRolePermissions] = useState([]);
+  const { rolePermissions, hasPermission, reload } = useMosqueContext();
+  const [localRoles, setLocalRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
   const [editingPermissions, setEditingPermissions] = useState({});
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (rolePermissions) {
+      setLocalRoles(rolePermissions);
+      // If we have a selected role, update its permissions from the fresh list
+      if (selectedRole) {
+        const fresh = rolePermissions.find(r => r.role_name === selectedRole.role_name && r.mosque_id === selectedRole.mosque_id);
+        if (fresh) handleSelectRole(fresh);
+      } else if (rolePermissions.length > 0) {
+        handleSelectRole(rolePermissions[0]);
+      }
+    }
+  }, [rolePermissions]);
 
   async function loadData() {
-    try {
-      const data = await smartApi.entities.RolePermission.list();
-      setRolePermissions(data);
-      if (data.length > 0 && !selectedRole) {
-        handleSelectRole(data[0]);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    // Context already handles loading, we just reactive to rolePermissions
   }
 
-  // Create default if not exist when selecting an empty role from dropdown
   const handleSelectRoleName = async (roleName) => {
     let rp = rolePermissions.find(r => r.role_name === roleName);
-    if (!rp) {
-      // Create it
-      rp = await smartApi.entities.RolePermission.create({
-        role_name: roleName,
-        permissions: "{}"
-      });
-      setRolePermissions([...rolePermissions, rp]);
+    if (rp) handleSelectRole(rp);
+  };
+
+  const handleAddNewRole = async () => {
+    const name = prompt("Masukkan nama role baru (contoh: koordinator_it):");
+    if (!name) return;
+    const roleKey = name.toLowerCase().replace(/\s+/g, '_');
+    if (rolePermissions.find(r => r.role_name === roleKey)) return toast.error("Role sudah ada.");
+
+    try {
+       const newRp = await smartApi.auth.saveRole({
+         role_name: roleKey,
+         permissions: "{}"
+       });
+       toast.success(`Role ${roleKey} berhasil dibuat.`);
+       if (reload) reload();
+    } catch (e) {
+       toast.error("Gagal tambah role: " + e.message);
     }
-    handleSelectRole(rp);
+  };
+
+  const handleDeleteRole = async (id, name) => {
+    if (DEFAULT_ROLES.includes(name)) return toast.error("Role sistem tidak bisa dihapus.");
+    if (!confirm(`Hapus role "${name}"? Reset hak akses ke role ini tidak bisa dibatalkan.`)) return;
+    
+    try {
+      await smartApi.auth.deleteRole(name, false); // Admin deletes non-local (global) by default if they are superadmin
+      toast.success(`Role ${name} dihapus`);
+      setSelectedRole(null);
+      if (reload) reload();
+    } catch (e) {
+      toast.error("Gagal hapus: " + e.message);
+    }
   };
 
   const handleSelectRole = (rp) => {
     setSelectedRole(rp);
     try {
-      setEditingPermissions(JSON.parse(rp.permissions || "{}"));
+      if (!rp || !rp.permissions) {
+        setEditingPermissions({});
+      } else if (typeof rp.permissions === "string") {
+        setEditingPermissions(JSON.parse(rp.permissions) || {});
+      } else {
+        setEditingPermissions(rp.permissions || {});
+      }
     } catch {
       setEditingPermissions({});
     }
   };
 
   const togglePermission = (menuId, action) => {
+    if (!menuId) return;
     setEditingPermissions(prev => {
-      const updated = { ...prev };
-      if (!updated[menuId]) {
+      const updated = { ...(prev || {}) };
+      // Ensure the entry for this menuId is a valid object before toggling
+      if (!updated[menuId] || typeof updated[menuId] !== 'object') {
         updated[menuId] = { view: false, edit: false, delete: false };
       }
       updated[menuId][action] = !updated[menuId][action];
@@ -100,15 +135,25 @@ export default function AdminRoles() {
     if (!selectedRole) return;
     setLoading(true);
     try {
-      await smartApi.entities.RolePermission.update(selectedRole.id, {
-        permissions: JSON.stringify(editingPermissions)
+      await smartApi.auth.saveRole({
+        role_name: selectedRole.role_name,
+        mosque_id: selectedRole.mosque_id || null,
+        permissions: JSON.stringify(editingPermissions || {})
       });
-      toast({ title: "Berhasil disimpan", description: "Pengaturan hak akses berhasil di-update." });
-      loadData();
+      
+      toast.success("Hak akses berhasil diperbarui ✅");
+      
+      // Delay sedikit agar DB sempat commit
+      setTimeout(() => {
+        if (reload) reload();
+      }, 500);
+      
     } catch (e) {
-      toast({ title: "Gagal menyimpan", description: e.message, variant: "destructive" });
+      console.error("[SAVE ERROR]", e);
+      toast.error("Gagal simpan: " + (e.response?.data?.error || e.message));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   return (
@@ -120,27 +165,35 @@ export default function AdminRoles() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-card rounded-xl border p-4 space-y-4">
-          <div className="space-y-2">
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase">Pilih Role</h3>
-            <Select 
-              value={selectedRole?.role_name} 
-              onValueChange={handleSelectRoleName}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Pilih Role" />
-              </SelectTrigger>
-              <SelectContent>
-                {STANDARD_ROLES.map(r => (
-                  <SelectItem key={r} value={r}>
-                    {r === "user" ? "user (Umum)" : r}
-                  </SelectItem>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <h3 className="font-semibold text-sm text-muted-foreground uppercase">Role Utama Sistem</h3>
+              <div className="space-y-1">
+                {localRoles.map(rp => (
+                  <button 
+                    key={`${rp.mosque_id}-${rp.role_name}`}
+                    onClick={() => handleSelectRole(rp)}
+                    className={`w-full flex items-center justify-between p-3 rounded-lg text-sm font-medium transition-colors ${selectedRole?.role_name === rp.role_name && selectedRole?.mosque_id === rp.mosque_id ? 'bg-primary/10 text-primary border border-primary/20' : 'hover:bg-muted text-foreground'}`}
+                  >
+                    <span className="capitalize">{rp.role_name}</span>
+                    {!DEFAULT_ROLES.includes(rp.role_name) && (
+                      <Trash2 
+                        className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" 
+                        onClick={(e) => { e.stopPropagation(); handleDeleteRole(rp.id, rp.role_name); }}
+                      />
+                    )}
+                  </button>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            </div>
+
+            <Button variant="outline" className="w-full gap-2 border-dashed" onClick={handleAddNewRole}>
+               <Plus className="h-4 w-4" /> Tambah Role Kustom
+            </Button>
           </div>
           
-          <div className="text-xs text-muted-foreground pt-4 border-t">
-            Info: Role <b>superadmin</b> umumnya diberikan akses penuh ke semua modul. Role <b>jamaah</b> dan <b>user</b> sebaiknya hanya memiliki akses View ke Dashboard Jamaah / Info Publik.
+          <div className="text-[10px] text-muted-foreground pt-4 border-t leading-relaxed">
+            Role <b>superadmin</b> memiliki akses penuh. Role <b>jamaah</b> sebaiknya hanya memiliki akses View ke Dashboard Jamaah / Info Publik.
           </div>
         </div>
 
@@ -168,26 +221,26 @@ export default function AdminRoles() {
                   </thead>
                   <tbody>
                     {AVAILABLE_MENUS.map(menu => {
-                      const perms = editingPermissions[menu.id] || { view: false, edit: false, delete: false };
+                      const perms = (editingPermissions && editingPermissions[menu.id]) || { view: false, edit: false, delete: false };
                       return (
                         <tr key={menu.id} className="border-b last:border-0 hover:bg-muted/20">
                           <td className="p-4 font-medium">{menu.label}</td>
-                          <td className="text-center p-4">
+                          <td className="p-4 text-center">
                             <Checkbox 
-                              checked={perms.view} 
-                              onCheckedChange={() => togglePermission(menu.id, "view")} 
+                              checked={!!perms.view}
+                              onCheckedChange={() => togglePermission(menu.id, 'view')}
                             />
                           </td>
-                          <td className="text-center p-4">
+                          <td className="p-4 text-center">
                             <Checkbox 
-                              checked={perms.edit} 
-                              onCheckedChange={() => togglePermission(menu.id, "edit")} 
+                              checked={!!perms.edit}
+                              onCheckedChange={() => togglePermission(menu.id, 'edit')}
                             />
                           </td>
-                          <td className="text-center p-4">
+                          <td className="p-4 text-center">
                             <Checkbox 
-                              checked={perms.delete} 
-                              onCheckedChange={() => togglePermission(menu.id, "delete")} 
+                              checked={!!perms.delete}
+                              onCheckedChange={() => togglePermission(menu.id, 'delete')}
                             />
                           </td>
                         </tr>

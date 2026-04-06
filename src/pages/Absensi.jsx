@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "../components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { QrCode, Users, Calendar, Download, Printer } from "lucide-react";
+import { QrCode, Users, Calendar, Download, Printer, ScanLine } from "lucide-react";
 import { formatDate } from "@/lib/formatCurrency";
+import AdminScanner from "../components/attendance/AdminScanner";
+import { toast } from "react-hot-toast";
 
 export default function Absensi() {
   const { currentMosque, loading } = useMosqueContext();
@@ -14,6 +17,7 @@ export default function Absensi() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [attendances, setAttendances] = useState([]);
   const [showQR, setShowQR] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
 
   useEffect(() => {
@@ -28,15 +32,45 @@ export default function Absensi() {
   async function openActivity(activity) {
     setSelectedActivity(activity);
     setLoadingAttendance(true);
-    const data = await smartApi.entities.Attendance.filter({ activity_id: activity.id }, "-checked_in_at", 100);
-    setAttendances(data);
-    setLoadingAttendance(false);
+    try {
+      const data = await smartApi.entities.Attendance.filter({ activity_id: activity.id }, "-checked_in_at", 100);
+      setAttendances(data || []);
+    } catch (e) {
+      console.error("Attendance Load Error:", e);
+      toast.error("Gagal mengambil daftar hadir jamaah");
+      setAttendances([]);
+    } finally {
+      setLoadingAttendance(false);
+    }
   }
 
   function getQRUrl(activity) {
     return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(
       `${window.location.origin}/absensi/${currentMosque.id}/${activity.id}`
     )}`;
+  }
+
+  async function handleScanSuccess(membershipId) {
+    if (!selectedActivity) return;
+    try {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || ""}/api/public/attendance/fast-checkin`, {
+        membership_id: membershipId,
+        activity_id: selectedActivity.id,
+        mosque_id: currentMosque.id
+      });
+      
+      if (res.data.success) {
+        toast.success(`Jazakallah! ${res.data.member_name} tercatat hadir.`);
+        if (res.data.message) toast.success(res.data.message, { icon: '👏' });
+        
+        // Refresh list
+        openActivity(selectedActivity);
+      }
+    } catch (e) {
+      console.error(e);
+      const msg = e.response?.data?.error || "Gagal memproses absensi.";
+      toast.error(msg);
+    }
   }
 
   function downloadQR(activity) {
@@ -144,6 +178,9 @@ export default function Absensi() {
               </Badge>
             </div>
             <div className="flex gap-2">
+              <Button size="sm" variant="outline" className="flex-1 gap-1 border-emerald-600 text-emerald-600 hover:bg-emerald-50" onClick={() => { setSelectedActivity(activity); setShowScanner(true); }}>
+                <ScanLine className="h-3.5 w-3.5" /> Scan Kartu
+              </Button>
               <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => { setSelectedActivity(activity); setShowQR(true); }}>
                 <QrCode className="h-3.5 w-3.5" /> QR Code
               </Button>
@@ -184,7 +221,7 @@ export default function Absensi() {
       </Dialog>
 
       {/* Attendance List Dialog */}
-      <Dialog open={!!selectedActivity && !showQR} onOpenChange={(o) => { if (!o) setSelectedActivity(null); }}>
+      <Dialog open={!!selectedActivity && !showQR && !showScanner} onOpenChange={(o) => { if (!o) setSelectedActivity(null); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -231,6 +268,21 @@ export default function Absensi() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Admin Scanner Dialog */}
+      <Dialog open={showScanner} onOpenChange={setShowScanner}>
+        <DialogContent className="max-w-md text-center rounded-[2.5rem] bg-white">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl font-black italic tracking-tighter">PEMINDAI KARTU Smart</DialogTitle>
+          </DialogHeader>
+          {selectedActivity && (
+            <AdminScanner 
+              onScanSuccess={handleScanSuccess} 
+              onClose={() => setShowScanner(false)} 
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

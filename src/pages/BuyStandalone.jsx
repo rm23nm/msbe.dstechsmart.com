@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { smartApi } from "@/api/apiClient";
+import { apiClient, smartApi } from "@/api/apiClient";
 import { 
   ShieldCheck, Globe, Zap, CheckCircle2, ArrowRight, 
   Building2, Mail, Lock, CreditCard, ChevronLeft, Loader2
@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export default function BuyStandalone() {
@@ -20,6 +21,38 @@ export default function BuyStandalone() {
     password: "",
     domain: "",
   });
+  const [voucherCode, setVoucherCode] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
+  const [basePrice] = useState(5000000);
+
+  const calculateTotal = () => {
+    let final = basePrice;
+    if (appliedVoucher) {
+      const val = parseFloat(appliedVoucher.discount_value) || 0;
+      if (appliedVoucher.discount_type === "percent") {
+        final = basePrice - (basePrice * (val / 100));
+      } else {
+        final = basePrice - val;
+      }
+    }
+    return final;
+  };
+
+  const currentTotal = calculateTotal();
+
+  const handleValidateVoucher = async () => {
+    if (!voucherCode) return;
+    try {
+      const res = await apiClient.post("/vouchers/validate", { code: voucherCode });
+      if (res.data.valid) {
+        setAppliedVoucher(res.data);
+        toast.success(res.data.message);
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.error || "Gagal memvalidasi voucher");
+      setAppliedVoucher(null);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,14 +62,14 @@ export default function BuyStandalone() {
 
     setLoading(true);
     try {
-      // 1. DAFTARKAN MASJID & ADMIN (Metode Registrasi Khusus)
-      // Ini akan membuat record di tabel Mosque dan User
+      const totalPrice = currentTotal;
+      // 1. DAFTARKAN MASJID & ADMIN
       const mosqueRes = await smartApi.entities.Mosque.create({
         name: formData.mosque_name,
         email: formData.email,
         city: "Standalone Client",
         address: "Standalone Installation",
-        admin_password: formData.password // Password ini akan di-hash di backend (telah kita siapkan sebelumnya)
+        admin_password: formData.password
       });
 
       if (mosqueRes && mosqueRes.id) {
@@ -49,27 +82,22 @@ export default function BuyStandalone() {
           status: "active"
         });
 
-        // 3. CATAT PENDAPATAN KE LAPORAN KEUANGAN PUSAT
-        // Kita asumsikan PUSAT adalah ID Masjid pertama atau ambil dari settings
-        const masterMosqueId = "d7d1e8b0-xxxx-xxxx-xxxx-xxxxxxxxxxxx"; // ID Masjid Pusat Anda
-        
-        // Coba cari ID Masjid Pusat dari database (Opsional, jika statis lebih aman)
-        const allMosques = await smartApi.entities.Mosque.list();
-        const masterId = allMosques.find(m => m.name.toLowerCase().includes("pusat") || m.name.toLowerCase().includes("dstech"))?.id || allMosques[0]?.id;
+        // 3. CATAT PENDAPATAN KE LAPORAN KEUANGAN PUSAT (API Publik baru)
+        const masterRes = await apiClient.get("/public/master");
+        const masterId = masterRes.data.id;
 
         if (masterId) {
           await smartApi.entities.Transaction.create({
             mosque_id: masterId,
-            title: `Penjualan Standalone: ${formData.mosque_name}`,
+            description: `Pendaftaran Standalone: ${formData.mosque_name}`,
             type: "pemasukan",
             category: "Penjualan Software",
-            amount: 5000000, // Harga paket standalone (Contoh: 5 Juta)
+            amount: totalPrice,
             date: new Date().toISOString()
           });
         }
 
         toast.success("Pembelian Berhasil! Silakan cek email untuk detail lisensi.");
-        // Kirim ke halaman sukses atau login
         setTimeout(() => navigate("/login"), 3000);
       }
     } catch (error) {
@@ -79,6 +107,9 @@ export default function BuyStandalone() {
       setLoading(false);
     }
   };
+
+  const originalPrice = basePrice;
+  const finalPrice = calculateTotal();
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-6">
@@ -93,12 +124,12 @@ export default function BuyStandalone() {
               <ChevronLeft className="w-4 h-4" /> Kembali ke Beranda
             </Link>
             <h1 className="text-4xl font-black mb-6 leading-tight">Miliki Platform Digital Masjid Anda Sendiri.</h1>
-            <p className="text-slate-400 mb-8">Dapatkan software eksklusif (White-Label) dengan domain & hosting mandiri untuk masjid Anda.</p>
+            <p className="text-slate-400 mb-8 font-medium">Beli paket produk mandiri White-Label.</p>
             
             <div className="space-y-6">
               {[
                 { t: "Domain & Hosting Mandiri", i: Globe },
-                { t: "Branding Nama Masjid Sendiri", i: ShieldCheck },
+                { t: "Full Branding Nama Masjid", i: ShieldCheck },
                 { t: "Update Fitur dari Pusat", i: Zap }
               ].map((f, i) => (
                 <div key={i} className="flex gap-4 items-center">
@@ -110,12 +141,37 @@ export default function BuyStandalone() {
           </div>
 
           <div className="relative z-10 pt-12 border-t border-white/10 mt-12">
-            <div className="flex justify-between items-center bg-emerald-500/10 p-5 rounded-2xl border border-emerald-500/20">
-              <div>
-                <p className="text-[10px] uppercase font-black text-emerald-400 mb-1">Cukup Bayar Sekali</p>
-                <p className="text-2xl font-black">Rp 5.000.000</p>
+            <div className="bg-white/5 rounded-2xl p-6 border border-white/10 space-y-4">
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-xs text-white/50 uppercase tracking-widest font-bold mb-1">Total Pembayaran</p>
+                  {appliedVoucher && (
+                    <p className="text-sm text-white/40 line-through">Rp {basePrice.toLocaleString()}</p>
+                  )}
+                  <p className="text-3xl font-black text-emerald-400">Rp {currentTotal.toLocaleString()}</p>
+                </div>
+                {appliedVoucher && (
+                  <Badge variant="success" className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 py-1 px-3">
+                    Diskon Aktif!
+                  </Badge>
+                )}
               </div>
-              <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Kode Voucher" 
+                  value={voucherCode}
+                  onChange={(e) => setVoucherCode(e.target.value)}
+                  className="bg-white/10 border-white/10 text-white placeholder:text-white/30"
+                />
+                <Button 
+                  type="button"
+                  onClick={handleValidateVoucher}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white whitespace-nowrap"
+                >
+                  Terapkan
+                </Button>
+              </div>
             </div>
           </div>
         </div>

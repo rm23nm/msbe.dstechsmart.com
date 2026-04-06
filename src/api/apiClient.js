@@ -93,7 +93,10 @@ export const smartApi = {
     },
     redirectToLogin: (path) => {
       window.location.href = `/login?redirect=${encodeURIComponent(path || '/')}`;
-    }
+    },
+    getRoles: () => apiClient.get("/auth/roles").then(r => r.data),
+    saveRole: (data) => apiClient.post("/auth/roles", data).then(r => r.data),
+    deleteRole: (roleName, isLocal) => apiClient.delete(`/auth/roles/${roleName}${isLocal ? '?is_local=true' : ''}`).then(r => r.data)
   },
   integrations: {
     Core: {
@@ -123,7 +126,13 @@ export const smartApi = {
 };
 
 // Dinamically create all entities that match smartApi
-const models = ["User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures", "RolePermission", "Voucher"];
+const models = [
+  "User", "Mosque", "MosqueMember", "Transaction", "Activity", "Announcement", 
+  "Donation", "PrayerTime", "JumatOfficer", "AppSettings", "PlanFeatures", 
+  "RolePermission", "Voucher", "License", "AuditLog", "Mustahik", 
+  "AidDistribution", "QurbanAnimal", "QurbanParticipant", "Asset", 
+  "Inventory", "Jamaah", "ServiceRequirement"
+];
 
 models.forEach(model => {
   smartApi.entities[model] = {
@@ -131,11 +140,24 @@ models.forEach(model => {
       const { data } = await apiClient.get(`/entities/${model}`);
       return data;
     },
-    filter: async (filterObj, sortStr, limitInt) => {
+    filter: async (filterObj, sortOrOptions, limitInt, includeObj) => {
       const params = new URLSearchParams();
       if (filterObj) params.append("filter", JSON.stringify(filterObj));
-      if (sortStr) params.append("sort", sortStr);
-      if (limitInt) params.append("limit", limitInt);
+      
+      let sort = sortOrOptions;
+      let limit = limitInt;
+      let include = includeObj;
+      
+      // Support options object as the second argument
+      if (typeof sortOrOptions === 'object' && sortOrOptions !== null) {
+        sort = sortOrOptions.sort;
+        limit = sortOrOptions.limit;
+        include = sortOrOptions.include;
+      }
+      
+      if (sort) params.append("sort", sort);
+      if (limit) params.append("limit", limitInt || limit);
+      if (include) params.append("include", JSON.stringify(include));
       
       const { data } = await apiClient.get(`/entities/${model}?${params.toString()}`);
       return data;
@@ -161,60 +183,19 @@ smartApi.entities.Attendance = {
     const { data } = await apiClient.post("/attendance", payload);
     return data;
   },
-  filter: async (filterObj) => {
+  filter: async (filterObj, sortStr, limitInt) => {
     const params = new URLSearchParams();
     if (filterObj?.activity_id) params.append("activity_id", filterObj.activity_id);
     if (filterObj?.mosque_id) params.append("mosque_id", filterObj.mosque_id);
+    if (sortStr) params.append("sort", sortStr);
+    if (limitInt) params.append("limit", limitInt);
+    
     const { data } = await apiClient.get(`/attendance?${params.toString()}`);
     return data;
   },
   list: async () => {
     const { data } = await apiClient.get("/attendance");
     return data;
-  }
-};
-
-// Override Transaction.create to use notification-enabled endpoint
-const _origTransactionCreate = smartApi.entities.Transaction.create;
-smartApi.entities.Transaction.create = async (payload) => {
-  try {
-    const { data } = await apiClient.post("/transactions/create", payload);
-    return data;
-  } catch (e) {
-    return _origTransactionCreate(payload);
-  }
-};
-
-// Override Activity.create to use notification-enabled endpoint  
-const _origActivityCreate = smartApi.entities.Activity.create;
-smartApi.entities.Activity.create = async (payload) => {
-  try {
-    const { data } = await apiClient.post("/activities/create", payload);
-    return data;
-  } catch (e) {
-    return _origActivityCreate(payload);
-  }
-};
-
-// Override Announcement.create to use notification-enabled endpoint
-const _origAnnouncementCreate = smartApi.entities.Announcement.create;
-smartApi.entities.Announcement.create = async (payload) => {
-  try {
-    const { data } = await apiClient.post("/announcements/create", payload);
-    return data;
-  } catch (e) {
-    return _origAnnouncementCreate(payload);
-  }
-};
-
-// Override Donation.create to use notification-enabled endpoint
-const _origDonationCreate = smartApi.entities.Donation.create;
-smartApi.entities.Donation.create = async (payload) => {
-  try {
-    const { data } = await apiClient.post("/donations/create", payload);
-    return data;
-  } catch (e) {
-    return _origDonationCreate(payload);
   }
 };
 

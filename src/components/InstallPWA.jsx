@@ -106,9 +106,11 @@ const InstallPWA = () => {
     <div className="fixed bottom-0 left-0 w-full p-4 bg-white border-t rounded-t-2xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-[9999] flex items-center justify-between sm:w-96 sm:bottom-4 sm:left-1/2 sm:-translate-x-1/2 sm:rounded-2xl sm:border">
       <div className="flex items-center gap-3">
         <img src="/favicon.png?v=2" alt="MasjidKu Smart" className="w-12 h-12 rounded-xl object-contain drop-shadow" />
-        <div>
-          <h4 className="font-bold text-gray-800 text-sm">Pasang MasjidKu Smart</h4>
-          <p className="text-xs text-gray-500">Akses cepat di layar Anda</p>
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-gray-800 text-sm truncate">
+            {isWhiteLabel ? `Pasang Aplikasi ${currentMosque?.name || "Masjid"}` : "Pasang MasjidKu Smart"}
+          </h4>
+          <p className="text-[11px] text-gray-500 mt-0.5 truncate leading-none">Akses cepat & tanpa kuota di layar ponsel Bapak!</p>
         </div>
       </div>
       <div className="flex gap-2">

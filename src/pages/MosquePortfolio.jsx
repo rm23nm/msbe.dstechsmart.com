@@ -4,12 +4,13 @@ import { smartApi } from "@/api/apiClient";
 import { formatCurrency, formatDate } from "@/lib/formatCurrency";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import QRCode from "react-qr-code";
-import {
-  MapPin, Phone, Mail, Calendar, Clock, ArrowUpRight, ArrowDownRight,
-  Wallet, Megaphone, Instagram, Youtube, Facebook, Globe,
-  UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
-  MessageSquare, Smartphone, Home, Info, Images, DollarSign, Users as UsersIcon, BookOpen, Landmark
+import { 
+  Building2, Calendar, Users, MapPin, Phone, Instagram, Facebook, Youtube, Share2, Globe, Heart, 
+  ArrowRight, Landmark, Clock, MessageSquare, Megaphone, TrendingUp, TrendingDown, ClipboardCheck, BarChart3,
+  Wallet, ArrowUpRight, ArrowDownRight, UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
+  Info, Images, DollarSign, Users as UsersIcon, BookOpen, Home, Mail, Smartphone
 } from "lucide-react";
+import FinancialChart from "@/components/dashboard/FinancialChart";
 import QuranReader from "@/components/QuranReader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -321,6 +322,7 @@ export default function MosquePortfolio({ mosque: initialMosque }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const { isWhiteLabel } = useMosqueContext();
   const [activeTab, setActiveTab] = useState('beranda');
 
   useEffect(() => {
@@ -849,14 +851,16 @@ export default function MosquePortfolio({ mosque: initialMosque }) {
                     <div><p className="text-sm font-semibold">WhatsApp Pengurus</p><p className="text-xs text-white/60">{mosque.phone}</p></div>
                   </a>
                 )}
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
-                  <p className="text-xs text-white/50 mb-1">Dikelola menggunakan</p>
-                  <Link to="/" className="flex items-center justify-center gap-2 text-emerald-400 hover:text-emerald-300 font-bold">
-                    <img src="/favicon.png" alt="MasjidKu Smart" className="h-6 w-6 rounded-md object-contain" />
-                    MasjidKu Smart
-                  </Link>
-                  <p className="text-xs text-white/40 mt-1">Platform Digital Masjid #1 Indonesia</p>
-                </div>
+                {!isWhiteLabel && (
+                  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-center">
+                    <p className="text-xs text-white/50 mb-1">Dikelola menggunakan</p>
+                    <Link to="/" className="flex items-center justify-center gap-2 text-emerald-400 hover:text-emerald-300 font-bold">
+                      <img src="/favicon.png" alt="MasjidKu Smart" className="h-6 w-6 rounded-md object-contain" />
+                      MasjidKu Smart
+                    </Link>
+                    <p className="text-xs text-white/40 mt-1">Platform Digital Masjid #1 Indonesia</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

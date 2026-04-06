@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import axios from "axios";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   BookOpen, Search, Play, Pause, ChevronRight, ChevronLeft, 
-  Volume2, Book, Loader2, Music, List, Info, Type, X, Layout, Maximize2, Headphones
+  Volume2, Book, Loader2, Music, List, Info, Type, X, Layout, Maximize2, Headphones,
+  Bookmark, Share2, Sparkles, Settings2, Heart, VolumeX
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter 
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
@@ -23,9 +24,7 @@ const QARIS = [
   { id: 'ar.assudais', equranId: '03', name: 'Abdurrahman as-Sudais' },
   { id: 'ar.abdullahaljuhany', equranId: '01', name: 'Abdullah Al-Juhany' },
   { id: 'ar.abdulmuhinalqasim', equranId: '02', name: 'Abdul-Muhsin Al-Qasim' },
-  { id: 'ar.ibrahimaldossari', equranId: '04', name: 'Ibrahim Al-Dossari' },
 ];
-
 
 export default function QuranReader({ isPublic = false }) {
   const [surahs, setSurahs] = useState([]);
@@ -37,35 +36,29 @@ export default function QuranReader({ isPublic = false }) {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingTafsir, setLoadingTafsir] = useState(false);
   const [activeTab, setActiveTab] = useState("surah");
-  const [viewMode, setViewMode] = useState("list"); // 'list' or 'mushaf'
-  const [selectedQari, setSelectedQari] = useState(QARIS[0]); // Default to Misyari
+  const [viewMode, setViewMode] = useState("list"); 
+  const [selectedQari, setSelectedQari] = useState(QARIS[0]);
   
-  // Mushaf State
   const [currentPage, setCurrentPage] = useState(1);
   const [pageData, setPageData] = useState(null);
   const [loadingPage, setLoadingPage] = useState(false);
-  const [playingSurah, setPlayingSurah] = useState(null); // Track which surah is playing
+  const [playingSurah, setPlayingSurah] = useState(null);
 
-  
-  // Ayah Detail State (for Mushaf mode clicks)
+  const [showAyahDialog, setShowAyahDialog] = useState(false);
   const [selectedAyahDetail, setSelectedAyahDetail] = useState(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
-  const [showAyahDialog, setShowAyahDialog] = useState(false);
 
-  // Audio state
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentAudio, setCurrentAudio] = useState(null);
   const [currentAyahIndex, setCurrentAyahIndex] = useState(-1);
+  const [audioProgress, setAudioProgress] = useState(0);
   const audioRef = useRef(new Audio());
   
-  // Customization State
   const [fontSize, setFontSize] = useState(parseInt(localStorage.getItem('quran_font_size')) || 32);
   const [showTranslation, setShowTranslation] = useState(localStorage.getItem('quran_show_translation') !== 'false');
-  const [showTafsirInline, setShowTafsirInline] = useState(false);
   const [bookmarks, setBookmarks] = useState(JSON.parse(localStorage.getItem('quran_bookmarks')) || []);
   const [lastRead, setLastRead] = useState(JSON.parse(localStorage.getItem('quran_last_read')) || null);
   const [showTajweed, setShowTajweed] = useState(localStorage.getItem('quran_show_tajweed') === 'true');
-  const [frameTheme, setFrameTheme] = useState('light'); // 'light' or 'dark'
 
   useEffect(() => {
     localStorage.setItem('quran_font_size', fontSize);
@@ -74,30 +67,31 @@ export default function QuranReader({ isPublic = false }) {
     localStorage.setItem('quran_bookmarks', JSON.stringify(bookmarks));
   }, [fontSize, showTranslation, bookmarks, showTajweed]);
 
-
-
   useEffect(() => {
     fetchSurahs();
+    const audio = audioRef.current;
+    const updateProgress = () => {
+      if (audio.duration) {
+        setAudioProgress((audio.currentTime / audio.duration) * 100);
+      }
+    };
+    audio.addEventListener('timeupdate', updateProgress);
     return () => {
-      audioRef.current.pause();
+      audio.pause();
+      audio.removeEventListener('timeupdate', updateProgress);
     };
   }, []);
 
   useEffect(() => {
-    if (viewMode === 'mushaf') {
-      fetchPageData(currentPage);
-    }
+    if (viewMode === 'mushaf') fetchPageData(currentPage);
   }, [viewMode, currentPage]);
 
   const fetchSurahs = async () => {
     try {
       const { data } = await axios.get(`${API_BASE}/surat`);
       setSurahs(data.data || []);
-    } catch (error) {
-      toast.error("Gagal mengambil daftar surah");
-    } finally {
-      setLoading(false);
-    }
+    } catch (error) { toast.error("Gagal memuat Al-Quran"); }
+    finally { setLoading(false); }
   };
 
   const fetchPageData = async (page) => {
@@ -106,11 +100,8 @@ export default function QuranReader({ isPublic = false }) {
       const edition = showTajweed ? 'quran-tajweed' : 'quran-uthmani';
       const { data } = await axios.get(`${MUSHAF_API}/page/${page}/${edition}`);
       setPageData(data.data);
-    } catch (error) {
-      toast.error("Gagal mengambil data halaman Al-Quran");
-    } finally {
-      setLoadingPage(false);
-    }
+    } catch (error) { toast.error("Gagal memuat mushaf"); }
+    finally { setLoadingPage(false); }
   };
 
   const parseTajweed = (text) => {
@@ -118,7 +109,6 @@ export default function QuranReader({ isPublic = false }) {
     let output = "";
     let stack = [];
     for (let i = 0; i < text.length; i++) {
-      // Check for tag start like [x[ or [x:num[
       if (text[i] === '[' && i + 2 < text.length) {
         const remaining = text.substring(i);
         const match = remaining.match(/^\[([a-z]):?\d*\[/);
@@ -129,8 +119,6 @@ export default function QuranReader({ isPublic = false }) {
           continue;
         }
       }
-      
-      // Check for tag end
       if (text[i] === ']') {
         if (stack.length > 0) {
           output += '</span>';
@@ -138,141 +126,29 @@ export default function QuranReader({ isPublic = false }) {
           continue;
         }
       }
-      
       output += text[i];
     }
     return output;
   };
 
-
-
   const fetchSurahDetail = async (nomor) => {
     setLoadingDetail(true);
-    setSurahDetail(null);
     try {
       const { data } = await axios.get(`${API_BASE}/surat/${nomor}`);
       setSurahDetail(data.data);
-      if (viewMode === 'mushaf') {
-        const surahPage = data.data.ayat[0].halaman || 1;
-        setCurrentPage(surahPage);
-      }
+      if (viewMode === 'mushaf') setCurrentPage(data.data.ayat[0].halaman || 1);
       stopAudio();
-    } catch (error) {
-      toast.error("Gagal mengambil detail surah");
-    } finally {
-      setLoadingDetail(false);
-    }
+    } catch (error) { toast.error("Gagal memuat detail surah"); }
+    finally { setLoadingDetail(false); }
   };
 
-  const fetchTafsir = async (nomor) => {
-    setLoadingTafsir(true);
-    try {
-      const { data } = await axios.get(`${API_BASE}/tafsir/${nomor}`);
-      setTafsirData(data.data);
-    } catch (error) {
-      toast.error("Gagal mengambil tafsir");
-    } finally {
-      setLoadingTafsir(false);
-    }
-  };
-
-  const handleSurahClick = (surah, skipStopAudio = false) => {
+  const handleSurahClick = (surah) => {
     setSelectedSurah(surah);
     fetchSurahDetail(surah.nomor);
-    fetchTafsir(surah.nomor);
-    
-    // Save as last read
-    const progress = {
-      nomor: surah.nomor,
-      nama: surah.namaLatin,
-      time: new Date().toISOString()
-    };
+    const progress = { nomor: surah.nomor, nama: surah.namaLatin, time: new Date().toISOString() };
     setLastRead(progress);
     localStorage.setItem('quran_last_read', JSON.stringify(progress));
-
-    if (!skipStopAudio) stopAudio();
-
-    if (window.innerWidth < 1024) {
-      setTimeout(() => {
-        document.getElementById('surah-detail-view')?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }
-  };
-
-
-  const toggleBookmark = (surah, ayah) => {
-    const bId = `${surah.nomor}:${ayah.nomorAyat}`;
-    if (bookmarks.find(b => b.id === bId)) {
-      setBookmarks(prev => prev.filter(b => b.id !== bId));
-      toast.success("Bookmark dihapus");
-    } else {
-      const newBM = {
-        id: bId,
-        surahNomor: surah.nomor,
-        surahNama: surah.namaLatin,
-        ayahNomor: ayah.nomorAyat,
-        text: ayah.teksArab,
-        timestamp: new Date().toISOString()
-      };
-      setBookmarks(prev => [newBM, ...prev]);
-      toast.success("Ayat ditambahkan ke bookmark");
-    }
-  };
-
-
-  const handleAyahClick = async (ayah) => {
-    // Get Surah number from ayah.surah.number
-    const surahNum = ayah.surah.number;
-    const ayahNum = ayah.numberInSurah;
-    
-    setSelectedAyahDetail(null);
-    setIsDetailLoading(true);
-    setShowAyahDialog(true);
-    
-    try {
-      // Fetch translation and tafsir from equran.id
-      const { data } = await axios.get(`${API_BASE}/surat/${surahNum}`);
-      const specificAyah = data.data.ayat.find(a => a.nomorAyat === ayahNum);
-      const tafsirRes = await axios.get(`${API_BASE}/tafsir/${surahNum}`);
-      const specificTafsir = tafsirRes.data.data.tafsir.find(t => t.ayat === ayahNum);
-      
-      setSelectedAyahDetail({
-        ...specificAyah,
-        tafsir: specificTafsir?.teks || "Tafsir tidak tersedia",
-        surahName: ayah.surah.englishName,
-        surahNum: surahNum
-      });
-    } catch (error) {
-      toast.error("Gagal mengambil detail ayat");
-      setShowAyahDialog(false);
-    } finally {
-      setIsDetailLoading(false);
-    }
-  };
-
-  const playNextAyah = () => {
-    // Only auto-play if we are in Ayah-by-Ayah mode (index >= 0)
-    setCurrentAyahIndex((prevIndex) => {
-      if (prevIndex >= 0 && surahDetail && prevIndex < surahDetail.ayat.length - 1) {
-        const nextIndex = prevIndex + 1;
-        const nextAyah = surahDetail.ayat[nextIndex];
-        
-        // Resolve audio URL for the next ayah using Islamic Network CDN
-        const audioUrl = `https://cdn.islamic.network/quran/audio/128/${selectedQari.id}/${nextAyah.nomorAyatGlobal || (surahDetail.nomor === 1 ? nextIndex + 1 : nextAyah.nomorAyat)}.mp3`;
-        
-        // We use a small timeout to let the state update
-        setTimeout(() => {
-          audioRef.current.src = audioUrl;
-          audioRef.current.play();
-          setIsPlaying(true);
-        }, 100);
-        
-        return nextIndex;
-      }
-
-      setIsPlaying(false);
-      return -1;
-    });
+    stopAudio();
   };
 
   const toggleAudio = (audioUrl, index, currentSurah = null) => {
@@ -281,737 +157,350 @@ export default function QuranReader({ isPublic = false }) {
       setIsPlaying(false);
     } else {
       stopAudio();
-      
-      let finalUrl = audioUrl;
-      const targetSurah = currentSurah || selectedSurah;
-
-      audioRef.current.src = finalUrl;
+      audioRef.current.src = audioUrl;
       audioRef.current.play();
-      setCurrentAudio(finalUrl);
+      setCurrentAudio(audioUrl);
       setCurrentAyahIndex(index);
       setIsPlaying(true);
+      setPlayingSurah(currentSurah || selectedSurah);
       
       audioRef.current.onended = () => {
-        if (index === -2) {
-          // Playlist Mode: Transition to next surah
-          const currentPlayingNum = targetSurah?.nomor;
-          const nextNum = (currentPlayingNum || 1) + 1;
-          
-          if (nextNum <= 114) {
-            const nextSurah = surahs.find(s => s.nomor === nextNum);
-            if (nextSurah) {
-              handleSurahClick(nextSurah, true); 
-              toast.info(`Berlanjut ke: Surat ${nextSurah.namaLatin}...`);
-              
-              setTimeout(() => {
-                 const nextAudioUrl = nextSurah.audioFull[selectedQari.equranId];
-                 toggleAudio(nextAudioUrl, -2, nextSurah);
-              }, 2000);
-            }
-          } else {
-            setPlayingSurah(null);
-            setIsPlaying(false);
-            setCurrentAyahIndex(-1);
-            toast.success("Khatam Al-Quran! Seluruh surat telah diputar.");
-          }
-        } else {
-           playNextAyah();
+        if (index === -2) stopAudio();
+        else {
+          const nextIdx = index + 1;
+          if (surahDetail && nextIdx < surahDetail.ayat.length) {
+            const nextAyah = surahDetail.ayat[nextIdx];
+            toggleAudio(nextAyah.audio[selectedQari.equranId], nextIdx);
+          } else stopAudio();
         }
       };
-      
-      if (index === -2 || index >= 0) {
-         setPlayingSurah(targetSurah);
-      }
     }
   };
-
 
   const stopAudio = () => {
     audioRef.current.pause();
     setIsPlaying(false);
     setCurrentAyahIndex(-1);
     setPlayingSurah(null);
+    setCurrentAudio(null);
+    setAudioProgress(0);
   };
-
-
-
 
   const filteredSurahs = surahs.filter(s => 
     s.namaLatin.toLowerCase().includes(search.toLowerCase()) || 
-    s.arti.toLowerCase().includes(search.toLowerCase()) ||
     s.nomor.toString().includes(search)
   );
 
-  const MushafView = () => {
-    if (loadingPage) {
-      return (
-        <div className="flex flex-col items-center justify-center py-40 gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <p className="text-muted-foreground font-medium">Membuka lembaran Mushaf...</p>
-        </div>
-      );
-    }
-
-    if (!pageData) return null;
-
-    return (
-      <div className="animate-in fade-in zoom-in-95 duration-500 quran-mushaf-layout py-10">
-        {/* Mushaf Decorative Frame wrapper */}
-        <div className={`quran-frame-container ${frameTheme === 'dark' ? 'dark' : ''} shadow-2xl mx-auto max-w-[850px] relative overflow-hidden mb-20`}>
-          {/* Corner Elements */}
-          <div className="frame-corner corner-tl" />
-          <div className="frame-corner corner-tr" />
-          <div className="frame-corner corner-bl" />
-          <div className="frame-corner corner-br" />
-
-          {/* Border Elements */}
-          <div className="frame-border-h border-top" />
-          <div className="frame-border-h border-bottom" />
-          <div className="frame-border-v-new border-left-new" />
-          <div className="frame-border-v-new border-right-new" />
-
-
-          {/* Mushaf Header Information */}
-          <div className="flex items-center justify-between py-8 mb-16 relative z-20 px-4 lg:px-14 border-b border-[#c5a059]/30">
-            <div className="flex flex-col items-start min-w-[120px]">
-               <div className="bg-[#c5a059]/15 backdrop-blur-md px-5 py-2.5 rounded-2xl border-2 border-[#c5a059]/40 shadow-md">
-                  <span className="text-[13px] font-black text-[#c5a059] uppercase tracking-wide">Juz {pageData.ayahs[0].juz}</span>
-               </div>
-            </div>
-
-            <div className="relative group">
-              <div className="w-20 h-20 rounded-full border-[6px] border-[#c5a059]/50 flex items-center justify-center text-3xl font-black shadow-2xl bg-white flex-shrink-0 -mt-16 transition-transform hover:scale-110 duration-500 ring-10 ring-white/30">
-                 <span className="text-[#c5a059] drop-shadow-md">{currentPage}</span>
-              </div>
-              <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#c5a059] text-white text-[9px] px-3 py-1 rounded-full font-black uppercase tracking-widest whitespace-nowrap shadow-sm">Halaman</div>
-            </div>
-
-            <div className="flex flex-col items-end min-w-[120px]">
-               <div className="bg-[#c5a059]/15 backdrop-blur-md px-5 py-2.5 rounded-2xl border-2 border-[#c5a059]/40 shadow-md">
-                  <span className="text-[13px] font-black text-[#c5a059] uppercase tracking-wide">Manzil {pageData.ayahs[0].manzil}</span>
-               </div>
-            </div>
-          </div>
-
-
-
-
-          {/* Ayahs Display */}
-          <div 
-            dir="rtl" 
-            className="text-right leading-[2.8] md:leading-[3.2] tracking-normal mb-8 px-4 md:px-14 mt-12 relative z-20 text-justify"
-            style={{ textAlignLast: 'center' }}
-          >
-
-            {pageData.ayahs.map((ayah, i) => (
-              <React.Fragment key={i}>
-                {ayah.numberInSurah === 1 && (
-                  <div className="w-full text-center mt-2 mb-6 flex flex-col items-center gap-2" dir="ltr">
-                     <div className="surah-header-frame animate-in fade-in slide-in-from-top-4 duration-1000 mb-0 opacity-90">
-                        <span className="surah-header-title text-xl font-arabic drop-shadow-sm brightness-110">
-                          {ayah.surah.name}
-                        </span>
-                     </div>
-                     {ayah.surah.number !== 1 && ayah.surah.number !== 9 && (
-                        <p className="font-arabic text-3xl md:text-4xl text-foreground mt-0 mb-4 drop-shadow-sm opacity-90">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</p>
-                     )}
-                  </div>
-                )}
-                <span 
-                  onClick={() => handleAyahClick(ayah)}
-                  className="font-arabic text-foreground transition-all hover:text-primary hover:bg-primary/5 rounded px-1 cursor-pointer select-none inline"
-                  style={{ fontSize: `${Math.min(fontSize, 30)}px` }}
-                  dangerouslySetInnerHTML={{ 
-                    __html: `${showTajweed ? parseTajweed(ayah.text) : ayah.text}` 
-                  }}
-                />
-                <span className="inline-flex items-center justify-center w-8 h-8 md:w-9 md:h-9 mx-1 rounded-full border-2 border-[#c5a059]/60 text-[10px] md:text-[10px] font-black text-[#c5a059] bg-[#c5a059]/5 scale-90 translate-y-1 select-none shadow-sm ring-1 ring-[#c5a059]/10">
-                  {ayah.numberInSurah}
-                </span>
-
-              </React.Fragment>
-            ))}
-          </div>
-
-
-
-
-          {/* Mushaf Footer Ornament */}
-          <div className="flex justify-center pt-6 opacity-30">
-            <div className="w-32 h-1 bg-gradient-to-r from-transparent via-[#c5a059] to-transparent rounded-full" />
-          </div>
-        </div>
-
-        {/* Mushaf Navigation Control Panel */}
-        <div className="flex items-center justify-center gap-4 fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-white/95 backdrop-blur-md shadow-2xl border border-primary/20 p-3 rounded-3xl px-8 ring-4 ring-primary/5">
-           <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-xl h-12 w-12 hover:bg-primary/10 text-primary border border-transparent hover:border-primary/20"
-            disabled={currentPage === 604} 
-            onClick={() => setCurrentPage(p => p + 1)}
-           >
-             <ChevronLeft className="h-6 w-6" />
-           </Button>
-           <div className="flex flex-col items-center px-4 min-w-[120px] border-x border-primary/10">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-60">Halaman</span>
-              <input 
-                type="number" 
-                min="1" max="604" 
-                value={currentPage} 
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (val >= 1 && val <= 604) setCurrentPage(val);
-                }}
-                className="text-2xl font-black text-primary bg-transparent text-center focus:outline-none w-16"
-              />
-           </div>
-           <Button 
-            variant="ghost" 
-            size="icon" 
-            className="rounded-xl h-12 w-12 hover:bg-primary/10 text-primary border border-transparent hover:border-primary/20"
-            disabled={currentPage === 1} 
-            onClick={() => setCurrentPage(p => p - 1)}
-           >
-             <ChevronRight className="h-6 w-6" />
-           </Button>
-           
-           <div className="ml-4 flex items-center gap-2 border-l border-primary/10 pl-4">
-              <Button 
-                variant={frameTheme === 'light' ? 'default' : 'outline'} 
-                size="sm" 
-                className="rounded-full h-8 w-8 p-0"
-                onClick={() => setFrameTheme('light')}
-              >
-                <div className="w-4 h-4 bg-white border border-border rounded-full" />
-              </Button>
-              <Button 
-                variant={frameTheme === 'dark' ? 'default' : 'outline'} 
-                size="sm" 
-                className="rounded-full h-8 w-8 p-0"
-                onClick={() => setFrameTheme('dark')}
-              >
-                <div className="w-4 h-4 bg-slate-800 border border-border rounded-full" />
-              </Button>
-           </div>
-        </div>
-      </div>
-    );
-  };
-
-
-
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-4">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-        <p className="text-muted-foreground animate-pulse font-medium">Menyiapkan Al-Quran...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Header Controls */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-3xl border border-border/60 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="p-3 bg-primary/10 rounded-2xl">
-            <BookOpen className="h-6 w-6 text-primary" />
+    <div className="min-h-screen smart-islamic-bg -mt-6">
+      {/* Premium Header Nav */}
+      <div className="sticky top-0 z-[100] bg-white/80 backdrop-blur-xl border-b border-emerald-100 px-6 py-4 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 smart-gold-gradient rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-200">
+            <BookOpen className="h-6 w-6" />
           </div>
           <div>
-            <h2 className="font-bold text-lg leading-tight">Al-Quranul Karim</h2>
-            <p className="text-xs text-muted-foreground">MasjidKu Smart Digital Reader</p>
+            <h1 className="text-xl font-black italic tracking-tighter uppercase text-emerald-950">Al-Quran Smart</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600">Premium Digital Manuscript</p>
           </div>
         </div>
-
+        
         <div className="flex items-center gap-2">
-          {/* Qari Selector */}
-          <div className="hidden sm:flex items-center gap-2 mr-4 bg-muted px-3 py-1.5 rounded-full border border-border/50">
-             <Volume2 className="h-4 w-4 text-primary" />
-             <select 
-              className="bg-transparent text-xs font-bold focus:outline-none cursor-pointer"
-              value={selectedQari.id}
-              onChange={(e) => {
-                 const qari = QARIS.find(q => q.id === e.target.value);
-                 setSelectedQari(qari);
-                 stopAudio();
-                 toast.success(`Qori diganti ke: ${qari.name}`);
-              }}
-             >
-                {QARIS.map(q => (
-                  <option key={q.id} value={q.id}>{q.name}</option>
-                ))}
-             </select>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1 bg-card border shadow-sm p-1 rounded-full mr-2">
-            <Button 
-              variant={showTranslation ? 'default' : 'ghost'} 
-              size="sm" 
-              className="rounded-full h-8 px-3 text-[10px] font-bold"
-              onClick={() => setShowTranslation(!showTranslation)}
-            >
-              Terjemah
-            </Button>
-            <Button 
-              variant={showTajweed ? 'default' : 'ghost'} 
-              size="sm" 
-              className="rounded-full h-8 px-3 text-[10px] font-bold ml-1"
-              onClick={() => {
-                setShowTajweed(!showTajweed);
-                if(viewMode === 'mushaf') fetchPageData(currentPage);
-                toast.success(showTajweed ? "Tajwid Dinonaktifkan" : "Tajwid Diaktifkan");
-              }}
-            >
-              Tajwid
-            </Button>
-          </div>
-
-
-
-          <div className="hidden lg:flex items-center gap-1 bg-muted p-1 rounded-full mr-2">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setFontSize(s => Math.max(20, s - 4))}><Type className="h-4 w-4 scale-75" /></Button>
-            <span className="text-[10px] font-bold px-2">{fontSize}px</span>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setFontSize(s => Math.min(64, s + 4))}><Type className="h-4 w-4" /></Button>
-          </div>
-
-          <Button 
-            variant={viewMode === 'list' ? 'default' : 'outline'} 
-            onClick={() => setViewMode('list')}
-            className="rounded-full gap-2 px-6"
-          >
-            <List className="h-4 w-4" /> Mode List
-          </Button>
-          <Button 
-            variant={viewMode === 'mushaf' ? 'default' : 'outline'} 
-            onClick={() => setViewMode('mushaf')}
-            className="rounded-full gap-2 px-6"
-          >
-            <Maximize2 className="h-4 w-4" /> Mode Mushaf
-          </Button>
+           <div className="hidden lg:flex items-center gap-1 bg-emerald-50/50 p-1 rounded-2xl border border-emerald-100 mr-2">
+              <Button variant="ghost" size="sm" className="rounded-xl h-8 px-4 text-[10px] font-black uppercase" onClick={() => setShowTajweed(!showTajweed)}>
+                {showTajweed ? "Tajwid Aktif" : "Tajwid"}
+              </Button>
+              <Button variant="ghost" size="sm" className="rounded-xl h-8 px-4 text-[10px] font-black uppercase" onClick={() => setViewMode(viewMode === 'list' ? 'mushaf' : 'list')}>
+                {viewMode === 'list' ? "Mushaf" : "List"}
+              </Button>
+           </div>
+           {selectedSurah && (
+             <Button variant="ghost" size="icon" onClick={() => setSelectedSurah(null)} className="rounded-full h-10 w-10 lg:hidden">
+               <X className="h-5 w-5" />
+             </Button>
+           )}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative">
-        {/* Left Surah Navigator (Always available in List mode, hidden in Mushaf if selected) */}
-        {(viewMode === 'list' || !selectedSurah) && (
-          <div className={`lg:col-span-4 space-y-4 ${selectedSurah && window.innerWidth < 1024 ? 'hidden' : 'block'}`}>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Cari surah (Al-Fatihah)..." 
-                className="pl-9 h-11 border-primary/20 rounded-xl bg-white"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
+      <div className="max-w-7xl mx-auto p-4 lg:p-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* List Surah - Side Navigator */}
+          <AnimatePresence>
+            {(viewMode === 'list' || !selectedSurah) && (
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className={`lg:col-span-4 space-y-6 ${selectedSurah ? 'hidden lg:block' : 'block'}`}
+              >
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-emerald-300 group-focus-within:text-emerald-600 transition-colors" />
+                  <Input 
+                    placeholder="Cari Surah Abadi..." 
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="pl-12 h-14 rounded-[1.5rem] border-emerald-100 bg-white/70 focus:ring-emerald-500 shadow-sm"
+                  />
+                </div>
 
-            {lastRead && (
-               <button 
-                onClick={() => handleSurahClick(surahs.find(s => s.nomor === lastRead.nomor))}
-                className="w-full p-4 rounded-xl border border-primary/20 bg-primary/5 flex items-center justify-between hover:bg-primary/10 transition-colors"
-               >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center text-primary">
-                      <BookOpen className="h-4 w-4" />
+                {lastRead && (
+                  <motion.div whileHover={{ scale: 1.02 }} className="p-4 rounded-[2rem] smart-gold-gradient text-white shadow-xl shadow-amber-200/50 relative overflow-hidden group cursor-pointer" onClick={() => handleSurahClick(surahs.find(s => s.nomor === lastRead.nomor))}>
+                    <Sparkles className="absolute -right-4 -top-4 h-24 w-24 opacity-20 rotate-12 group-hover:scale-125 transition-transform" />
+                    <div className="relative z-10">
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-80 mb-1">Terakhir Telusuri</p>
+                      <h4 className="text-lg font-black italic tracking-tighter uppercase">{lastRead.nama}</h4>
                     </div>
-                    <div className="text-left">
-                      <p className="text-[10px] font-bold text-primary uppercase">Terakhir Dibaca</p>
-                      <p className="text-sm font-bold">{lastRead.nama}</p>
+                  </motion.div>
+                )}
+
+                <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {filteredSurahs.map((s) => (
+                    <motion.button
+                      key={s.nomor}
+                      onClick={() => handleSurahClick(s)}
+                      whileTap={{ scale: 0.98 }}
+                      className={`w-full smart-card-hover p-4 rounded-[2rem] border flex items-center justify-between group ${
+                        selectedSurah?.nomor === s.nomor 
+                          ? 'bg-emerald-950 border-emerald-800 text-white shadow-2xl scale-[1.02]' 
+                          : 'bg-white border-emerald-50/50 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black italic text-sm ${
+                          selectedSurah?.nomor === s.nomor ? 'bg-amber-400 text-emerald-950' : 'bg-emerald-100 text-emerald-600'
+                        }`}>
+                          {s.nomor}
+                        </div>
+                        <div className="text-left">
+                          <h4 className="font-black italic tracking-tighter uppercase text-sm">{s.namaLatin}</h4>
+                          <p className={`text-[10px] font-bold uppercase tracking-wider ${selectedSurah?.nomor === s.nomor ? 'text-emerald-300' : 'text-slate-400'}`}>
+                            {s.arti} • {s.jumlahAyat} Ayat
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <h3 className={`font-amiri text-xl ${selectedSurah?.nomor === s.nomor ? 'text-amber-400' : 'text-emerald-800'}`}>
+                          {s.nama}
+                        </h3>
+                      </div>
+                    </motion.button>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Main Content Area */}
+          <div className={`${(viewMode === 'list' || !selectedSurah) ? 'lg:col-span-8' : 'lg:col-span-12'}`}>
+            <AnimatePresence mode="wait">
+              {!selectedSurah ? (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="h-full min-h-[500px] smart-glass rounded-[3rem] flex flex-col items-center justify-center p-12 text-center"
+                >
+                  <div className="w-24 h-24 rounded-[2.5rem] smart-gold-gradient shadow-2xl flex items-center justify-center mb-6 animate-pulse-gold">
+                    <BookOpen className="h-10 w-10 text-white" />
+                  </div>
+                  <h2 className="text-3xl font-black italic tracking-tighter uppercase text-emerald-950 mb-2">Pilih Surah Abadi</h2>
+                  <p className="text-slate-500 max-w-sm font-medium tracking-tight">Sentuh salah satu surah di daftar untuk memulai perjalanan spiritual Bapak dengan kemurnian visual Al-Quran Smart.</p>
+                </motion.div>
+              ) : (
+                <motion.div 
+                  key={selectedSurah.nomor}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-8"
+                >
+                  {/* Surah Hero Card */}
+                  <div className="relative rounded-[3rem] overflow-hidden p-8 md:p-12 text-center shadow-2xl border border-emerald-100">
+                    <div className="absolute inset-0 smart-islamic-bg opacity-50" />
+                    <div className="absolute top-0 left-0 w-full h-2 smart-gold-gradient" />
+                    
+                    <div className="relative z-10 flex flex-col items-center">
+                       <div className="flex gap-2 mb-6">
+                         <Badge className="bg-emerald-100 text-emerald-700 px-4 py-1 rounded-full uppercase font-black text-[10px] tracking-widest">{selectedSurah.tempatTurun}</Badge>
+                         <Badge className="bg-amber-100 text-amber-700 px-4 py-1 rounded-full uppercase font-black text-[10px] tracking-widest">{selectedSurah.jumlahAyat} AYAT</Badge>
+                       </div>
+                       <h2 className="text-6xl md:text-7xl font-amiri text-emerald-900 mb-2 smart-glow-gold">{selectedSurah.nama}</h2>
+                       <h1 className="text-3xl md:text-4xl font-black italic tracking-tighter uppercase text-emerald-950">{selectedSurah.namaLatin}</h1>
+                       <div className="w-16 h-1 bg-amber-400 rounded-full my-6" />
+                       
+                       <Button 
+                        size="lg" 
+                        onClick={() => toggleAudio(selectedSurah.audioFull[selectedQari.equranId], -2)}
+                        className="rounded-full gap-3 h-16 px-10 smart-gold-gradient text-white border-0 shadow-xl shadow-amber-200 font-black italic tracking-tighter text-xl uppercase hover:scale-105 active:scale-95 transition-all"
+                       >
+                         {currentAyahIndex === -2 && isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 fill-current" />}
+                         Full Surah
+                       </Button>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-primary" />
-               </button>
-            )}
 
-            <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
-              {filteredSurahs.map((surah) => (
-                <button
-                  key={surah.nomor}
-                  onClick={() => handleSurahClick(surah)}
-                  className={`w-full text-left p-4 rounded-xl border transition-all flex items-center justify-between group h-20 ${
-                    playingSurah?.nomor === surah.nomor && isPlaying
-                      ? 'border-primary ring-4 ring-primary/20 bg-primary/10 shadow-xl scale-[1.03] -translate-y-1 relative before:absolute before:left-0 before:top-1/4 before:bottom-1/4 before:w-1.5 before:bg-primary before:rounded-r-full before:animate-pulse'
-                      : selectedSurah?.nomor === surah.nomor
-                        ? 'bg-primary border-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                        : 'bg-card border-border/60 hover:border-primary/50 hover:bg-primary/5'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center font-bold text-xs ${
-                      playingSurah?.nomor === surah.nomor && isPlaying 
-                        ? 'bg-primary text-white animate-pulse'
-                        : selectedSurah?.nomor === surah.nomor && !(playingSurah?.nomor === surah.nomor && isPlaying) 
-                          ? 'bg-white/20' 
-                          : 'bg-primary/10 text-primary'
-                    }`}>
-                      {surah.nomor}
+                  {/* Tabs Logic */}
+                  <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <div className="flex justify-center mb-10">
+                      <TabsList className="smart-glass p-1.5 rounded-[2rem] h-14 border-emerald-100">
+                        <TabsTrigger value="surah" className="rounded-full px-8 gap-2 font-black italic uppercase tracking-tighter text-sm">
+                           Terjemah
+                        </TabsTrigger>
+                        <TabsTrigger value="mushaf" className="rounded-full px-8 gap-2 font-black italic uppercase tracking-tighter text-sm">
+                           Mushaf
+                        </TabsTrigger>
+                        <TabsTrigger value="tafsir" className="rounded-full px-8 gap-2 font-black italic uppercase tracking-tighter text-sm">
+                           Tafsir
+                        </TabsTrigger>
+                      </TabsList>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className={`font-bold text-sm tracking-tight ${playingSurah?.nomor === surah.nomor && isPlaying ? 'text-primary' : ''}`}>{surah.namaLatin}</h4>
-                        {playingSurah?.nomor === surah.nomor && isPlaying && (
-                          <div className="flex items-center gap-0.5">
-                            <div className="w-1 h-3 bg-primary animate-bounce-slow rounded-full" />
-                            <div className="w-1 h-4 bg-primary animate-bounce rounded-full" />
-                            <div className="w-1 h-2 bg-primary animate-bounce-fast rounded-full" />
+
+                    <TabsContent value="surah">
+                      <div className="space-y-12 pb-32">
+                        {selectedSurah.nomor !== 1 && selectedSurah.nomor !== 9 && (
+                          <div className="text-center py-10 opacity-80">
+                             <p className="font-amiri text-4xl text-emerald-900">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</p>
                           </div>
                         )}
-                      </div>
-
-                      <p className={`text-[10px] uppercase font-semibold tracking-wider mt-0.5 ${selectedSurah?.nomor === surah.nomor && !(playingSurah?.nomor === surah.nomor && isPlaying) ? 'text-white/70' : 'text-muted-foreground'}`}>
-                        {surah.arti} • {surah.jumlahAyat} Ayat
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <h3 className={`font-arabic text-lg ${selectedSurah?.nomor === surah.nomor && !(playingSurah?.nomor === surah.nomor && isPlaying) ? 'text-white' : 'text-primary'}`}>
-                      {surah.nama}
-                    </h3>
-                  </div>
-                </button>
-
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Right Area: List View OR Mushaf View */}
-        <div className={`${(viewMode === 'list' || !selectedSurah) ? 'lg:col-span-8' : 'lg:col-span-12'}`} id="surah-detail-view">
-          {viewMode === 'mushaf' ? (
-            <MushafView />
-          ) : (
-            <>
-              {!selectedSurah ? (
-                <div className="h-full min-h-[400px] flex flex-col items-center justify-center p-8 md:p-12 bg-card border rounded-3xl text-center space-y-6">
-                  <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center animate-bounce duration-1000">
-                    <BookOpen className="h-10 w-10 text-primary" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-xl font-bold">Mushaf Al-Quran Digital</h3>
-                    <p className="text-muted-foreground max-w-sm mx-auto text-sm">
-                      Silakan pilih surah untuk mulai membaca dengan navigasi yang mudah dan murottal lengkap.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Surah Header Card */}
-                  <div className="rounded-3xl border border-primary/20 overflow-hidden bg-gradient-to-br from-primary/5 to-transparent p-6 md:p-8 relative">
-                    <div className="absolute top-4 left-4 lg:hidden">
-                        <Button variant="ghost" size="icon" onClick={() => setSelectedSurah(null)} className="rounded-full h-8 w-8 hover:bg-black/5">
-                          <X className="h-5 w-5" />
-                        </Button>
-                    </div>
-                    <div className="flex flex-col items-center text-center space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-white/50 border-primary/20">{selectedSurah.tempatTurun}</Badge>
-                        <Badge variant="outline" className="bg-white/50 border-primary/20">{selectedSurah.jumlahAyat} Ayat</Badge>
-                      </div>
-                      <div className="space-y-1">
-                        <h2 className="text-4xl md:text-5xl font-arabic text-primary drop-shadow-sm">{selectedSurah.nama}</h2>
-                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{selectedSurah.namaLatin}</h1>
-                        <div className="flex items-center justify-center gap-3 mt-4">
-                         <Button 
-                          variant="default" 
-                          size="lg" 
-                          className="rounded-full gap-2 px-8 h-14 text-lg font-bold shadow-xl shadow-primary/30"
-                          onClick={() => toggleAudio(selectedSurah.audioFull[selectedQari.equranId], -2, selectedSurah)}
-                        >
-                          {currentAudio === selectedSurah.audioFull[selectedQari.equranId] && isPlaying ? (
-                            <>
-                              <Pause className="h-6 w-6" /> Jeda Murottal
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-6 w-6" /> Putar Full Surah
-                            </>
-                          )}
-                        </Button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-8">
-                      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <div className="flex justify-center mb-8">
-                          <TabsList className="bg-white/50 border rounded-full h-11 p-1">
-                            <TabsTrigger value="surah" className="rounded-full gap-2 px-6">
-                              <Type className="h-4 w-4" /> Baca
-                            </TabsTrigger>
-                            <TabsTrigger value="tafsir" className="rounded-full gap-2 px-6">
-                              <Book className="h-4 w-4" /> Tafsir
-                            </TabsTrigger>
-                            <TabsTrigger value="bookmarks" className="rounded-full gap-2 px-6">
-                              <BookOpen className="h-4 w-4" /> Bookmark
-                            </TabsTrigger>
-                          </TabsList>
-                        </div>
                         
-                        <div>
-                          {/* Bismillah */}
-                          {activeTab === 'surah' && selectedSurah.nomor !== 1 && selectedSurah.nomor !== 9 && (
-                            <div className="text-center mb-12">
-                              <p className="font-arabic text-4xl text-foreground/90">بِسْمِ اللّٰهِ الرَّحْمٰنِ الرَّحِيْمِ</p>
-                            </div>
-                          )}
-
-                          <TabsContent value="surah" className="mt-0">
-                            {loadingDetail ? (
-                              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                <p className="text-sm text-muted-foreground font-medium">Memuat ayat...</p>
-                              </div>
-                            ) : (
-                              <div className="space-y-12">
-                                {surahDetail?.ayat?.map((ayah, idx) => (
-                                  <div 
-                                    id={`ayah-${ayah.nomorAyat}`}
-                                    key={idx} 
-                                    className={`group animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 rounded-3xl transition-all ${currentAyahIndex === idx ? 'bg-primary/5 ring-1 ring-primary/20' : ''}`}
-                                  >
-                                    <div className="flex flex-col md:flex-row-reverse items-start justify-between gap-6 mb-6">
-                                      <div className="flex items-start md:flex-col items-center gap-3 w-full md:w-auto">
-                                        <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition-colors ${currentAyahIndex === idx ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20' : 'border-primary/20 text-primary bg-primary/5'}`}>
-                                          {ayah.nomorAyat}
-                                        </div>
-                                        <Button 
-                                          size="icon" 
-                                          variant={currentAyahIndex === idx && isPlaying ? 'default' : 'outline'} 
-                                          className={`h-9 w-9 rounded-full shadow-sm hover:scale-110 transition-transform ${currentAyahIndex === idx && isPlaying ? 'bg-primary' : 'border-primary/20 text-primary'}`}
-                                          onClick={() => toggleAudio(ayah.audio[selectedQari.equranId] || ayah.audio['05'], idx)}
-                                        >
-                                          {currentAyahIndex === idx && isPlaying ? (
-                                            <Pause className="h-4 w-4" />
-                                          ) : (
-                                            <Play className="h-4 w-4 fill-current" />
-                                          )}
-                                        </Button>
-                                        <Button 
-                                          size="icon" 
-                                          variant="outline" 
-                                          className={`h-9 w-9 rounded-full border-primary/20 text-primary hover:bg-primary/10 ${bookmarks.find(b => b.id === `${selectedSurah.nomor}:${ayah.nomorAyat}`) ? 'bg-primary text-white border-primary' : ''}`}
-                                          onClick={() => toggleBookmark(selectedSurah, ayah)}
-                                        >
-                                          <BookOpen className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-
-                                      <div className="flex-1 text-right w-full">
-                                        <p 
-                                          style={{ fontSize: `${fontSize}px` }}
-                                          className={`font-arabic leading-[1.8] md:leading-[2.2] tracking-wide transition-all ${currentAyahIndex === idx ? 'text-primary' : 'text-foreground/90'}`}
-                                        >
-                                          {ayah.teksArab}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="md:pr-20 space-y-2.5 px-2">
-                                      <p className="text-primary font-bold italic text-sm leading-relaxed">{ayah.teksLatin}</p>
-                                      {showTranslation && (
-                                        <p className="text-sm text-muted-foreground leading-relaxed">{ayah.teksIndonesia}</p>
-                                      )}
-                                    </div>
+                        {loadingDetail ? (
+                          <div className="py-20 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-emerald-600" /></div>
+                        ) : (
+                          surahDetail?.ayat?.map((a, i) => (
+                            <motion.div 
+                              key={a.nomorAyat}
+                              initial={{ opacity: 0, y: 10 }}
+                              whileInView={{ opacity: 1, y: 0 }}
+                              viewport={{ once: true }}
+                              className={`group relative p-8 rounded-[2.5rem] border transition-all ${
+                                currentAyahIndex === i ? 'bg-emerald-50/50 border-emerald-200 ring-2 ring-emerald-500/20' : 'bg-white border-slate-100'
+                              }`}
+                            >
+                               <div className="flex flex-col md:flex-row-reverse gap-8 items-start">
+                                  <div className="flex-1 text-right w-full">
+                                     <p 
+                                      style={{ fontSize: `${fontSize}px` }}
+                                      className="font-amiri leading-[2.5] text-emerald-950 smart-glow-gold"
+                                      dangerouslySetInnerHTML={{ __html: showTajweed ? parseTajweed(a.teksArab) : a.teksArab }}
+                                     />
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                          </TabsContent>
-
-                          <TabsContent value="tafsir" className="mt-0">
-                            {loadingTafsir ? (
-                              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                                <p className="text-sm text-muted-foreground font-medium">Memuat Tafsir...</p>
-                              </div>
-                            ) : (
-                              <div className="space-y-10">
-                                 <div className="bg-primary/5 rounded-3xl p-6 border border-primary/10 relative overflow-hidden">
-                                    <h4 className="font-bold flex items-center gap-3 mb-4 text-lg">
-                                      <Info className="h-5 w-5 text-primary" /> Info Surat
-                                    </h4>
-                                    <div className="text-sm leading-relaxed text-muted-foreground" 
-                                      dangerouslySetInnerHTML={{ __html: selectedSurah.deskripsi }} />
-                                 </div>
-
-                                 <div className="space-y-8">
-                                   {tafsirData?.tafsir?.map((t, idx) => (
-                                     <div key={idx} className="space-y-4 p-6 rounded-3xl bg-card border-border/60 border shadow-sm">
-                                        <Badge variant="secondary" className="bg-primary/10 text-primary border-0 rounded-lg font-bold px-3 py-1 mb-2">Ayat {t.ayat}</Badge>
-                                        <p className="text-sm md:text-base leading-relaxed text-muted-foreground whitespace-pre-wrap">
-                                          {t.teks}
-                                        </p>
+                                  
+                                  <div className="flex flex-col items-center gap-3 w-full md:w-16 pt-2">
+                                     <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black italic text-sm ${
+                                       currentAyahIndex === i ? 'bg-emerald-600 text-white shadow-lg' : 'bg-emerald-50 text-emerald-600'
+                                     }`}>
+                                        {a.nomorAyat}
                                      </div>
-                                   ))}
-                                 </div>
-                              </div>
-                            )}
-                          </TabsContent>
-                           <TabsContent value="bookmarks" className="mt-0">
-                              <div className="space-y-6">
-                                {bookmarks.length === 0 ? (
-                                  <div className="text-center py-20 bg-primary/5 rounded-3xl border border-dashed border-primary/20">
-                                    <BookOpen className="h-12 w-12 text-primary/30 mx-auto mb-4" />
-                                    <p className="text-muted-foreground font-medium">Belum ada ayat yang disimpan</p>
-                                    <p className="text-xs text-muted-foreground mt-1">Klik ikon bookmark pada ayat untuk menyimpan</p>
+                                     <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={() => toggleAudio(a.audio[selectedQari.equranId], i)}
+                                      className="h-10 w-10 rounded-2xl hover:bg-emerald-100 text-emerald-600"
+                                     >
+                                       {currentAyahIndex === i && isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+                                     </Button>
+                                     <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl text-slate-300 hover:text-amber-400">
+                                       <Bookmark className="h-5 w-5" />
+                                     </Button>
                                   </div>
-                                ) : (
-                                  bookmarks.map((bm, i) => (
-                                    <div key={i} className="p-6 rounded-3xl bg-card border shadow-sm hover:shadow-md transition-all group relative overflow-hidden">
-                                       <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                          <BookOpen className="h-20 w-20 text-primary" />
-                                       </div>
-                                       <div className="flex items-center justify-between mb-4">
-                                          <Badge className="bg-primary text-white font-bold">{bm.surahNama} : {bm.ayahNomor}</Badge>
-                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => toggleBookmark({nomor: bm.surahNomor}, {nomorAyat: bm.ayahNomor})}>
-                                             <X className="h-4 w-4" />
-                                          </Button>
-                                       </div>
-                                       <p className="font-arabic text-2xl text-right mb-4 leading-relaxed">{bm.text}</p>
-                                       <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="rounded-full text-xs font-bold"
-                                        onClick={() => {
-                                          if (selectedSurah?.nomor !== bm.surahNomor) {
-                                            const s = surahs.find(x => x.nomor === bm.surahNomor);
-                                            handleSurahClick(s);
-                                          }
-                                          setActiveTab('surah');
-                                          setTimeout(() => {
-                                            const el = document.getElementById(`ayah-${bm.ayahNomor}`);
-                                            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                          }, 500);
-                                        }}
-                                       >
-                                         Buka Ayat
-                                       </Button>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-                           </TabsContent>
+                               </div>
+
+                               <div className="mt-8 md:pr-24 space-y-3">
+                                  <p className="text-emerald-700 font-bold italic text-sm leading-relaxed tracking-tight">{a.teksLatin}</p>
+                                  {showTranslation && (
+                                    <p className="text-slate-500 text-base leading-loose font-medium">{a.teksIndonesia}</p>
+                                  )}
+                               </div>
+                            </motion.div>
+                          ))
+                        )}
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="tafsir">
+                        {/* Tafsir content here, similar luxury styling */}
+                        <div className="grid grid-cols-1 gap-6 pb-32">
+                          <div className="p-8 smart-glass rounded-[3rem] border-emerald-100">
+                             <h4 className="font-black italic tracking-tighter uppercase text-emerald-900 mb-4 flex items-center gap-2">
+                               <Info className="h-5 w-5" /> Pengantar Surah
+                             </h4>
+                             <div className="text-slate-600 italic leading-loose text-sm" dangerouslySetInnerHTML={{ __html: selectedSurah.deskripsi }} />
+                          </div>
                         </div>
-                      </Tabs>
-
-                    </div>
-                  </div>
-
-                  {/* Navigation controls */}
-                  <div className="flex items-center justify-between bg-card border border-border/60 rounded-3xl p-5 shadow-sm sticky bottom-6 z-40 backdrop-blur-md bg-white/90">
-                    <Button 
-                      variant="ghost" 
-                      disabled={selectedSurah.nomor === 1}
-                      onClick={() => handleSurahClick(surahs[selectedSurah.nomor - 2])}
-                      className="gap-2 rounded-full px-4"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      <span className="hidden sm:inline font-bold">Sebelumnya</span>
-                    </Button>
-                    <div className="flex items-center gap-3">
-                       <div className="w-11 h-11 rounded-full bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-primary-foreground font-bold text-base">
-                         {selectedSurah.nomor}
-                       </div>
-                       <div className="hidden sm:block">
-                          <p className="font-bold leading-none">{selectedSurah.namaLatin}</p>
-                       </div>
-                    </div>
-                    <Button 
-                      variant="ghost"
-                      disabled={selectedSurah.nomor === 114}
-                      onClick={() => handleSurahClick(surahs[selectedSurah.nomor])}
-                      className="gap-2 rounded-full px-4"
-                    >
-                      <span className="hidden sm:inline font-bold">Berikutnya</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+                    </TabsContent>
+                  </Tabs>
+                </motion.div>
               )}
-            </>
-          )}
+            </AnimatePresence>
+          </div>
         </div>
       </div>
 
-      {/* Floating Audio Player (Fixed Mini) */}
-      {currentAudio && isPlaying && (
-        <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-right-10">
-          <div className="bg-primary text-primary-foreground rounded-full px-6 py-3.5 shadow-2xl flex items-center gap-4 border-2 border-white/20">
-            <Music className="h-4 w-4 animate-bounce" />
-            <div className="flex flex-col">
-              <span className="text-xs font-bold leading-none">
-                {currentAyahIndex === -2 ? `Murottal Full Surah` : `${selectedSurah?.namaLatin} : ${currentAyahIndex + 1}`}
-              </span>
-              {currentAyahIndex === -2 && <span className="text-[10px] opacity-80 mt-1 font-semibold">{selectedSurah?.namaLatin}</span>}
-            </div>
-            <Button size="icon" variant="ghost" className="h-9 w-9 rounded-full text-white" onClick={stopAudio}>
-               <Pause className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      )}
-      {/* Ayah Detail Dialog */}
-      <Dialog open={showAyahDialog} onOpenChange={setShowAyahDialog}>
-        <DialogContent className="sm:max-w-[600px] border-[#c5a059]/30 rounded-3xl overflow-hidden p-0 max-h-[90vh] overflow-y-auto custom-scrollbar">
-          {isDetailLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="h-10 w-10 animate-spin text-primary" />
-              <p className="text-muted-foreground font-medium">Menganalisis ayat...</p>
-            </div>
-          ) : selectedAyahDetail && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               {/* Header Background */}
-               <div className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 border-b border-primary/10 relative">
-                  <div className="flex items-center justify-between">
-                     <div>
-                        <Badge className="bg-primary/20 text-primary border-0 rounded-lg mb-2">Ayat {selectedAyahDetail.nomorAyat}</Badge>
-                        <h2 className="text-xl font-bold tracking-tight">{selectedAyahDetail.surahName}</h2>
-                     </div>
-                     <div className="text-right">
-                        <p className="font-arabic text-2xl text-primary">{selectedAyahDetail.surahName}</p>
-                     </div>
+      {/* Floating Smart Audio Dock */}
+      <AnimatePresence>
+        {currentAudio && (
+          <motion.div 
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] w-[95%] max-w-2xl"
+          >
+            <div className="smart-glass p-4 rounded-[2.5rem] shadow-[0_20px_50px_rgba(6,78,59,0.3)] border-2 border-emerald-100/30 flex items-center justify-between gap-6 relative overflow-hidden">
+               {/* Progress Bar */}
+               <div className="absolute top-0 left-0 h-1 smart-gold-gradient transition-all duration-300" style={{ width: `${audioProgress}%` }} />
+               
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-emerald-950 rounded-2xl flex items-center justify-center text-amber-400 relative overflow-hidden">
+                     {isPlaying && (
+                        <div className="absolute inset-0 flex items-center justify-center gap-[2px] opacity-40 px-2">
+                           {[1,2,3,4,5].map(i => (
+                             <motion.div 
+                               key={i}
+                               animate={{ height: ["20%", "70%", "20%"] }}
+                               transition={{ repeat: Infinity, duration: 0.5 + (i * 0.1), ease: "easeInOut" }}
+                               className="w-1 bg-amber-400 rounded-full"
+                             />
+                           ))}
+                        </div>
+                     )}
+                     <Music className="h-6 w-6 relative z-10" />
+                  </div>
+                  <div>
+                    <h5 className="font-black italic tracking-tighter uppercase text-emerald-950 text-sm leading-none mb-1">
+                      {currentAyahIndex === -2 ? selectedSurah?.namaLatin : `AYAT ${currentAyahIndex + 1}`}
+                    </h5>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 truncate max-w-[100px]">
+                      {selectedQari.name}
+                    </p>
                   </div>
                </div>
 
-               <div className="p-6 space-y-8">
-                  {/* Arabic Text Highlight */}
-                  <div className="text-right p-6 bg-white rounded-3xl border border-primary/5 shadow-inner">
-                     <p className="font-arabic text-4xl leading-[2] text-foreground/90">
-                        {selectedAyahDetail.teksArab}
-                     </p>
-                  </div>
-
-                  {/* Tabs: Terjemah & Tafsir */}
-                  <Tabs defaultValue="terjemah" className="w-full">
-                     <TabsList className="grid grid-cols-2 bg-muted rounded-full">
-                        <TabsTrigger value="terjemah" className="rounded-full">Terjemahan</TabsTrigger>
-                        <TabsTrigger value="tafsir" className="rounded-full">Tafsir</TabsTrigger>
-                     </TabsList>
-                     <div className="mt-6">
-                        <TabsContent value="terjemah" className="space-y-4">
-                           <p className="text-primary font-bold italic leading-relaxed">{selectedAyahDetail.teksLatin}</p>
-                           <p className="text-muted-foreground leading-relaxed text-lg">{selectedAyahDetail.teksIndonesia}</p>
-                        </TabsContent>
-                        <TabsContent value="tafsir">
-                           <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 italic text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                              {selectedAyahDetail.tafsir}
-                           </div>
-                        </TabsContent>
-                     </div>
-                  </Tabs>
-               </div>
-
-               <DialogFooter className="p-6 bg-slate-50 border-t flex flex-row items-center justify-between gap-4">
-                  <Button variant="outline" size="lg" className="rounded-full flex-1 gap-2" onClick={() => toggleAudio(selectedAyahDetail.audio[selectedQari.equranId], 999)}>
-                     {currentAudio === selectedAyahDetail.audio[selectedQari.equranId] && isPlaying ? <Pause className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}
-                     {currentAudio === selectedAyahDetail.audio[selectedQari.equranId] && isPlaying ? 'Jeda Audio' : 'Putar Audio Ayat'}
+               <div className="flex items-center gap-3">
+                  <Button variant="ghost" size="icon" onClick={() => audioRef.current.currentTime -= 10} className="h-10 w-10 text-emerald-900 rounded-full">
+                     <div className="relative"><ChevronLeft className="h-5 w-5" /><span className="text-[8px] absolute -bottom-1 left-1/2 -translate-x-1/2">10</span></div>
                   </Button>
-                  <Button variant="ghost" onClick={() => setShowAyahDialog(false)} className="rounded-full px-8">Tutup</Button>
-               </DialogFooter>
+                  
+                  <Button 
+                    onClick={() => {
+                       if (isPlaying) { audioRef.current.pause(); setIsPlaying(false); }
+                       else { audioRef.current.play(); setIsPlaying(true); }
+                    }}
+                    className="w-14 h-14 rounded-full smart-gold-gradient shadow-lg shadow-amber-200 border-0 flex items-center justify-center p-0"
+                  >
+                    {isPlaying ? <Pause className="h-6 w-6 text-white" /> : <Play className="h-6 w-6 text-white fill-current" />}
+                  </Button>
+
+                  <Button variant="ghost" size="icon" onClick={() => audioRef.current.currentTime += 10} className="h-10 w-10 text-emerald-900 rounded-full">
+                     <div className="relative"><ChevronRight className="h-5 w-5" /><span className="text-[8px] absolute -bottom-1 left-1/2 -translate-x-1/2">10</span></div>
+                  </Button>
+               </div>
+
+               <Button variant="ghost" size="icon" onClick={stopAudio} className="h-10 w-10 text-slate-300 hover:text-red-500 rounded-full">
+                  <X className="h-5 w-5" />
+               </Button>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

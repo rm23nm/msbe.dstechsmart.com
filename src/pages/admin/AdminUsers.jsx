@@ -7,49 +7,134 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Users, Search, KeyRound, Mail, ShieldCheck, UserCog } from "lucide-react";
+import { Users, Search, KeyRound, Mail, ShieldCheck, UserCog, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import ActionConfirm from "@/components/ActionConfirm";
+import { useMosqueContext } from "@/lib/useMosqueContext";
 
 const ROLES = [
-  { value: "admin", label: "Super Admin" },
+  { value: "superadmin", label: "Super Admin" },
   { value: "admin_masjid", label: "Admin Masjid" },
+  { value: "pengurus", label: "Pengurus / DKM" },
   { value: "bendahara", label: "Bendahara" },
-  { value: "pengurus", label: "Pengurus" },
-  { value: "user", label: "User Umum" },
-  { value: "jamaah", label: "Jamaah" }
+  { value: "ketua_dkm", label: "Ketua DKM" },
+  { value: "sekretaris", label: "Sekretaris" },
+  { value: "imam", label: "Imam" },
+  { value: "marbot", label: "Marbot / Marudin" },
+  { value: "amil", label: "Amil Zakat" },
+  { value: "humas", label: "Humas / IT Admin" },
+  { value: "donatur", label: "Donatur" },
+  { value: "jamaah", label: "Jamaah" },
+  { value: "user", label: "User Umum" }
 ];
 
 export default function AdminUsers() {
+  const { currentMosque } = useMosqueContext();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  
+  // States for Security Smart
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // New Edit States
+  const [showConfirmEdit, setShowConfirmEdit] = useState(false);
+  const [editType, setEditType] = useState(null); // "role" | "password"
+  const [pendingUpdate, setPendingUpdate] = useState(null);
+
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
-  
-  // State for changing password modal
+
+  const [showRoleDialog, setShowRoleDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [selectedRole, setSelectedRole] = useState("user");
+  const [updatingRole, setUpdatingRole] = useState(false);
+
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [selectedUserForPassword, setSelectedUserForPassword] = useState(null);
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // State for changing role
-  const [showRoleDialog, setShowRoleDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [selectedRole, setSelectedRole] = useState("");
-  const [updatingRole, setUpdatingRole] = useState(false);
-
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (currentMosque) loadData();
+  }, [currentMosque]);
 
   async function loadData() {
     setLoading(true);
-    const data = await smartApi.entities.User.list('-created_date');
-    setUsers(data);
-    setLoading(false);
+    try {
+      const data = await smartApi.entities.User.list();
+      setUsers(data);
+    } catch (e) {
+      toast.error("Gagal memuat data pengguna");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function executeDelete() {
+    if (!userToDelete) return;
+    setDeleting(true);
+    try {
+      await smartApi.entities.User.delete(userToDelete.id);
+      toast.success(`🗑️ ${userToDelete.full_name || userToDelete.email} berhasil dihapus`);
+      setShowConfirmDelete(false);
+      setUserToDelete(null);
+      loadData();
+    } catch (e) {
+      toast.error("Gagal menghapus pengguna");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function executeEdit() {
+    if (editType === "role") {
+      setUpdatingRole(true);
+      try {
+        await smartApi.entities.MosqueMember.update(editingUser.id, { role: selectedRole });
+        toast.success(`✅ Role ${editingUser.user_email} diperbarui menjadi ${selectedRole}`);
+        setShowRoleDialog(false);
+        setShowConfirmEdit(false);
+        loadData();
+      } catch (e) {
+        toast.error("Gagal memperbarui role");
+      } finally {
+        setUpdatingRole(false);
+      }
+    } else if (editType === "password") {
+      setChangingPassword(true);
+      try {
+        await smartApi.auth.adminChangePassword({ userId: selectedUserForPassword.user_id || selectedUserForPassword.id, newPassword });
+        toast.success(`✅ Password untuk ${selectedUserForPassword.user_email} berhasil diubah.`);
+        setShowChangePassword(false);
+        setShowConfirmEdit(false);
+      } catch (e) {
+        toast.error("Gagal mengubah password: " + e.message);
+      } finally {
+        setChangingPassword(false);
+      }
+    }
+  }
+
+  function handleUpdateRole() {
+    setEditType("role");
+    setShowConfirmEdit(true);
+  }
+
+  function handleAdminChangePassword() {
+    if (!newPassword) {
+      toast.error("Password baru wajib diisi");
+      return;
+    }
+    setEditType("password");
+    setShowConfirmEdit(true);
   }
 
   async function handleInvite() {
@@ -159,13 +244,24 @@ export default function AdminUsers() {
                         {u.role === 'admin' ? 'Super Admin' : (u.role?.replace('_', ' ') || 'User')}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-slate-500 font-medium">{formatDate(u.created_date)}</TableCell>
+                    <TableCell className="text-sm text-slate-500 font-medium">{formatDate(u.createdAt)}</TableCell>
                     <TableCell className="text-right pr-4 space-x-2">
                       <Button size="sm" variant="outline" className="h-8 px-3 text-xs gap-1.5 border-slate-200 hover:bg-slate-100" onClick={() => openRoleDialog(u)}>
                         <UserCog className="h-3.5 w-3.5" /> Otorisasi
                       </Button>
                       <Button size="sm" variant="ghost" className="h-8 px-3 text-xs gap-1.5 text-slate-500 hover:text-indigo-600" onClick={() => openChangePasswordDialog(u)}>
                         <KeyRound className="h-3.5 w-3.5" /> Ganti Password
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-8 px-3 text-xs gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50" 
+                        onClick={() => {
+                          setUserToDelete(u);
+                          setShowConfirmDelete(true);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Hapus
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -175,6 +271,28 @@ export default function AdminUsers() {
           </div>
         </div>
       )}
+
+      <ActionConfirm 
+        open={showConfirmDelete}
+        onOpenChange={setShowConfirmDelete}
+        onConfirm={executeDelete}
+        title="Hapus Pengguna?"
+        description={`Apakah Bapak yakin ingin menghapus ${userToDelete?.full_name || userToDelete?.email} dari sistem masjid?`}
+        requirePin={true}
+        loading={deleting}
+      />
+
+      <ActionConfirm 
+        open={showConfirmEdit}
+        onOpenChange={setShowConfirmEdit}
+        onConfirm={executeEdit}
+        title="Konfirmasi Perubahan"
+        description={editType === 'role' ? "Apakah Bapak yakin ingin mengubah hak akses (Role) pengurus ini?" : "Apakah Bapak yakin ingin mereset password pengurus ini?"}
+        confirmText="Ya, Simpan Perubahan"
+        variant="default"
+        requirePin={true}
+        loading={updatingRole || changingPassword}
+      />
 
       {/* Role Dialog */}
       <Dialog open={showRoleDialog} onOpenChange={setShowRoleDialog}>
@@ -189,10 +307,10 @@ export default function AdminUsers() {
                      <div className="w-10 h-10 bg-white rounded-full border flex items-center justify-center font-bold text-primary">
                         {editingUser?.full_name?.[0] || 'U'}
                      </div>
-                     <div className="flex-1 min-w-0">
-                        <p className="font-bold text-sm truncate">{editingUser?.full_name}</p>
-                        <p className="text-xs text-slate-400 truncate">{editingUser?.email}</p>
-                     </div>
+                      <div className="flex-1 min-w-0">
+                         <p className="font-bold text-sm truncate">{editingUser?.full_name}</p>
+                         <p className="text-xs text-slate-400 truncate">{editingUser?.email}</p>
+                      </div>
                   </div>
                </div>
                

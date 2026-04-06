@@ -53,7 +53,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const updateUser = (data) => {
-    setUser(prev => prev ? ({ ...prev, ...data }) : null);
+    if (data.token) {
+      localStorage.setItem("token", data.token);
+    }
+    const userData = data.user || data;
+    setUser(prev => prev ? ({ ...prev, ...userData }) : null);
   };
 
   const navigateToLogin = () => {

@@ -3,22 +3,29 @@ import { smartApi } from "@/api/apiClient";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 import PageHeader from "@/components/PageHeader";
 import StatCard from "@/components/StatCard";
-import { Heart, Calendar, Megaphone, DollarSign } from "lucide-react";
+import { Heart, Calendar, Megaphone, DollarSign, ShieldCheck, Sparkles, UserCircle2 } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
+import DigitalMembershipCard from "@/components/jamaah/DigitalMembershipCard";
 
 function formatRp(n) { return "Rp " + (n || 0).toLocaleString("id-ID"); }
 
 export default function JamaahDashboard() {
-  const { currentMosque: mosque, loading } = useMosqueContext();
+  const { currentMosque: mosque, loading, isWhiteLabel } = useMosqueContext();
+  const { user } = useAuth();
+  const [member, setMember] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [activities, setActivities] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
-    if (!mosque?.id) return;
+    if (!mosque?.id || !user?.email) return;
+    smartApi.entities.MosqueMember.filter({ mosque_id: mosque.id, user_email: user.email }).then(data => {
+      if (data.length > 0) setMember(data[0]);
+    });
     smartApi.entities.Transaction.filter({ mosque_id: mosque.id }, '-date', 50).then(setTransactions);
     smartApi.entities.Activity.filter({ mosque_id: mosque.id }, '-date', 10).then(data => setActivities(data.filter(a => a.status === 'upcoming')));
     smartApi.entities.Announcement.filter({ mosque_id: mosque.id, status: "published" }, '-created_date', 5).then(setAnnouncements);
-  }, [mosque?.id]);
+  }, [mosque?.id, user?.email]);
 
   const totalIncome = transactions.filter(t => t.type === "income").reduce((s, t) => s + (t.amount || 0), 0);
   const totalExpense = transactions.filter(t => t.type === "expense").reduce((s, t) => s + (t.amount || 0), 0);
@@ -40,6 +47,31 @@ export default function JamaahDashboard() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader title="Portal Jamaah" description={`Informasi terkini ${mosque?.name || "masjid"}`} />
+
+      {/* MEMBER CARD SECTION - PREMIUM ADDITION */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center bg-emerald-50/50 p-8 rounded-[3rem] border-2 border-emerald-100/50 shadow-inner">
+         <div className="flex flex-col items-center lg:items-start text-center lg:text-left gap-6">
+            <div className="space-y-2">
+               <div className="flex items-center justify-center lg:justify-start gap-2 text-emerald-600 font-black text-xs uppercase tracking-[0.3em]">
+                  <ShieldCheck className="w-4 h-4" /> Anggota Resmi
+               </div>
+               <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-none">
+                  Kartu Identitas <span className="text-emerald-600">Digital</span> Bapak
+               </h2>
+               <p className="text-slate-500 text-sm font-medium leading-relaxed max-w-sm">
+                  Simpan kartu ini sebagai bukti keanggotaan resmi Bapak di {mosque.name}. Scan QR Code untuk absensi kegiatan.
+               </p>
+            </div>
+            {isWhiteLabel && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-700 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">
+                 <Sparkles className="w-3 h-3" /> Member Premium
+              </div>
+            )}
+         </div>
+         <div className="flex justify-center">
+            <DigitalMembershipCard member={member} mosque={mosque} isElite={isWhiteLabel} />
+         </div>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard title="Total Pemasukan" value={formatRp(totalIncome)} icon={DollarSign} />

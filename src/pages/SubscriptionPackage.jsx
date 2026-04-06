@@ -58,8 +58,10 @@ export default function SubscriptionPackage() {
       if (result && result.length > 0) {
         const v = result[0];
         // Check expiry
-        if (v.expiry_date && new Date(v.expiry_date) < new Date()) {
+        if (v.expired_at && new Date(v.expired_at) < new Date()) {
           toast.error("Voucher sudah kedaluwarsa.");
+        } else if (v.current_usage >= v.max_usage) {
+          toast.error("Kuota voucher sudah habis.");
         } else {
           setAppliedVoucher(v);
           toast.success(`Voucher "${v.code}" berhasil diterapkan!`);
@@ -77,7 +79,7 @@ export default function SubscriptionPackage() {
   async function handleUpgrade(planId, planName, finalPrice) {
     setLoading(true);
     const msg = `Halo Admin MasjidKu Smart, saya ingin upgrade masjid "${currentMosque?.name || '...'}" ke paket ${planName}.
-${appliedVoucher ? `Menggunakan Voucher: ${appliedVoucher.code} (${appliedVoucher.type === 'percentage' ? appliedVoucher.discount*100+'%' : formatCurrency(appliedVoucher.discount)})` : ''}
+${appliedVoucher ? `Menggunakan Voucher: ${appliedVoucher.code} (${appliedVoucher.discount_type === 'percent' ? appliedVoucher.discount_value+'%' : formatCurrency(appliedVoucher.discount_value)})` : ''}
 Estimasi Biaya: ${formatCurrency(finalPrice)}
 Mohon panduannya untuk pembayaran.`;
 
@@ -124,7 +126,7 @@ Mohon panduannya untuk pembayaran.`;
           <div className="mt-3 bg-emerald-50 text-emerald-700 text-xs py-2 px-3 rounded-lg border border-emerald-100 flex items-center justify-between">
              <span className="flex items-center gap-2 italic">
                <Tag className="h-3 w-3" /> 
-               Diskon {appliedVoucher.type === 'percentage' ? (appliedVoucher.discount * 100) + '%' : formatCurrency(appliedVoucher.discount)} aktif!
+               Diskon {appliedVoucher.discount_type === 'percent' ? appliedVoucher.discount_value + '%' : formatCurrency(appliedVoucher.discount_value)} aktif!
              </span>
              <button onClick={() => {setAppliedVoucher(null); setVoucherCode("");}} className="hover:underline font-bold">Hapus</button>
           </div>
@@ -138,8 +140,8 @@ Mohon panduannya untuk pembayaran.`;
           
           let finalPrice = plan.price || 0;
           if (appliedVoucher) {
-            if (appliedVoucher.type === 'percentage') finalPrice = finalPrice * (1 - appliedVoucher.discount);
-            else finalPrice = Math.max(0, finalPrice - appliedVoucher.discount);
+            if (appliedVoucher.discount_type === 'percent') finalPrice = finalPrice * (1 - (appliedVoucher.discount_value / 100));
+            else finalPrice = Math.max(0, finalPrice - appliedVoucher.discount_value);
           }
 
           return (

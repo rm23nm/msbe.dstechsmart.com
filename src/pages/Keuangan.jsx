@@ -16,6 +16,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import ActionConfirm from "../components/ActionConfirm";
+
 export default function Keuangan() {
   const { currentMosque, loading, isPengurus, isBendahara } = useMosqueContext();
   const [transactions, setTransactions] = useState([]);
@@ -23,6 +25,12 @@ export default function Keuangan() {
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
+
+  const [saving, setSaving] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   useEffect(() => {
     if (currentMosque) loadData();
@@ -35,20 +43,56 @@ export default function Keuangan() {
     setDataLoading(false);
   }
 
-  async function handleSave(data) {
-    if (editItem) {
-      await smartApi.entities.Transaction.update(editItem.id, data);
-    } else {
-      await smartApi.entities.Transaction.create({ ...data, mosque_id: currentMosque.id });
+  async function executeSave(directData = null) {
+    const dataToSave = directData || pendingFormData;
+    if (!dataToSave) return;
+
+    setSaving(true);
+    try {
+      if (editItem) {
+        await smartApi.entities.Transaction.update(editItem.id, dataToSave);
+        toast.success("✅ Transaksi berhasil diperbarui");
+      } else {
+        await smartApi.entities.Transaction.create({ ...dataToSave, mosque_id: currentMosque.id });
+        toast.success("✅ Transaksi baru berhasil dicatat");
+      }
+      setShowForm(false);
+      setEditItem(null);
+      setPendingFormData(null);
+      setShowConfirmSave(false);
+      loadData();
+    } catch (e) {
+      toast.error("Gagal menyimpan transaksi: " + e.message);
+    } finally {
+      setSaving(false);
     }
-    setShowForm(false);
-    setEditItem(null);
-    loadData();
   }
 
-  async function handleDelete(id) {
-    await smartApi.entities.Transaction.delete(id);
-    loadData();
+  async function executeDelete() {
+    if (!itemToDelete) return;
+    try {
+      await smartApi.entities.Transaction.delete(itemToDelete);
+      toast.success("🗑️ Transaksi telah dihapus");
+      setShowConfirmDelete(false);
+      setItemToDelete(null);
+      loadData();
+    } catch (e) {
+      toast.error("Gagal menghapus transaksi");
+    }
+  }
+
+  function handleSave(data) {
+    if (editItem) {
+      setPendingFormData(data);
+      setShowConfirmSave(true);
+    } else {
+      executeSave(data); // Simpan langsung jika baru
+    }
+  }
+
+  function handleDelete(id) {
+    setItemToDelete(id);
+    setShowConfirmDelete(true);
   }
 
   function handleEdit(item) {
@@ -104,6 +148,27 @@ export default function Keuangan() {
           <TransactionForm item={editItem} onSave={handleSave} onCancel={() => setShowForm(false)} />
         </DialogContent>
       </Dialog>
+
+      <ActionConfirm 
+        open={showConfirmDelete}
+        onOpenChange={setShowConfirmDelete}
+        onConfirm={executeDelete}
+        title="Hapus Transaksi?"
+        description="Data keuangan ini akan dihapus permanen dari buku kas masjid."
+        requirePin={true}
+      />
+
+      <ActionConfirm 
+        open={showConfirmSave}
+        onOpenChange={setShowConfirmSave}
+        onConfirm={executeSave}
+        title="Konfirmasi Simpan"
+        description={editItem ? "Apakah Bapak yakin ingin memperbarui data transaksi ini?" : "Apakah Bapak yakin ingin mencatat transaksi baru ini?"}
+        confirmText="Simpan Data"
+        variant="default"
+        requirePin={true}
+        loading={saving}
+      />
     </div>
   );
 }

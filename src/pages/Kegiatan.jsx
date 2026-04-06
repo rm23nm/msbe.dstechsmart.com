@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/dialog";
 
 import { usePermissions } from "@/lib/usePermissions";
+import { toast } from "sonner";
+import ActionConfirm from "../components/ActionConfirm";
 
 export default function Kegiatan() {
   const { currentMosque, loading } = useMosqueContext();
@@ -27,33 +29,83 @@ export default function Kegiatan() {
   const [editItem, setEditItem] = useState(null);
   const [activeTab, setActiveTab] = useState("upcoming");
 
+  const [saving, setSaving] = useState(false);
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
+
   useEffect(() => {
     if (currentMosque && perms.view) loadData();
   }, [currentMosque, perms.view]);
 
   async function loadData() {
     setDataLoading(true);
-    const acts = await smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100);
-    setActivities(acts);
-    setDataLoading(false);
+    try {
+      const acts = await smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 100);
+      setActivities(acts);
+    } catch (e) {
+      console.error("Gagal memuat kegiatan:", e);
+    } finally {
+      setDataLoading(false);
+    }
   }
 
-  async function handleSave(data) {
+  async function executeSave(directData = null) {
+    const dataToSave = directData || editItem; // If directData then New, else Edit
+    if (!perms.edit) return;
+    setSaving(true);
+    try {
+      if (editItem) {
+        await smartApi.entities.Activity.update(editItem.id, pendingFormData);
+        toast.success("✅ Kegiatan berhasil diperbarui");
+      } else {
+        await smartApi.entities.Activity.create({ ...dataToSave, mosque_id: currentMosque.id });
+        toast.success("✅ Kegiatan baru berhasil ditambahkan");
+      }
+      setShowForm(false);
+      setEditItem(null);
+      setPendingFormData(null);
+      setShowConfirmSave(false);
+      loadData();
+    } catch (e) {
+      toast.error("Gagal menyimpan kegiatan");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function executeDelete() {
+    if (!perms.delete || !itemToDelete) return;
+    setDeleting(true);
+    try {
+      await smartApi.entities.Activity.delete(itemToDelete.id);
+      toast.success(`🗑️ Kegiatan "${itemToDelete.title}" telah dihapus`);
+      setShowConfirmDelete(false);
+      setItemToDelete(null);
+      loadData();
+    } catch (e) {
+      toast.error("Gagal menghapus kegiatan");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleSave(data) {
     if (!perms.edit) return;
     if (editItem) {
-      await smartApi.entities.Activity.update(editItem.id, data);
+      setPendingFormData(data);
+      setShowConfirmSave(true);
     } else {
-      await smartApi.entities.Activity.create({ ...data, mosque_id: currentMosque.id });
+      executeSave(data); // Simpan langsung jika baru
     }
-    setShowForm(false);
-    setEditItem(null);
-    loadData();
   }
 
-  async function handleDelete(id) {
+  function handleDelete(item) {
     if (!perms.delete) return;
-    await smartApi.entities.Activity.delete(id);
-    loadData();
+    setItemToDelete(item);
+    setShowConfirmDelete(true);
   }
 
   if (loading || !currentMosque) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
@@ -92,7 +144,7 @@ export default function Kegiatan() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(a => (
-            <ActivityCard key={a.id} activity={a} onEdit={() => { setEditItem(a); setShowForm(true); }} onDelete={() => handleDelete(a.id)} canEdit={perms.edit} canDelete={perms.delete} />
+            <ActivityCard key={a.id} activity={a} onEdit={() => { setEditItem(a); setShowForm(true); }} onDelete={() => handleDelete(a)} canEdit={perms.edit} canDelete={perms.delete} />
           ))}
         </div>
       )}
@@ -105,6 +157,28 @@ export default function Kegiatan() {
           <ActivityForm item={editItem} onSave={handleSave} onCancel={() => setShowForm(false)} />
         </DialogContent>
       </Dialog>
+
+      <ActionConfirm 
+        open={showConfirmDelete}
+        onOpenChange={setShowConfirmDelete}
+        onConfirm={executeDelete}
+        title="Hapus Kegiatan?"
+        description={`Apakah Bapak yakin ingin menghapus kegiatan "${itemToDelete?.title}"?`}
+        requirePin={true}
+        loading={deleting}
+      />
+
+      <ActionConfirm 
+        open={showConfirmSave}
+        onOpenChange={setShowConfirmSave}
+        onConfirm={executeSave}
+        title="Konfirmasi Perubahan"
+        description="Apakah Bapak yakin ingin menyimpan perubahan pada jadwal kegiatan ini?"
+        confirmText="Simpan Perubahan"
+        variant="default"
+        requirePin={true}
+        loading={saving}
+      />
     </div>
   );
 }

@@ -31,8 +31,6 @@ const AVAILABLE_FEATURES = [
   "Team Support Khusus",
 ];
 
-const PLANS = ["trial", "monthly", "triwulan", "semester", "yearly", "enterprise"];
-
 export default function AdminPackages() {
   const [activeTab, setActiveTab] = useState("paket");
   const [plans, setPlans] = useState({});
@@ -56,16 +54,17 @@ export default function AdminPackages() {
     try {
       const planData = await smartApi.entities.PlanFeatures.list();
       const planMap = {};
-      PLANS.forEach(p => {
-        const existing = planData.find(d => d.plan === p);
+      
+      planData.forEach(existing => {
         let featuresArr = [];
         if (existing?.features) {
           try { featuresArr = JSON.parse(existing.features); } 
           catch (_) { featuresArr = existing.features ? existing.features.split(',').map(f => f.trim()).filter(Boolean) : []; }
         }
-        planMap[p] = {
+        planMap[existing.plan] = {
           id: existing?.id,
-          plan: p,
+          plan: existing.plan,
+          name: existing?.name || existing.plan,
           features: Array.isArray(featuresArr) ? featuresArr : [],
           description: existing?.description || "",
           price: existing?.price || 0,
@@ -98,13 +97,45 @@ export default function AdminPackages() {
       } else {
         await smartApi.entities.PlanFeatures.create(payload);
       }
-      toast.success(`Paket ${planKey} berhasil disimpan`);
+      toast.success(`Paket "${planKey}" berhasil disimpan`);
       await loadData();
     } catch (err) {
       toast.error("Gagal menyimpan: " + err.message);
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleDeletePlan(id, name) {
+     if (!confirm(`Hapus paket "${name}"? Masjid yang berlangganan paket ini mungkin akan kehilangan akses.`)) return;
+     try {
+       await smartApi.entities.PlanFeatures.delete(id);
+       toast.success("Paket dihapus");
+       await loadData();
+     } catch (err) {
+       toast.error("Gagal menghapus");
+     }
+  }
+
+  async function handleAddPlan() {
+    const name = prompt("Masukkan ID paket (contoh: ramadhan_promo):");
+    if (!name) return;
+    const planKey = name.toLowerCase().replace(/\s+/g, '_');
+    if (plans[planKey]) return toast.error("ID paket ini sudah ada");
+    
+    setPlans(prev => ({
+      ...prev,
+      [planKey]: {
+        plan: planKey,
+        name: name,
+        features: [],
+        description: "",
+        price: 0,
+        original_price: 0,
+        max_mosques: -1,
+        storage_gb: -1
+      }
+    }));
   }
 
   async function handleCreateVoucher() {
@@ -166,24 +197,38 @@ export default function AdminPackages() {
 
       {activeTab === "paket" && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {PLANS.map(planKey => (
-            <div key={planKey} className="bg-card border rounded-2xl p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+          {Object.keys(plans).map(planKey => (
+            <div key={planKey} className="bg-card border rounded-2xl p-6 shadow-sm flex flex-col hover:shadow-md transition-shadow relative group/card">
               <div className="flex items-center justify-between mb-4 pb-4 border-b">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Package className="h-5 w-5 text-primary" />
                   </div>
-                  <div>
-                    <h3 className="font-bold capitalize">{planKey}</h3>
-                    <Badge variant="outline" className="text-[10px] uppercase">{planKey === 'trial' ? 'Free' : 'Premium'}</Badge>
+                  <div className="min-w-0">
+                    <h3 className="font-bold truncate" title={plans[planKey].name}>{plans[planKey].name}</h3>
+                    <Badge variant="outline" className="text-[10px] uppercase">{planKey}</Badge>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleSavePlan(planKey)} disabled={saving}>
-                  <Save className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                   {plans[planKey].id && (
+                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover/card:opacity-100 transition-opacity" onClick={() => handleDeletePlan(plans[planKey].id, plans[planKey].name)}>
+                        <Trash2 className="h-4 w-4" />
+                     </Button>
+                   )}
+                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleSavePlan(planKey)} disabled={saving}>
+                      <Save className="h-4 w-4" />
+                   </Button>
+                </div>
               </div>
 
               <div className="space-y-4 mb-4">
+                <div>
+                  <Label className="text-xs font-semibold">Nama Tampilan</Label>
+                  <Input 
+                    value={plans[planKey].name} 
+                    onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], name: e.target.value}})}
+                  />
+                </div>
                 <div>
                   <Label className="text-xs font-semibold">Deskripsi</Label>
                   <Input 
@@ -219,7 +264,7 @@ export default function AdminPackages() {
                     <Label className="text-xs">Limit Masjid</Label>
                     <Input 
                       type="number"
-                      value={plans[planKey].max_mosques} 
+                      value={plans[planKey].max_mosques || 0} 
                       onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], max_mosques: Number(e.target.value)}})}
                     />
                   </div>
@@ -227,7 +272,7 @@ export default function AdminPackages() {
                     <Label className="text-xs">Storage (GB)</Label>
                     <Input 
                       type="number"
-                      value={plans[planKey].storage_gb} 
+                      value={plans[planKey].storage_gb || 0} 
                       onChange={e => setPlans({...plans, [planKey]: {...plans[planKey], storage_gb: Number(e.target.value)}})}
                     />
                   </div>
@@ -250,6 +295,14 @@ export default function AdminPackages() {
               </div>
             </div>
           ))}
+          
+          <button onClick={handleAddPlan} className="border-2 border-dashed border-muted-foreground/30 hover:border-primary/50 hover:bg-primary/5 rounded-2xl flex flex-col items-center justify-center p-8 transition-all group min-h-[460px]">
+             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary" />
+             </div>
+             <p className="font-bold text-muted-foreground group-hover:text-primary">Tambah Paket Baru</p>
+             <p className="text-xs text-muted-foreground/60 mt-1">Buat skema langganan kustom</p>
+          </button>
         </div>
       )}
 
@@ -309,7 +362,7 @@ export default function AdminPackages() {
                      </div>
                      <div className="bg-muted p-2 rounded-lg flex items-center gap-2 col-span-2">
                         <Users className="h-3 w-3" />
-                        Terpakai: {v.used_count} / {v.max_uses === -1 ? '∞' : v.max_uses}
+                        Terpakai: {v.used_count || 0} / {v.max_uses === -1 ? '∞' : v.max_uses}
                      </div>
                   </div>
                   <Badge variant={v.status === 'active' ? 'default' : 'secondary'} className="w-full justify-center py-1">

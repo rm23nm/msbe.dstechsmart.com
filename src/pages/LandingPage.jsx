@@ -211,6 +211,9 @@ export default function LandingPage() {
   });
   const [appName, setAppName] = useState("MasjidKu Smart");
   const [settings, setSettings] = useState(null);
+  const [voucherCode, setVoucherCode] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
+  const [checkingVoucher, setCheckingVoucher] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -221,7 +224,7 @@ export default function LandingPage() {
           smartApi.entities.AppSettings.list(),
         ]);
         setMosques(mList || []);
-        setPlans(pList.filter((p) => p.plan !== "trial") || []);
+        setPlans(pList || []);
         if (sList && sList.length > 0) {
           setSettings(sList[0]);
           setAppName(sList[0].app_name || "MasjidKu Smart");
@@ -231,6 +234,31 @@ export default function LandingPage() {
     }
     loadData();
   }, []);
+
+  async function checkVoucher() {
+     if (!voucherCode.trim()) return;
+     setCheckingVoucher(true);
+     try {
+       const result = await smartApi.entities.Voucher.filter({ code: voucherCode.trim().toUpperCase(), status: 'active' });
+       if (result && result.length > 0) {
+         const v = result[0];
+         if (v.expired_at && new Date(v.expired_at) < new Date()) {
+           toast.error("Voucher sudah kedaluwarsa.");
+         } else if (v.current_usage >= v.max_usage) {
+           toast.error("Kuota voucher sudah habis.");
+         } else {
+           setAppliedVoucher(v);
+           toast.success(`Voucher "${v.code}" berhasil diterapkan!`);
+         }
+       } else {
+         toast.error("Kode voucher tidak valid.");
+       }
+     } catch (err) {
+       toast.error("Gagal mengecek voucher.");
+     } finally {
+       setCheckingVoucher(false);
+     }
+  }
 
   const waUrl = settings?.whatsapp_number
     ? `https://wa.me/${settings.whatsapp_number}?text=Halo%20Admin%20MasjidKu%2C%20saya%20ingin%20bertanya%20tentang%20aplikasi.`
@@ -255,6 +283,7 @@ export default function LandingPage() {
         email: registrationForm.email,
         password: registrationForm.password,
         subscription_plan: plan.plan,
+        voucher_code: appliedVoucher?.code || "",
       });
       if (response && response.token) {
         toast.success("Registrasi Berhasil!");
@@ -555,10 +584,37 @@ export default function LandingPage() {
                     className="rounded-xl h-11"
                   />
                 </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] font-bold text-slate-400 uppercase">
+                    Kode Promo (Opsional)
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={voucherCode}
+                      onChange={(e) => setVoucherCode(e.target.value)}
+                      className="rounded-xl h-11 uppercase"
+                      placeholder="PROMO50"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="h-11 rounded-xl"
+                      onClick={checkVoucher}
+                      disabled={checkingVoucher || appliedVoucher}
+                    >
+                      {appliedVoucher ? "OK" : "Cek"}
+                    </Button>
+                  </div>
+                  {appliedVoucher && (
+                    <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                       ✓ Voucher Aktif: Diskon {appliedVoucher.discount_type === 'percent' ? appliedVoucher.discount_value + '%' : formatCurrency(appliedVoucher.discount_value)}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${plans.length > 3 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-6`}>
               {plans.map((p) => {
                 let feat = [];
                 try {
@@ -585,7 +641,7 @@ export default function LandingPage() {
                       Paket {p.plan}
                     </div>
                     <div className="mb-6">
-                      {p.original_price > p.price && (
+                      {p.original_price > p.price && p.original_price > 0 && (
                         <div className="flex items-center gap-1.5 mb-1">
                           <span className="text-xs text-slate-400 line-through">
                             {formatCurrency(p.original_price)}
@@ -601,7 +657,18 @@ export default function LandingPage() {
                         </div>
                       )}
                       <div className="text-2xl font-black text-[#0f172a]">
-                        {formatCurrency(p.price)}
+                        {appliedVoucher ? (
+                          <>
+                            <span className="text-xs text-slate-400 line-through mr-2 font-normal">
+                               {formatCurrency(p.price)}
+                            </span>
+                            {formatCurrency(
+                              appliedVoucher.discount_type === 'percent' 
+                                ? p.price * (1 - (appliedVoucher.discount_value / 100)) 
+                                : Math.max(0, p.price - appliedVoucher.discount_value)
+                            )}
+                          </>
+                        ) : formatCurrency(p.price)}
                       </div>
                       <div className="text-xs text-slate-400 font-bold uppercase tracking-wide">
                         Per {duration}

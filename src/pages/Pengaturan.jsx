@@ -860,6 +860,56 @@ export default function Pengaturan() {
               </div>
             </div>
 
+            <div className="pt-8 border-t">
+              <h3 className="font-semibold flex items-center gap-2 mb-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" /> PIN Safeti Konfirmasi
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                PIN ini akan diminta sebagai konfirmasi setiap kali Bapak melakukan aksi krusial (Hapus, Edit, Simpan) untuk mencegah kesalahan klik.
+              </p>
+              
+              <div className="space-y-4 max-w-sm">
+                <div className="space-y-2">
+                  <Label>PIN Keamanan (4-6 Digit)</Label>
+                  <Input 
+                    type="password" 
+                    placeholder="Masukkan PIN baru Bapak..."
+                    value={form.pin || ""}
+                    onChange={e => setForm({...form, pin: e.target.value})}
+                    maxLength={6}
+                    className="text-xl font-mono tracking-widest"
+                  />
+                  <p className="text-[10px] text-muted-foreground italic">
+                    {user?.pin ? "✅ PIN sudah terpasang. Bapak bisa mengubahnya di sini." : "⚠️ Bapak belum menyetelan PIN Safeti."}
+                  </p>
+                </div>
+                
+                <Button 
+                  variant="outline"
+                  onClick={async () => {
+                    if (!form.pin || form.pin.length < 4) {
+                      toast.error("PIN minimal 4 digit angka");
+                      return;
+                    }
+                    setSaving(true);
+                    try {
+                      const updatedUser = await smartApi.auth.updateMe({ pin: form.pin });
+                      if (updateUser) updateUser(updatedUser);
+                      toast.success("✅ PIN Safeti Smart Berhasil Disimpan!");
+                      setForm({...form, pin: ""});
+                    } catch (err) {
+                      toast.error("Gagal menyimpan PIN: " + err.message);
+                    }
+                    setSaving(false);
+                  }}
+                  className="border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Simpan PIN Keamanan
+                </Button>
+              </div>
+            </div>
+
             <hr className="border-muted" />
 
             <div>

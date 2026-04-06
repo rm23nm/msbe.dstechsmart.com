@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { smartApi } from "@/api/apiClient";
 import { useAuth } from "./AuthContext";
 
+import { toast } from "sonner";
+
 // Roles yang dianggap sebagai admin tingkat atas (superadmin/admin)
 const SUPERADMIN_ROLES = ["superadmin", "admin"];
 // Roles yang dianggap sebagai pengurus masjid
-const MOSQUE_ADMIN_ROLES = ["mosque_admin", "pengurus", "admin_masjid", "bendahara"];
+const MOSQUE_ADMIN_ROLES = ["mosque_admin", "pengurus", "admin_masjid", "bendahara", "ketua_dkm", "sekretaris", "imam", "marbot", "amil", "humas"];
 
 export function useMosqueContext() {
   const { user, updateUser } = useAuth();
@@ -14,6 +16,9 @@ export function useMosqueContext() {
   const [currentMosque, setCurrentMosque] = useState(null);
   const [membership, setMembership] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [planFeatures, setPlanFeatures] = useState([]);
+  const [allPermissionsTemplate, setAllPermissionsTemplate] = useState([]);
+  const [isWhiteLabel, setIsWhiteLabel] = useState(false);
 
   async function loadContext() {
     setLoading(true);
@@ -28,9 +33,20 @@ export function useMosqueContext() {
         }
       }
 
-      // 2. Ambil semua masjid (untuk mode publik/cari)
-      const list = await smartApi.entities.Mosque.list() || [];
-      setAllMosques(list);
+      // 2. Ambil semua masjid & Plan Features & Role Permissions
+      const [list, plans, roles] = await Promise.all([
+        smartApi.entities.Mosque.list().catch(() => []),
+        smartApi.entities.PlanFeatures.list().catch(() => []),
+        smartApi.auth.getRoles().catch(() => [])
+      ]);
+      
+      const validList = Array.isArray(list) ? list : [];
+      const validPlans = Array.isArray(plans) ? plans : [];
+      const validRoles = Array.isArray(roles) ? roles : [];
+
+      setAllMosques(validList);
+      setPlanFeatures(validPlans);
+      setAllPermissionsTemplate(validRoles);
 
       let currentMosqueId = me?.current_mosque_id;
       let userMosques = [];
@@ -42,16 +58,16 @@ export function useMosqueContext() {
           const isSuperAdmin = SUPERADMIN_ROLES.includes(me.role);
           
           if (isSuperAdmin) {
-            userMosques = list;
+            userMosques = validList;
             setMembership({ role: "admin_masjid", mosque_id: currentMosqueId });
           } else {
-            currentMemberships = await smartApi.entities.MosqueMember.filter({ user_email: me.email }) || [];
-            const mosqueIds = currentMemberships.map(m => m.mosque_id);
-            userMosques = list.filter(m => mosqueIds.includes(m.id));
+            currentMemberships = await smartApi.entities.MosqueMember.filter({ user_email: me.email }).catch(() => []) || [];
+            const mosqueIds = (Array.isArray(currentMemberships) ? currentMemberships : []).map(m => m.mosque_id);
+            userMosques = validList.filter(m => mosqueIds.includes(m.id));
             
             // Fallback ke current_mosque_id jika tidak ada di member filter tapi ada di profil
             if (userMosques.length === 0 && currentMosqueId) {
-              const pref = list.find(m => m.id === currentMosqueId);
+              const pref = validList.find(m => m.id === currentMosqueId);
               if (pref) userMosques = [pref];
             }
           }
@@ -72,19 +88,42 @@ export function useMosqueContext() {
         }
       }
 
-      // 4. Cari objek masjid aktif
+      // 4. Cari objek masjid aktif & lampirkan fiturnya
       if (currentMosqueId) {
-        const found = list.find(m => m.id === currentMosqueId);
-        setCurrentMosque(found || (list.length > 0 ? list[0] : null));
-      } else if (list.length > 0) {
-        // Mode publik: Cek URL params jika di halaman portfolio
+        const found = validList.find(m => m.id === currentMosqueId);
+        if (found) {
+          const plan = validPlans.find(p => p.plan === found.subscription_plan);
+          let activeFeatures = [];
+          if (plan?.features) {
+            try { 
+              activeFeatures = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || []); 
+            } catch(e) { activeFeatures = []; }
+          }
+          setCurrentMosque({ ...found, plan_features: activeFeatures });
+        } else {
+          setCurrentMosque(validList.length > 0 ? validList[0] : null);
+        }
+      } else if (validList.length > 0) {
+        // Mode publik
         const path = window.location.pathname;
         if (path.startsWith('/masjid/')) {
           const slugOrId = path.split('/')[2];
-          const found = list.find(m => m.id === slugOrId || m.slug === slugOrId);
-          setCurrentMosque(found || list[0]);
+          const found = validList.find(m => m.id === slugOrId || m.slug === slugOrId);
+          if (found) {
+             const plan = validPlans.find(p => p.plan === found.subscription_plan);
+             let activeFeatures = [];
+             if (plan?.features) {
+               try { 
+                 activeFeatures = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || []); 
+               } catch(e) { activeFeatures = []; }
+             }
+             setIsWhiteLabel(activeFeatures.some(f => f.toLowerCase().includes("white label")));
+             setCurrentMosque({ ...found, plan_features: activeFeatures });
+          } else {
+             setCurrentMosque(validList[0]);
+          }
         } else {
-          setCurrentMosque(list[0]);
+          setCurrentMosque(validList[0]);
         }
       }
 
@@ -98,24 +137,25 @@ export function useMosqueContext() {
   async function switchMosque(mosqueId) {
     if (!mosqueId) return;
     try {
-      if (typeof smartApi.auth.updateMe === "function") {
-        await smartApi.auth.updateMe({ current_mosque_id: mosqueId });
-      } else if (typeof smartApi.auth.update === "function") {
-        await smartApi.auth.update({ current_mosque_id: mosqueId });
-      }
-      
-      if (updateUser) {
-        updateUser({ current_mosque_id: mosqueId });
-      }
-      
-      // Update local state immediately for performance
       const found = allMosques.find(m => m.id === mosqueId);
+      let switchResult = null;
+      if (typeof smartApi.auth.updateMe === "function") {
+        switchResult = await smartApi.auth.updateMe({ current_mosque_id: mosqueId });
+      }
+      if (updateUser) {
+        // Now passing the full result (potentially containing {user, token})
+        updateUser(switchResult || { current_mosque_id: mosqueId });
+      }
       if (found) {
         setCurrentMosque(found);
+        toast.success(`Berhasil pindah ke ${found.name}`);
       }
-      
-    } catch (error) {
-      console.error("Switch mosque error:", error);
+      // Re-load to get permissions and plan benefits correctly
+      loadContext(); 
+    } catch (err) {
+      console.error("Switch mosque error:", err);
+      const msg = err.response?.data?.error || err.message || "Gagal berpindah masjid";
+      toast.error(`Gagal berpindah: ${msg}`);
     }
   }
 
@@ -127,13 +167,42 @@ export function useMosqueContext() {
   const isMosqueAdmin = isSuperAdmin || MOSQUE_ADMIN_ROLES.includes(membership?.role);
   const isBendahara = isSuperAdmin || membership?.role === "bendahara";
 
+  // Dynamic Role-based Permissions Logic
+  const permissions = (() => {
+    if (isSuperAdmin) return { FULL_ACCESS: true };
+    if (!membership?.role || !allPermissionsTemplate) return {};
+    
+    const roleName = membership.role;
+    // Prio: Local Override first, then Global Template
+    const local = allPermissionsTemplate.find(r => r.role_name === roleName && r.mosque_id === currentMosque?.id);
+    const global = allPermissionsTemplate.find(r => r.role_name === roleName && r.mosque_id === null);
+    
+    const activeRp = local || global;
+    if (!activeRp) return {};
+    
+    try {
+      return typeof activeRp.permissions === 'string' ? JSON.parse(activeRp.permissions) : activeRp.permissions;
+    } catch {
+      return {};
+    }
+  })();
+
+  const hasPermission = (menuId, action = "view") => {
+    if (isSuperAdmin) return true;
+    return permissions[menuId]?.[action] === true;
+  };
+
   return {
     user,
     currentMosque,
+    isWhiteLabel,
     mosques,
     allMosques,
     loading,
     membership,
+    rolePermissions: allPermissionsTemplate,
+    permissions,
+    hasPermission,
     isSuperAdmin,
     isAdmin: isSuperAdmin,
     isMosqueAdmin,

@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Package, Plus, Pencil, Trash2, Download, Wrench, AlertTriangle, CheckCircle, Upload } from "lucide-react";
+import { Package, Plus, Pencil, Trash2, Download, Wrench, AlertTriangle, CheckCircle, Upload, QrCode, History, Settings2 } from "lucide-react";
 import { toast } from "sonner";
+import QRCode from "react-qr-code";
 
 const CATEGORIES = ["tanah","bangunan","kendaraan","elektronik","perabot","perlengkapan_ibadah","lainnya"];
 const CONDITIONS = ["baik","rusak_ringan","rusak_berat","tidak_layak"];
@@ -37,6 +38,8 @@ export default function Aset() {
   const [editing, setEditing] = useState(null);
   const [tab, setTab] = useState("semua");
   const [form, setForm] = useState({});
+  const [maintenances, setMaintenances] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
 
   const canEdit = isMosqueAdmin || isAdmin;
 
@@ -53,10 +56,26 @@ export default function Aset() {
     setForm({ category: "lainnya", condition: "baik", status: "aktif" });
     setOpen(true);
   };
-  const openEdit = (a) => { setEditing(a); setForm({ ...a }); setOpen(true); };
+  const openEdit = (a) => { 
+    setEditing(a); 
+    setForm({ ...a }); 
+    setOpen(true); 
+    loadMaintenances(a.id);
+  };
+
+  const loadMaintenances = async (assetId) => {
+    const data = await smartApi.entities.AssetMaintenance.filter({ asset_id: assetId }, "-maintenance_date");
+    setMaintenances(data);
+  };
 
   const handleSave = async () => {
     const data = { ...form, mosque_id: mosque.id };
+    
+    // Auto-generate QR ID for new assets
+    if (!editing?.id && !data.qr_code_id) {
+      data.qr_code_id = `AST-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    }
+
     if (editing?.id) await smartApi.entities.Asset.update(editing.id, data);
     else await smartApi.entities.Asset.create(data);
     setOpen(false);
@@ -261,7 +280,81 @@ export default function Aset() {
               </div>
             </div>
 
-            <Button className="w-full" onClick={handleSave}>Simpan Aset</Button>
+            {/* Maintenance History - Smart FEATURE */}
+            <div className="border-t pt-3 mt-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-black uppercase tracking-tight flex items-center gap-2">
+                  <History className="h-4 w-4 text-emerald-600" /> Riwayat Pemeliharaan
+                </p>
+                <Button variant="outline" size="xs" className="h-7 text-[10px] uppercase font-bold" onClick={() => setShowHistory(!showHistory)}>
+                  {showHistory ? "Sembunyikan" : "Lihat Semua"}
+                </Button>
+              </div>
+              
+              {showHistory && (
+                <div className="space-y-2 mb-4 bg-slate-50 p-3 rounded-2xl border border-slate-100 max-h-40 overflow-y-auto">
+                  {maintenances.length === 0 ? (
+                    <p className="text-[10px] text-center text-slate-400 italic py-2">Belum ada riwayat servis.</p>
+                  ) : (
+                    maintenances.map(m => (
+                      <div key={m.id} className="flex justify-between items-start text-[10px] border-b border-slate-200 pb-2 last:border-0">
+                        <div>
+                          <p className="font-black text-slate-700">{m.description}</p>
+                          <p className="text-slate-400">{m.maintenance_date} • {m.technician || "Internal"}</p>
+                        </div>
+                        <p className="font-black text-emerald-600">{formatRp(m.cost)}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              <Button variant="secondary" size="sm" className="w-full gap-2 rounded-xl text-xs font-bold" onClick={async () => {
+                const desc = prompt("Deskripsi Pemeliharaan:");
+                const cost = prompt("Biaya (Angka saja):", "0");
+                if (!desc || !editing?.id) return;
+                
+                await smartApi.entities.AssetMaintenance.create({
+                   asset_id: editing.id,
+                   maintenance_date: new Date().toISOString().split('T')[0],
+                   description: desc,
+                   cost: Number(cost),
+                   status: "selesai"
+                });
+                toast.success("Pemeliharaan dicatat!");
+                loadMaintenances(editing.id);
+                load(); // Refresh asset list too
+              }}>
+                <Plus className="h-3 w-3" /> Log Pemeliharaan Baru
+              </Button>
+            </div>
+
+            {/* QR Labeling - Smart FEATURE */}
+            {editing?.qr_code_id && (
+              <div className="border-t pt-4 mt-4 bg-emerald-50/30 p-4 rounded-[2rem] border-emerald-100/50">
+                <p className="text-sm font-black uppercase tracking-tight flex items-center gap-2 mb-4">
+                  <QrCode className="h-4 w-4 text-emerald-600" /> Label QR Aset
+                </p>
+                <div className="flex items-center gap-4">
+                   <div className="bg-white p-2 rounded-2xl shadow-sm border border-emerald-100">
+                      <QRCode value={`${window.location.origin}/lapor-aset/${editing.qr_code_id}`} size={80} />
+                   </div>
+                   <div className="flex-1 space-y-1">
+                      <p className="text-[10px] font-black text-emerald-900 leading-tight">IDENTITAS DIGITAL</p>
+                      <p className="text-[10px] text-emerald-700 font-bold opacity-70 leading-tight mb-2">ID: {editing.qr_code_id}</p>
+                      <Button variant="outline" size="xs" className="gap-1 text-[10px] h-7 font-black border-emerald-200 bg-white" onClick={() => {
+                        window.print();
+                      }}>
+                        <Download className="h-3 w-3" /> Cetak Label QR
+                      </Button>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            <Button className="w-full mt-6 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200" onClick={handleSave}>
+              Simpan Perubahan Aset
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
