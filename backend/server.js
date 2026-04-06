@@ -437,23 +437,28 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
 
     // SMART SYNC: Proactively detect correct timestamp column based on schema
     const SNAKE_MODELS = ["user", "mosque", "license", "voucher"];
+    const isSnake = SNAKE_MODELS.includes(model.toLowerCase());
     
-    if (sort.includes("createdAt") && SNAKE_MODELS.includes(model.toLowerCase())) {
-      sort = sort.replace("createdAt", "created_at");
-    } else if (sort.includes("created_at") && !SNAKE_MODELS.includes(model.toLowerCase())) {
-      sort = sort.replace("created_at", "createdAt");
+    // Safety check for models that definitely DON'T have common dates
+    const NO_DATE_MODELS = ["planfeatures", "rolepermission"];
+    const hasNoDate = NO_DATE_MODELS.includes(model.toLowerCase());
+
+    const orderConfig = {};
+    if (sort.startsWith("-")) {
+      const field = sort.substring(1);
+      const targetField = (field === "createdAt" || field === "created_at") 
+        ? (hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt")) 
+        : field;
+      orderConfig[targetField] = "desc";
+    } else {
+      const targetField = (sort === "createdAt" || sort === "created_at") 
+        ? (hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt")) 
+        : sort;
+      orderConfig[targetField] = "asc";
     }
 
     let result;
     try {
-      const orderConfig = {};
-      if (sort.replace("-", "") === "createdAt" || sort.replace("-", "") === "created_at") {
-        // Fallback safety for models without date fields
-        orderConfig[sort.replace("-", "")] = sort.startsWith("-") ? "desc" : "asc";
-      } else {
-        orderConfig[sort.replace("-", "")] = sort.startsWith("-") ? "desc" : "asc";
-      }
-      
       result = await prisma[prismaModel].findMany({
         where: filters,
         orderBy: orderConfig,

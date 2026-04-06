@@ -44,6 +44,7 @@ model RolePermission {
   mosque_id   String?
   role_name   String
   permissions String   @default("{}")
+  created_at  DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@unique([mosque_id, role_name])
@@ -351,8 +352,9 @@ model PlanFeatures {
   description    String?
   features       String  @default("[]")
   is_popular     Boolean @default(false)
-  max_mosques    Int     @default(-1)
-  storage_gb     Int     @default(-1)
+  max_mosques    Int      @default(-1)
+  storage_gb     Int      @default(-1)
+  created_at     DateTime @default(now())
 }
 
 model Attendance {
