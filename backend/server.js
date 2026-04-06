@@ -436,11 +436,11 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
     const include = req.query.include ? JSON.parse(req.query.include) : undefined;
 
     // SMART SYNC: Proactively detect correct timestamp column based on schema
-    const SNAKE_MODELS = ["user", "mosque", "license", "voucher"];
+    const SNAKE_MODELS = ["user", "mosque", "license", "voucher", "rolepermission", "planfeatures"];
     const isSnake = SNAKE_MODELS.includes(model.toLowerCase());
     
     // Safety check for models that definitely DON'T have common dates
-    const NO_DATE_MODELS = ["planfeatures", "rolepermission"];
+    const NO_DATE_MODELS = ["appsettings", "telegramsettings"];
     const hasNoDate = NO_DATE_MODELS.includes(model.toLowerCase());
 
     const orderConfig = {};

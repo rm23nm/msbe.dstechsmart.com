@@ -31,7 +31,8 @@ del "sub_masjidkusmart\backend\exclude_list.txt" /q 2>nul
 echo Silakan copy folder "sub_masjidkusmart" ini ke VPS Client. > "sub_masjidkusmart\PETUNJUK_DEPLOY.txt"
 echo Step 1: Jalankan npm install di folder ini. >> "sub_masjidkusmart\PETUNJUK_DEPLOY.txt"
 echo Step 2: Edit file .env masukan LICENSE_KEY. >> "sub_masjidkusmart\PETUNJUK_DEPLOY.txt"
-echo Step 3: Jalankan pm2 start backend/server.js. >> "sub_masjidkusmart\PETUNJUK_DEPLOY.txt"
+echo Step 3: Jalankan "node backend/check-vps-status.js" untuk diagnosa. >> "sub_masjidkusmart\PETUNJUK_DEPLOY.txt"
+echo Step 4: Jalankan pm2 start backend/server.js. >> "sub_masjidkusmart\PETUNJUK_DEPLOY.txt"
 
 echo.
 echo ==============================================
