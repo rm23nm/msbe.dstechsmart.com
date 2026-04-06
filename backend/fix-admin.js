@@ -7,8 +7,8 @@ async function checkSuperAdmin() {
   console.log("Current Users:", JSON.stringify(users, null, 2));
 
   // UPSERT: Pastikan Superadmin ada
-  const email = "superadmin@masjidkusmart.com";
-  const pass = "MasjidKuSmart2026!"; // Password default baru
+  const email = "rm23nm@ymail.com";
+  const pass = "M4m4cantik@"; // Password default baru
   const hash = await bcrypt.hash(pass, 10);
 
   await prisma.user.upsert({

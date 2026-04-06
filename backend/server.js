@@ -56,6 +56,7 @@ const authenticateToken = (req, res, next) => {
     url.includes("/auth/login") ||
     url.includes("/auth/register")
   )) || (req.method === "GET" && (
+    url.includes("/entities/Mosque") || 
     url.includes("/entities/PlanFeatures") ||
     url.includes("/public/") ||
     url.includes("/attendance/fast-checkin")
@@ -449,7 +450,7 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
       const field = isDesc ? sort.substring(1) : sort;
       
       let targetField = field;
-      if (field === "createdAt" || field === "created_at") {
+      if (field.toLowerCase() === "createdat" || field.toLowerCase() === "created_at") {
         targetField = hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt");
       }
       orderConfig[targetField] = isDesc ? "desc" : "asc";

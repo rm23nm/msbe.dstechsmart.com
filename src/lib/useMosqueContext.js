@@ -117,12 +117,16 @@ export function useMosqueContext() {
                  activeFeatures = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || []); 
                } catch(e) { activeFeatures = []; }
              }
-             setIsWhiteLabel(activeFeatures.some(f => f.toLowerCase().includes("white label")));
+             // Determine isWhiteLabel from features
+             const whiteLabelActive = Array.isArray(activeFeatures) && activeFeatures.some(f => 
+               typeof f === 'string' && f.toLowerCase().includes("white label")
+             );
+             setIsWhiteLabel(whiteLabelActive);
              setCurrentMosque({ ...found, plan_features: activeFeatures });
-          } else {
+          } else if (validList.length > 0) {
              setCurrentMosque(validList[0]);
           }
-        } else {
+        } else if (validList.length > 0) {
           setCurrentMosque(validList[0]);
         }
       }
