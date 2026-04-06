@@ -431,7 +431,7 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
 
   try {
     const filters = req.query.filter ? JSON.parse(req.query.filter) : {};
-    let sort = req.query.sort || "createdAt";
+    let sort = req.query.sort || "-created_at"; // Default sort
     const limit = parseInt(req.query.limit) || 100;
     const include = req.query.include ? JSON.parse(req.query.include) : undefined;
 
@@ -444,46 +444,37 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
     const hasNoDate = NO_DATE_MODELS.includes(model.toLowerCase());
 
     const orderConfig = {};
-    if (sort.startsWith("-")) {
-      const field = sort.substring(1);
-      const targetField = (field === "createdAt" || field === "created_at") 
-        ? (hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt")) 
-        : field;
-      orderConfig[targetField] = "desc";
-    } else {
-      const targetField = (sort === "createdAt" || sort === "created_at") 
-        ? (hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt")) 
-        : sort;
-      orderConfig[targetField] = "asc";
+    if (sort) {
+      const isDesc = sort.startsWith("-");
+      const field = isDesc ? sort.substring(1) : sort;
+      
+      let targetField = field;
+      if (field === "createdAt" || field === "created_at") {
+        targetField = hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt");
+      }
+      orderConfig[targetField] = isDesc ? "desc" : "asc";
     }
 
-    let result;
     try {
-      result = await prisma[prismaModel].findMany({
+      const data = await prisma[prismaModel].findMany({
         where: filters,
-        orderBy: orderConfig,
         take: limit,
-        include
+        orderBy: orderConfig,
+        include: include
       });
-    } catch (err) {
-      console.warn(`[Server] Sort fallback for ${model}:`, err.message);
-      try {
-        result = await prisma[prismaModel].findMany({
-          where: filters,
-          orderBy: { id: "desc" },
-          take: limit,
-          include
-        });
-      } catch (err2) {
-        result = await prisma[prismaModel].findMany({
-          where: filters,
-          take: limit,
-          include
-        });
-      }
+      return res.json(data);
+    } catch (dbErr) {
+      console.warn(`[Server] Falling back to ID sort for ${model}:`, dbErr.message);
+      const fallbackData = await prisma[prismaModel].findMany({
+        where: filters,
+        take: limit,
+        orderBy: { id: "desc" },
+        include: include
+      });
+      return res.json(fallbackData);
     }
-    res.json(result);
   } catch (e) {
+    console.error("Critical Generic List Error:", e.message);
     res.status(500).json({ error: e.message });
   }
 });

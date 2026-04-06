@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useMosqueContext } from '../lib/useMosqueContext';
 
 const InstallPWA = () => {
   const [supportsPWA, setSupportsPWA] = useState(false);
@@ -7,6 +8,7 @@ const InstallPWA = () => {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIos, setIsIos] = useState(false);
   const location = useLocation();
+  const { isWhiteLabel, currentMosque } = useMosqueContext();
 
   const isExcludedPath = 
     location.pathname === "/info-publik" || 
