@@ -509,19 +509,28 @@ app.post("/api/entities/:model", authenticateToken, async (req, res) => {
         }
       });
 
-      // Ensure they are also in MosqueMember table
-      await prisma.mosqueMember.upsert({
-        where: { membership_id: `ADM-${result.id}` }, // Deterministic ID for admin
-        update: { user_email: adminEmail, user_name: `Admin ${data.name}`, role: "pengurus", status: "active" },
-        create: { 
-          user_email: adminEmail, 
-          user_name: `Admin ${data.name}`, 
-          mosque_id: result.id, 
-          role: "pengurus", 
-          status: "active",
-          membership_id: `ADM-${result.id}`
-        }
+      // Ensure they are also in MosqueMember table using a safer search
+      const existingMember = await prisma.mosqueMember.findFirst({
+        where: { user_email: adminEmail, mosque_id: result.id }
       });
+
+      if (existingMember) {
+        await prisma.mosqueMember.update({
+          where: { id: existingMember.id },
+          data: { user_name: `Admin ${data.name}`, role: "pengurus", status: "active" }
+        });
+      } else {
+        await prisma.mosqueMember.create({
+          data: { 
+            user_email: adminEmail, 
+            user_name: `Admin ${data.name}`, 
+            mosque_id: result.id, 
+            role: "pengurus", 
+            status: "active",
+            membership_id: `ADM-${result.id.substring(0, 8)}` // Safe ID
+          }
+        });
+      }
       
       console.log(`[AUTH] Admin user created/updated for new Mosque: ${result.id} (${adminEmail})`);
       await logActivity(req.user.id, req.user.full_name || req.user.email, null, "SYSTEM_ADD", "Mosque", result.id, `Mendaftarkan Masjid: ${data.name}`);
@@ -909,17 +918,26 @@ app.post("/api/users/invite", authenticateToken, async (req, res) => {
     });
 
     if (req.user.current_mosque_id) {
-        await prisma.mosqueMember.upsert({
-            where: { user_email: cleanEmail }, // Assuming one member per email for simplicity
-            update: { role: role || "pengurus", status: "active" },
-            create: {
-                user_email: cleanEmail,
-                user_name: cleanEmail.split('@')[0],
-                mosque_id: req.user.current_mosque_id,
-                role: role || "pengurus",
-                status: "active"
-            }
+        const existingMember = await prisma.mosqueMember.findFirst({
+            where: { user_email: cleanEmail, mosque_id: req.user.current_mosque_id }
         });
+
+        if (existingMember) {
+            await prisma.mosqueMember.update({
+                where: { id: existingMember.id },
+                data: { role: role || "pengurus", status: "active" }
+            });
+        } else {
+            await prisma.mosqueMember.create({
+                data: {
+                    user_email: cleanEmail,
+                    user_name: cleanEmail.split('@')[0],
+                    mosque_id: req.user.current_mosque_id,
+                    role: role || "pengurus",
+                    status: "active"
+                }
+            });
+        }
     }
     
     // CATAT AKTIVITAS
