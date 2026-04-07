@@ -17,15 +17,5 @@ module.exports = {
         // The DATABASE_URL and JWT_SECRET should be defined in backend/.env
       }
     },
-    {
-      	name: "frontend",
-      	cwd: ".",
-      	script: "npm",
-      	args: "start",
-      	env: {
-        	NODE_ENV: "production",
-       		PORT: 3001
-      	}
-    }
   ]
 };

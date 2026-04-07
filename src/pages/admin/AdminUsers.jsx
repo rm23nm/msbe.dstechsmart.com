@@ -123,19 +123,6 @@ export default function AdminUsers() {
     }
   }
 
-  function handleUpdateRole() {
-    setEditType("role");
-    setShowConfirmEdit(true);
-  }
-
-  function handleAdminChangePassword() {
-    if (!newPassword) {
-      toast.error("Password baru wajib diisi");
-      return;
-    }
-    setEditType("password");
-    setShowConfirmEdit(true);
-  }
 
   async function handleInvite() {
     if (!inviteEmail) return;
@@ -145,8 +132,10 @@ export default function AdminUsers() {
        toast.success(`Undangan dikirim ke ${inviteEmail}`);
        setInviteEmail("");
        setShowInvite(false);
+       loadData(); // Refresh list to show new user
     } catch (e) {
-       toast.error("Gagal mengirim undangan");
+       console.error("Invite error:", e);
+       toast.error("Gagal mengirim undangan: " + (e.response?.data?.error || e.message));
     } finally {
        setInviting(false);
     }
@@ -165,11 +154,15 @@ export default function AdminUsers() {
     }
     setChangingPassword(true);
     try {
-      await smartApi.auth.adminChangePassword({ userId: selectedUserForPassword.id, newPassword });
+      await smartApi.auth.adminChangePassword({ 
+        userId: selectedUserForPassword?.id || selectedUserForPassword?.user_id, 
+        newPassword 
+      });
       toast.success(`Password untuk ${selectedUserForPassword.email} berhasil diubah.`);
       setShowChangePassword(false);
     } catch (error) {
-      toast.error(error.message || "Gagal mengubah password");
+      console.error("Password change error:", error);
+      toast.error("Gagal mengubah password: " + (error.response?.data?.error || error.message));
     } finally {
       setChangingPassword(false);
     }
@@ -184,12 +177,23 @@ export default function AdminUsers() {
   async function handleUpdateRole() {
      setUpdatingRole(true);
      try {
+        // Update both User table and MosqueMember table for consistency
         await smartApi.entities.User.update(editingUser.id, { role: selectedRole });
+        
+        // If the user is part of a mosque, update their member record too
+        await smartApi.entities.MosqueMember.list({ filter: JSON.stringify({ user_email: editingUser.email }) })
+            .then(members => {
+                if (members.length > 0) {
+                    smartApi.entities.MosqueMember.update(members[0].id, { role: selectedRole });
+                }
+            }).catch(() => {});
+
         toast.success(`Role ${editingUser.email} diperbarui menjadi ${selectedRole}`);
         setShowRoleDialog(false);
         loadData();
      } catch (e) {
-        toast.error("Gagal memperbarui role");
+        console.error("Role update error:", e);
+        toast.error("Gagal memperbarui role: " + (e.response?.data?.error || e.message));
      } finally {
         setUpdatingRole(false);
      }

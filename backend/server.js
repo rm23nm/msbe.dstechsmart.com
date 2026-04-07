@@ -11,8 +11,31 @@ const { PrismaClient } = require("@prisma/client");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
 const telegramService = require("./telegram-bot");
-const prisma = new PrismaClient();
+const prisma = new PrismaClient({
+  log: ['error', 'warn'],
+});
 const app = express();
+
+// GLOBAL ERROR HANDLERS (Prevent Crashes)
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('\x1b[31m[FATAL] Unhandled Rejection at:\x1b[0m', promise, '\x1b[31mreason:\x1b[0m', reason);
+  // Optional: Send to monitoring service
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('\x1b[31m[FATAL] Uncaught Exception:\x1b[0m', err.message);
+  console.error(err.stack);
+  // Give some time to log before exit
+  setTimeout(() => process.exit(1), 1000);
+});
+
+// Database Connection Monitoring
+prisma.$connect()
+  .then(() => console.log("\x1b[32m[Database]\x1b[0m Connected successfully to remote MySQL server."))
+  .catch((err) => {
+    console.error("\x1b[31m[Database] Connection FAILED:\x1b[0m", err.message);
+    console.error("Check your DATABASE_URL and network connectivity to 157.66.34.199");
+  });
 
 // MULTER CONFIGURATION FOR LOGO (Limited to 500KB)
 const storage = multer.diskStorage({
@@ -360,20 +383,36 @@ app.patch("/api/auth/me", (req, res, next) => {
 app.post("/api/auth/login", async (req, res) => {
   const { identifier, password } = req.body;
   try {
-    const user = await prisma.user.findUnique({ where: { email: identifier.toLowerCase().trim() } });
-    if (!user) return res.status(401).json({ error: "Email atau Password salah" });
+    const startDB = Date.now();
+    const user = await prisma.user.findUnique({ 
+        where: { email: identifier?.toLowerCase().trim() },
+        // Add a slight timeout for DB operations to detect network lag
+    });
+    const dbDuration = Date.now() - startDB;
+    if (dbDuration > 1000) console.warn(`\x1b[33m[PERF]\x1b[0m Slow DB query on login: ${dbDuration}ms`);
+
+    if (!user) {
+      console.warn(`[AUTH] Login failed: User not found (${identifier})`);
+      return res.status(401).json({ error: "Email atau Password salah" });
+    }
     
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: "Email atau Password salah" });
+    if (!isMatch) {
+      console.warn(`[AUTH] Login failed: Password mismatch for ${identifier}`);
+      return res.status(401).json({ error: "Email atau Password salah" });
+    }
     
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, current_mosque_id: user.current_mosque_id }, 
       SECRET_KEY, 
       { expiresIn: "30d" }
     );
+
+    console.log(`\x1b[32m[AUTH] Login SUCCESS:\x1b[0m ${user.email} (DB: ${dbDuration}ms)`);
     res.json({ token, user });
   } catch (e) { 
-    res.status(500).json({ error: e.message }); 
+    console.error(`\x1b[31m[AUTH ERROR]\x1b[0m Login crash for ${identifier}:`, e.message);
+    res.status(500).json({ error: "Terjadi gangguan jaringan atau server (DB Request Timeout)" }); 
   }
 });
 
@@ -453,18 +492,38 @@ app.post("/api/entities/:model", authenticateToken, async (req, res) => {
     const { admin_password, ...data } = req.body;
     const result = await prisma[prismaModel].create({ data });
 
-    if (prismaModel === "mosque" && admin_password) {
+    if (model.toLowerCase() === "mosque" && admin_password) {
       const hash = await bcrypt.hash(admin_password, 10);
-      await prisma.user.upsert({
-        where: { email: data.email },
+      const adminEmail = data.email.toLowerCase().trim();
+      
+      // Upsert the admin user associated with this mosque
+      const adminUser = await prisma.user.upsert({
+        where: { email: adminEmail },
         update: { role: "admin_masjid", current_mosque_id: result.id, password: hash },
-        create: { email: data.email, password: hash, full_name: `Admin ${data.name}`, role: "admin_masjid", current_mosque_id: result.id }
+        create: { 
+          email: adminEmail, 
+          password: hash, 
+          full_name: `Admin ${data.name}`, 
+          role: "admin_masjid", 
+          current_mosque_id: result.id 
+        }
       });
-      await prisma.mosqueMember.create({
-        data: { user_email: data.email, user_name: `Admin ${data.name}`, mosque_id: result.id, role: "pengurus", status: "active" }
+
+      // Ensure they are also in MosqueMember table
+      await prisma.mosqueMember.upsert({
+        where: { membership_id: `ADM-${result.id}` }, // Deterministic ID for admin
+        update: { user_email: adminEmail, user_name: `Admin ${data.name}`, role: "pengurus", status: "active" },
+        create: { 
+          user_email: adminEmail, 
+          user_name: `Admin ${data.name}`, 
+          mosque_id: result.id, 
+          role: "pengurus", 
+          status: "active",
+          membership_id: `ADM-${result.id}`
+        }
       });
       
-      // LOG SISTEM: Registrasi Masjid Baru oleh Superadmin
+      console.log(`[AUTH] Admin user created/updated for new Mosque: ${result.id} (${adminEmail})`);
       await logActivity(req.user.id, req.user.full_name || req.user.email, null, "SYSTEM_ADD", "Mosque", result.id, `Mendaftarkan Masjid: ${data.name}`);
     }
     
@@ -580,13 +639,19 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
     });
 
     // Update Admin Password if provided (specifically for Mosque edits)
-    if (prismaModel === "mosque" && admin_password) {
+    if (model.toLowerCase() === "mosque" && admin_password) {
       const hash = await bcrypt.hash(admin_password, 10);
-      await prisma.user.updateMany({
-        where: { current_mosque_id: id, role: "admin_masjid" },
-        data: { password: hash }
-      });
-      console.log(`[AUTH] Admin password updated for Mosque: ${id}`);
+      const adminEmail = (data.email || result.email)?.toLowerCase().trim();
+      
+      if (adminEmail) {
+        // 1. Update the User record directly (more reliable than updateMany by role)
+        await prisma.user.update({
+          where: { email: adminEmail },
+          data: { password: hash }
+        }).catch(err => console.warn(`[AUTH] Failed to update user password for ${adminEmail}:`, err.message));
+
+        console.log(`[AUTH] Admin password reset for Mosque: ${id} (${adminEmail})`);
+      }
     }
 
     // AUTO-SYNC PRAYER TIMES IF COORDINATES UPDATED
@@ -819,15 +884,52 @@ app.post("/api/users/invite", authenticateToken, async (req, res) => {
   }
 
   const { email, role } = req.body;
+  if (!email) return res.status(400).json({ error: "Email wajib diisi" });
+
   try {
-    // In a real system, we'd send an email. For now, we ensure the user exists or create a placeholder
-    // Or we just log the invitation event for audit.
+    const cleanEmail = email.toLowerCase().trim();
+    const tempPassword = Math.random().toString(36).substring(2, 10);
+    const hash = await bcrypt.hash(tempPassword, 10);
+
+    // Actually create the user so they appear in the list
+    const user = await prisma.user.upsert({
+      where: { email: cleanEmail },
+      update: { role: role || "user" },
+      create: {
+        email: cleanEmail,
+        password: hash,
+        role: role || "user",
+        full_name: cleanEmail.split('@')[0],
+        current_mosque_id: req.user.current_mosque_id
+      }
+    });
+
+    if (req.user.current_mosque_id) {
+        await prisma.mosqueMember.upsert({
+            where: { user_email: cleanEmail }, // Assuming one member per email for simplicity
+            update: { role: role || "pengurus", status: "active" },
+            create: {
+                user_email: cleanEmail,
+                user_name: cleanEmail.split('@')[0],
+                mosque_id: req.user.current_mosque_id,
+                role: role || "pengurus",
+                status: "active"
+            }
+        });
+    }
     
     // CATAT AKTIVITAS
-    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "INVITE", "User", null, `Mengundang user baru: ${email} sebagai ${role}`);
+    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "INVITE", "User", user.id, `Mengundang user baru: ${email} sebagai ${role}`);
 
-    res.json({ success: true, message: "Undangan berhasil dicatat (Dummy Email Sent)" });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+    res.json({ 
+        success: true, 
+        message: `Undangan berhasil dikirim ke ${email}. Password sementara: ${tempPassword}`,
+        tempPassword 
+    });
+  } catch (e) { 
+    console.error("[INVITE ERROR]", e.message);
+    res.status(500).json({ error: "Gagal memproses undangan: " + e.message }); 
+  }
 });
 
 

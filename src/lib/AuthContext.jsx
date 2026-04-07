@@ -37,11 +37,21 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       setIsLoadingAuth(false);
     } catch (error) {
-      localStorage.removeItem("token");
+      // ONLY logout if it's a confirmed session expiration
+      if (error.message === "auth_required") {
+        console.warn("[AUTH] Session expired, logging out...");
+        localStorage.removeItem("token");
+        setIsAuthenticated(false);
+        setUser(null);
+        setAuthError({ type: "auth_required", message: "Sesi Anda telah habis." });
+      } else {
+        // Just a network or server error (500, timeout, etc.)
+        // Don't remove token! Let the user keep trying or see a cached version if applicable
+        console.error("[AUTH] Network/Server error during auth check:", error.message);
+        setAuthError({ type: "network_error", message: "Gangguan koneksi ke server." });
+        // Optionally keep current local state for a bit?
+      }
       setIsLoadingAuth(false);
-      setIsAuthenticated(false);
-      setUser(null);
-      setAuthError({ type: "auth_required", message: "Session expired" });
     }
   };
 

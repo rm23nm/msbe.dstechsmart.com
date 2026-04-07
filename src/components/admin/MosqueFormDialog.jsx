@@ -59,24 +59,30 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
-    const payload = { ...form };
-    // Auto-generate slug for new mosques
-    if (!item) {
-      payload.slug = generateSlug(form.name);
+    try {
+      const payload = { ...form };
+      // Auto-generate slug for new mosques
+      if (!item) {
+        payload.slug = generateSlug(form.name);
+      }
+      // Convert date strings to ISO (backend expects DateTime)
+      if (payload.subscription_start) {
+        payload.subscription_start = new Date(payload.subscription_start).toISOString();
+      } else {
+        delete payload.subscription_start;
+      }
+      if (payload.subscription_end) {
+        payload.subscription_end = new Date(payload.subscription_end).toISOString();
+      } else {
+        delete payload.subscription_end;
+      }
+      await onSave(payload);
+    } catch (err) {
+      console.error("Save error:", err);
+      alert("Gagal menyimpan data: " + (err.response?.data?.error || err.message));
+    } finally {
+      setSaving(false);
     }
-    // Convert date strings to ISO (backend expects DateTime)
-    if (payload.subscription_start) {
-      payload.subscription_start = new Date(payload.subscription_start).toISOString();
-    } else {
-      delete payload.subscription_start;
-    }
-    if (payload.subscription_end) {
-      payload.subscription_end = new Date(payload.subscription_end).toISOString();
-    } else {
-      delete payload.subscription_end;
-    }
-    await onSave(payload);
-    setSaving(false);
   }
 
   return (
