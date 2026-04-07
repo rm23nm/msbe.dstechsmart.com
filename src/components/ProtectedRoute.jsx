@@ -69,8 +69,9 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
     if (!featName) return true;
     if (user?.role === "superadmin") return true; 
     
-    // For public paths, as long as it's NOT expired, we allow "Info Publik" (TV/Portfolio)
-    if (isPublic) return true;
+    // For public paths (TV, Portfolio, etc.), we allow access regardless of individual feature toggles
+    // during the active subscription period (managed by isExpired above).
+    if (isPublic || isPublicPath) return true;
 
     return currentMosque?.plan_features?.some(f => 
       f.toLowerCase().includes(featName.toLowerCase())

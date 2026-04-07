@@ -48,11 +48,28 @@ export function useMosqueContext() {
       setPlanFeatures(validPlans);
       setAllPermissionsTemplate(validRoles);
 
+      // 1b. DETEKSI DARI URL (PRIORITAS UNTUK HALAMAN PUBLIK/TV)
+      const path = window.location.pathname;
+      let slugOrId = null;
+      if (path.startsWith("/masjid/")) slugOrId = path.split("/")[2];
+      else if (path.startsWith("/tv/")) slugOrId = path.split("/")[2];
+      else if (path.startsWith("/donasi/")) slugOrId = path.split("/")[2];
+      else if (path.startsWith("/absensi/")) slugOrId = path.split("/")[2];
+      else if (path.startsWith("/scan/")) slugOrId = path.split("/")[2];
+
       let currentMosqueId = me?.current_mosque_id;
       let userMosques = [];
       let currentMemberships = [];
 
-      // 3. Jika login, ambil data keanggotaan
+      // 1c. JIKA ADA SLUG DI URL, PRIORITASKAN ITU!
+      if (slugOrId) {
+        const found = validList.find((m) => m.id === slugOrId || m.slug === slugOrId);
+        if (found) {
+          currentMosqueId = found.id;
+        }
+      }
+
+      // 2. Jika login, ambil data keanggotaan
       if (me?.email) {
         try {
           const isSuperAdmin = SUPERADMIN_ROLES.includes(me.role);
@@ -99,43 +116,18 @@ export function useMosqueContext() {
               activeFeatures = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || []); 
             } catch(e) { activeFeatures = []; }
           }
+          
+          // Determine isWhiteLabel from features
+          const whiteLabelActive = Array.isArray(activeFeatures) && activeFeatures.some(f => 
+            typeof f === 'string' && f.toLowerCase().includes("white label")
+          );
+          setIsWhiteLabel(whiteLabelActive);
           setCurrentMosque({ ...found, plan_features: activeFeatures });
         } else {
           setCurrentMosque(validList.length > 0 ? validList[0] : null);
         }
       } else if (validList.length > 0) {
-        // Mode publik (Detect mosque from URL)
-        const path = window.location.pathname;
-        let slugOrId = null;
-        
-        if (path.startsWith('/masjid/')) slugOrId = path.split('/')[2];
-        else if (path.startsWith('/tv/')) slugOrId = path.split('/')[2];
-        else if (path.startsWith('/donasi/')) slugOrId = path.split('/')[2];
-        else if (path.startsWith('/absensi/')) slugOrId = path.split('/')[2];
-        else if (path.startsWith('/scan/')) slugOrId = path.split('/')[2];
-
-        if (slugOrId) {
-          const found = validList.find(m => m.id === slugOrId || m.slug === slugOrId);
-          if (found) {
-             const plan = validPlans.find(p => p.plan === found.subscription_plan);
-             let activeFeatures = [];
-             if (plan?.features) {
-               try { 
-                 activeFeatures = typeof plan.features === 'string' ? JSON.parse(plan.features) : (plan.features || []); 
-               } catch(e) { activeFeatures = []; }
-             }
-             // Determine isWhiteLabel from features
-             const whiteLabelActive = Array.isArray(activeFeatures) && activeFeatures.some(f => 
-               typeof f === 'string' && f.toLowerCase().includes("white label")
-             );
-             setIsWhiteLabel(whiteLabelActive);
-             setCurrentMosque({ ...found, plan_features: activeFeatures });
-          } else if (validList.length > 0) {
-             setCurrentMosque(validList[0]);
-          }
-        } else if (validList.length > 0) {
-          setCurrentMosque(validList[0]);
-        }
+        setCurrentMosque(validList[0]);
       }
 
     } catch (err) {
