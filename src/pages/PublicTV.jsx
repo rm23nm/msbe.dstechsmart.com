@@ -275,21 +275,26 @@ export default function PublicTV() {
   const ongoingActivity = activities.find(a => a.status === 'ongoing') || activities[0];
   const absensiUrl = ongoingActivity ? `${window.location.origin}/absensi/${mosque?.id}/${ongoingActivity.id}` : null;
 
-  return (
-    <div 
-      ref={containerRef} 
-      className="h-screen w-screen bg-slate-950 text-white flex flex-col relative overflow-hidden select-none transition-colors duration-1000"
-      style={mosque.tv_background_url ? { 
-        backgroundImage: `url(${mosque.tv_background_url})`, 
-        backgroundSize: 'cover', 
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat'
-      } : {}}
-    >
+    const bgUrl = mosque.tv_background_url;
+    const sanitizedBgUrl = bgUrl?.includes('localhost:3000') 
+        ? bgUrl.replace(/^https?:\/\/localhost:3000/, '') 
+        : bgUrl;
+
+    return (
+      <div 
+        ref={containerRef} 
+        className="h-screen w-screen bg-slate-950 text-white flex flex-col relative overflow-hidden select-none transition-colors duration-1000"
+        style={sanitizedBgUrl ? { 
+          backgroundImage: `url(${sanitizedBgUrl})`, 
+          backgroundSize: 'cover', 
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        } : {}}
+      >
       {/* DARK OVERLAY FOR READABILITY */}
       <div 
         className="absolute inset-0 bg-slate-950/70 backdrop-blur-[2px] transition-opacity duration-1000 z-0" 
-        style={{ opacity: mosque.tv_background_url ? 1 : 0 }} 
+        style={{ opacity: sanitizedBgUrl ? 1 : 0 }} 
       />
       
       {/* PRAYER OVERLAY */}
