@@ -104,10 +104,17 @@ export function useMosqueContext() {
           setCurrentMosque(validList.length > 0 ? validList[0] : null);
         }
       } else if (validList.length > 0) {
-        // Mode publik
+        // Mode publik (Detect mosque from URL)
         const path = window.location.pathname;
-        if (path.startsWith('/masjid/')) {
-          const slugOrId = path.split('/')[2];
+        let slugOrId = null;
+        
+        if (path.startsWith('/masjid/')) slugOrId = path.split('/')[2];
+        else if (path.startsWith('/tv/')) slugOrId = path.split('/')[2];
+        else if (path.startsWith('/donasi/')) slugOrId = path.split('/')[2];
+        else if (path.startsWith('/absensi/')) slugOrId = path.split('/')[2];
+        else if (path.startsWith('/scan/')) slugOrId = path.split('/')[2];
+
+        if (slugOrId) {
           const found = validList.find(m => m.id === slugOrId || m.slug === slugOrId);
           if (found) {
              const plan = validPlans.find(p => p.plan === found.subscription_plan);

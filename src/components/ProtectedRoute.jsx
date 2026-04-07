@@ -5,10 +5,10 @@ import { useMosqueContext } from "@/lib/useMosqueContext";
 
 const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdminOnly = false }) => {
   const { user, isAuthenticated, isLoadingAuth } = useAuth();
-  const { hasPermission, currentMosque } = useMosqueContext();
+  const { hasPermission, currentMosque, loading: isLoadingMosque } = useMosqueContext();
   const location = useLocation();
 
-  if (isLoadingAuth) {
+  if (isLoadingAuth || isLoadingMosque) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
         <div className="flex flex-col items-center gap-3">
@@ -19,10 +19,53 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
     );
   }
 
+  // 0. Expiration Check (Lock Public Info if Expired)
+  const isExpired = () => {
+    if (!currentMosque) return false;
+    const status = currentMosque.subscription_status?.toLowerCase();
+    
+    // Trial can expire too
+    if (status === 'expired' || status === 'cancelled') return true;
+    
+    if (currentMosque.subscription_end) {
+      const today = new Date();
+      const end = new Date(currentMosque.subscription_end);
+      if (end < today) return true;
+    }
+    return false;
+  };
+
+  if ((isPublic || isAdminOnly) && isExpired() && user?.role !== 'superadmin') {
+     return (
+       <div className="flex flex-col items-center justify-center min-h-screen text-center p-8 bg-[#1e293b] text-white">
+          <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-8 text-red-500 animate-pulse">
+             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <h2 className="text-4xl font-black italic tracking-tighter uppercase mb-2">Layanan Non-Aktif</h2>
+          <p className="text-slate-400 max-w-sm mb-10 font-bold uppercase tracking-widest text-[11px]">
+             Masa aktif paket layanan <span className="text-white">"{currentMosque?.name}"</span> telah berakhir. Silakan lakukan perpanjangan langganan untuk mengaktifkan kembali akses publik.
+          </p>
+          <div className="flex flex-col gap-3 w-full max-w-xs">
+            <button 
+                onClick={() => window.location.href = "/login"}
+                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black italic tracking-tighter uppercase shadow-xl shadow-emerald-500/20 hover:scale-105 transition-all"
+            >
+                Login Admin & Perpanjang
+            </button>
+            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Administrator MasjidKu Smart</p>
+          </div>
+       </div>
+     );
+  }
+
   // 1. Feature Gate (Subscription Plan)
   const hasFeature = (featName) => {
     if (!featName) return true;
     if (user?.role === "superadmin") return true; 
+    
+    // For public paths, as long as it's NOT expired, we allow "Info Publik" (TV/Portfolio)
+    if (isPublic) return true;
+
     return currentMosque?.plan_features?.some(f => 
       f.toLowerCase().includes(featName.toLowerCase())
     );
