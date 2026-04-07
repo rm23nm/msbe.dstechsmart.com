@@ -581,12 +581,16 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
       const field = isDesc ? sort.substring(1) : sort;
       
       let targetField = field;
-      if (field.toLowerCase() === "createdat" || field.toLowerCase() === "created_at" || field.toLowerCase() === "created_date") {
+      const normalized = field.toLowerCase().replace(/\s/g, "_"); // Support "created at" -> "created_at"
+      
+      if (normalized === "createdat" || normalized === "created_at" || normalized === "created_date") {
         targetField = hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt");
         
         // Final override for specific known problematic models
         if (model.toLowerCase() === "planfeatures") targetField = "created_at";
         if (model.toLowerCase() === "donation" && !isSnake) targetField = "createdAt";
+      } else {
+        targetField = field.replace(/\s/g, "_"); // Always unsnake space for Prisma compatibility if possible
       }
       orderConfig[targetField] = isDesc ? "desc" : "asc";
     }
@@ -1020,6 +1024,30 @@ app.get("/api/admin/mosques/export/:id", authenticateToken, async (req, res) => 
     console.error("[EXPORT ERROR]", err.message);
     res.status(500).json({ error: "Gagal memproses ekspor data: " + err.message });
   }
+});
+
+// Telegram Settings (Missing Route Fix)
+app.get("/api/telegram/settings", authenticateToken, async (req, res) => {
+  const { mosque_id } = req.query;
+  const targetId = mosque_id || req.user.current_mosque_id;
+  if (!targetId) return res.status(400).json({ error: "Mosque ID required" });
+  try {
+    const settings = await prisma.telegramSettings.findUnique({ where: { mosque_id: targetId } });
+    res.json(settings || { mosque_id: targetId, bot_enabled: false });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post("/api/telegram/settings", authenticateToken, async (req, res) => {
+  const { id, ...data } = req.body;
+  const mosque_id = data.mosque_id || req.user.current_mosque_id;
+  try {
+    const result = await prisma.telegramSettings.upsert({
+      where: { mosque_id: mosque_id },
+      update: data,
+      create: { ...data, mosque_id }
+    });
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // Catch-all Frontend Routing

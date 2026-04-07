@@ -32,7 +32,9 @@ export default function Layout() {
         {/* Premium Watermark */}
         {theme.showWatermark && (
           <div className="absolute bottom-10 right-10 w-[400px] h-[400px] opacity-[0.04] grayscale select-none pointer-events-none transition-all duration-1000">
-             <img src="/brain/a23fa124-e15f-4992-8d92-750d6214546e/Smart_mosque_watermark_1775454767206.png" className="w-full h-full object-contain" alt="watermark" />
+             <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                <Landmark className="h-6 w-6 text-white" />
+             </div>
           </div>
         )}
       </div>
