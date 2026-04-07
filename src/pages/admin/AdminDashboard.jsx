@@ -174,16 +174,7 @@ export default function AdminDashboard() {
         />
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity Log for Superadmin - High Visibility */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
-           <RecentActivity 
-              showFilter={true} 
-              mosques={mosquesList} 
-              limit={10} 
-           />
-        </motion.div>
-      </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Growth Trend */}
@@ -363,6 +354,15 @@ export default function AdminDashboard() {
               </motion.div>
             ))}
           </div>
+        </motion.div>
+        
+        {/* Recent Activity Log for Superadmin - Moved to Bottom */}
+        <motion.div variants={itemVariants} className="lg:col-span-3">
+           <RecentActivity 
+              showFilter={true} 
+              mosques={mosquesList} 
+              limit={10} 
+           />
         </motion.div>
     </motion.div>
   );

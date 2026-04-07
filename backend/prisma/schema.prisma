@@ -76,6 +76,7 @@ model Mosque {
   youtube                    String?
   primary_color              String?
   timezone                   String?   @default("Asia/Jakarta")
+  country                    String?   @default("Indonesia")
   midtrans_server_key        String?
   midtrans_client_key        String?
   midtrans_environment       String?   @default("sandbox")
