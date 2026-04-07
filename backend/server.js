@@ -661,42 +661,39 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
       }
     }
 
-    // AUTO-SYNC PRAYER TIMES IF COORDINATES UPDATED
-    if (prismaModel === "mosque" && (data.latitude || data.longitude)) {
-      const lat = data.latitude || result.latitude;
-      const lng = data.longitude || result.longitude;
-      if (lat && lng) {
+    // AUTO-SYNC PRAYER TIMES IF COORDINATES UPDATED (Backgrounded to avoid hang)
+    if (model.toLowerCase() === "mosque" && (data.latitude || data.longitude)) {
+      (async () => {
         try {
-          const today = new Date().toISOString().split('T')[0];
-          const url = `http://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=20`; // Method 20 = Kemenag RI
-          const axios = require('axios');
-          const pRes = await axios.get(url);
-          const timings = pRes.data.data.timings;
-          
-          await prisma.prayerTime.upsert({
-            where: { id: (await prisma.prayerTime.findFirst({ where: { mosque_id: id, created_date: today } }))?.id || "NEW" },
-            update: {
-              subuh: timings.Fajr,
-              dzuhur: timings.Dhuhr,
-              ashar: timings.Asr,
-              maghrib: timings.Maghrib,
-              isya: timings.Isha,
-            },
-            create: {
-              mosque_id: id,
-              created_date: today,
-              subuh: timings.Fajr,
-              dzuhur: timings.Dhuhr,
-              ashar: timings.Asr,
-              maghrib: timings.Maghrib,
-              isya: timings.Isha,
+          const lat = data.latitude || result.latitude;
+          const lng = data.longitude || result.longitude;
+          if (lat && lng) {
+            const today = new Date().toISOString().split('T')[0];
+            const url = `http://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=20`; 
+            const axios = require('axios');
+            const pRes = await axios.get(url, { timeout: 3000 });
+            if (pRes.data && pRes.data.data) {
+                const t = pRes.data.data.timings;
+                const mosqueData = {
+                  subuh: t.Fajr,
+                  dzuhur: t.Dhuhr,
+                  ashar: t.Asr,
+                  maghrib: t.Maghrib,
+                  isya: t.Isha,
+                  created_date: today
+                };
+                await prisma.prayerTime.upsert({
+                    where: { id: `AUTO-${result.id}-${today}` },
+                    update: mosqueData,
+                    create: { id: `AUTO-${result.id}-${today}`, mosque_id: result.id, ...mosqueData }
+                });
+                console.log(`[SYNC] Prayer times updated for ${result.name}`);
             }
-          });
-          console.log(`[PRAYER] Auto-synced for Mosque: ${id} at ${lat}, ${lng}`);
-        } catch (syncErr) {
-          console.error("[PRAYER SYNC ERROR]", syncErr.message);
+          }
+        } catch (e) {
+          console.warn("[SYNC ERROR] Failed to fetch prayer times:", e.message);
         }
-      }
+      })();
     }
 
     // LOG SCOPE: Superadmin actions on system entities should be mosque_id: null
@@ -709,7 +706,7 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
 
     res.json(result);
   } catch (e) {
-    console.error(`[FATAL PATCH ERROR] Model: ${model}, ID: ${id}. Message:`, e.message);
+    console.error(`[FATAL PATCH ERROR] Model: ${model}, ID: ${id}. Message:`, e);
     if (e.code) console.error(`[Prisma Error Code]`, e.code);
     res.status(500).json({ error: e.message });
   }
@@ -934,8 +931,12 @@ app.post("/api/users/invite", authenticateToken, async (req, res) => {
         tempPassword 
     });
   } catch (e) { 
-    console.error("[INVITE ERROR]", e.message);
-    res.status(500).json({ error: "Gagal memproses undangan: " + e.message }); 
+    console.error("[CRUD ERROR]", e);
+    res.status(e.code === 'P2002' ? 409 : 500).json({ 
+      error: e.message,
+      detail: e.meta,
+      code: e.code
+    }); 
   }
 });
 
