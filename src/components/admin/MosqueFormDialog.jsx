@@ -44,7 +44,7 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
       province: item?.province || "",
       phone: item?.phone || "",
       email: item?.email || "",
-      subscription_plan: item?.subscription_plan || "trial",
+      subscription_plan: item?.subscription_plan || "Trial (Free)",
       subscription_status: item?.subscription_status || "trial",
       subscription_start: item?.subscription_start
         ? new Date(item.subscription_start).toISOString().split("T")[0]
@@ -216,12 +216,11 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trial">Trial (Free)</SelectItem>
-                  <SelectItem value="monthly">Bulanan</SelectItem>
-                  <SelectItem value="triwulan">Triwulan (3 Bulan)</SelectItem>
-                  <SelectItem value="semester">Semester (6 Bulan)</SelectItem>
-                  <SelectItem value="yearly">Tahunan</SelectItem>
-                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                  <SelectItem value="Trial (Free)">Trial (Free)</SelectItem>
+                  <SelectItem value="Musa (Basic)">Musa (Basic)</SelectItem>
+                  <SelectItem value="Basic">Basic Edition</SelectItem>
+                  <SelectItem value="Smart (Full)">Smart (Full)</SelectItem>
+                  <SelectItem value="Enterprise">Enterprise Edition</SelectItem>
                 </SelectContent>
               </Select>
             </div>
