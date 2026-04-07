@@ -8,6 +8,12 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
   const { hasPermission, currentMosque, loading: isLoadingMosque } = useMosqueContext();
   const location = useLocation();
 
+  const isPublicPath =
+    location.pathname.startsWith("/tv/") ||
+    location.pathname.startsWith("/mosque/") ||
+    location.pathname.startsWith("/donasi/") ||
+    location.pathname.startsWith("/quran");
+
   if (isLoadingAuth || isLoadingMosque) {
     return (
       <div className="fixed inset-0 flex items-center justify-center bg-white z-50">
@@ -35,7 +41,7 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
     return false;
   };
 
-  if ((isPublic || isAdminOnly) && isExpired() && user?.role !== 'superadmin') {
+  if (isExpired() && user?.role !== 'superadmin' && !location.pathname.startsWith('/quran') && !location.pathname.startsWith('/dashboard')) {
      return (
        <div className="flex flex-col items-center justify-center min-h-screen text-center p-8 bg-[#1e293b] text-white">
           <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-8 text-red-500 animate-pulse">

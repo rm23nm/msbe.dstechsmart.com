@@ -130,6 +130,61 @@ export default function Dashboard() {
     })
   };
 
+  const isExpired = () => {
+    if (!currentMosque) return false;
+    const status = currentMosque.subscription_status?.toLowerCase();
+    if (status === 'expired' || status === 'cancelled') return true;
+    if (currentMosque.subscription_end) {
+      if (new Date(currentMosque.subscription_end) < new Date()) return true;
+    }
+    return false;
+  };
+
+  if (isExpired()) {
+    return (
+      <div className="space-y-6 pb-12">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-3xl font-extrabold tracking-tight">Assalamu'alaikum!</h1>
+          <MosqueSwitcher mosques={mosques} currentMosque={currentMosque} onSwitch={switchMosque} />
+        </div>
+        
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-slate-900 text-white rounded-[2rem] p-10 md:p-20 text-center relative overflow-hidden shadow-2xl"
+        >
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+            <Sparkles className="absolute top-10 right-10 w-40 h-40 rotate-12" />
+            <Landmark className="absolute bottom-10 left-10 w-60 h-60 -rotate-12" />
+          </div>
+
+          <div className="relative z-10 max-w-2xl mx-auto space-y-8">
+            <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500 animate-pulse border-2 border-red-500/30">
+              <Landmark className="w-12 h-12" />
+            </div>
+            <div className="space-y-4">
+              <h2 className="text-5xl font-black italic tracking-tighter uppercase">Layanan Non-Aktif</h2>
+              <p className="text-slate-400 text-lg font-medium leading-relaxed">
+                Masa aktif paket <span className="text-white font-bold underline">"{currentMosque.subscription_plan}"</span> untuk <span className="text-white">"{currentMosque.name}"</span> telah berakhir. 
+                Seluruh fitur manajemen sedang dibatasi.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+               <Link to="/paket" className="w-full sm:w-auto">
+                 <Button className="w-full sm:w-auto px-10 h-14 bg-emerald-600 hover:bg-emerald-500 text-white font-black italic tracking-tighter uppercase text-lg rounded-2xl shadow-2xl shadow-emerald-500/40 hover:scale-105 transition-all">
+                    Beli Lisensi Sekarang
+                 </Button>
+               </Link>
+               <button onClick={() => window.open('https://wa.me/628123456789', '_blank')} className="text-slate-400 hover:text-white font-bold uppercase text-sm tracking-widest transition-colors">
+                  Hubungi Support →
+               </button>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <motion.div 
       initial="hidden" 
