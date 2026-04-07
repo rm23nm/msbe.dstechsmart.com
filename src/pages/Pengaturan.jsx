@@ -14,6 +14,48 @@ import NotificationSettings from "../components/NotificationSettings";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
+const TIMEZONE_DATA = [
+  { 
+    country: "Indonesia", 
+    zones: [
+      { value: "Asia/Jakarta", label: "WIB (Jakarta, Surabaya, Medan)" },
+      { value: "Asia/Makassar", label: "WITA (Bali, Makassar, Balikpapan)" },
+      { value: "Asia/Jayapura", label: "WIT (Jayapura, Ambon, Manokwari)" }
+    ]
+  },
+  {
+    country: "Singapore",
+    zones: [{ value: "Asia/Singapore", label: "SGT (Singapore)" }]
+  },
+  {
+    country: "Malaysia",
+    zones: [
+      { value: "Asia/Kuala_Lumpur", label: "MYT (Kuala Lumpur, Penang)" },
+      { value: "Asia/Kuching", label: "MYT (Kuching, Kota Kinabalu)" }
+    ]
+  },
+  {
+    country: "Saudi Arabia",
+    zones: [{ value: "Asia/Riyadh", label: "AST (Mecca, Medina, Riyadh)" }]
+  },
+  {
+    country: "Brunei",
+    zones: [{ value: "Asia/Brunei", label: "BNT (Bandar Seri Begawan)" }]
+  },
+  {
+    country: "Others",
+    zones: [
+      { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+      { value: "Asia/Bangkok", label: "ICT (Bangkok, Hanoi, Jakarta)" },
+      { value: "Asia/Dubai", label: "GST (Dubai, Abu Dhabi)" },
+      { value: "Asia/Tokyo", label: "JST (Tokyo, Seoul)" },
+      { value: "Europe/London", label: "GMT (London, Lisbon)" },
+      { value: "Europe/Istanbul", label: "TRT (Istanbul, Ankara)" }
+    ]
+  }
+];
+
+
 export default function Pengaturan() {
   const { currentMosque, loading, isMosqueAdmin, isAdmin, reload } = useMosqueContext();
   const { user, checkAppState, updateUser } = useAuth();
@@ -324,10 +366,14 @@ export default function Pengaturan() {
                 <div className="space-y-2">
                   <Label>Zona Waktu</Label>
                   <select value={form.timezone || "Asia/Jakarta"} onChange={e => setForm({ ...form, timezone: e.target.value })} disabled={!canEdit}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm">
-                    <option value="Asia/Jakarta">WIB</option>
-                    <option value="Asia/Makassar">WITA</option>
-                    <option value="Asia/Jayapura">WIT</option>
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm">
+                    {TIMEZONE_DATA.map(c => (
+                      <optgroup key={c.country} label={c.country}>
+                        {c.zones.map(z => (
+                          <option key={z.value} value={z.value}>{z.label}</option>
+                        ))}
+                      </optgroup>
+                    ))}
                   </select>
                 </div>
               </div>

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Globe, ShieldCheck } from "lucide-react";
 
 function generateSlug(name) {
   return (
@@ -36,6 +37,8 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
   useEffect(() => {
     setForm({
       name: item?.name || "",
+      slug: item?.slug || "",
+      custom_domain: item?.custom_domain || "",
       address: item?.address || "",
       city: item?.city || "",
       province: item?.province || "",
@@ -159,6 +162,43 @@ export default function MosqueFormDialog({ open, onOpenChange, item, onSave }) {
               </p>
             </div>
           </div>
+
+          <div className="bg-emerald-50/50 p-5 rounded-2xl border border-emerald-100 space-y-4">
+            <div className="flex items-center gap-3 border-b border-emerald-100 pb-3">
+              <div className="w-8 h-8 rounded-xl bg-white border border-emerald-100 flex items-center justify-center">
+                <Globe className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-[10px] font-black uppercase text-emerald-800 tracking-[0.2em]">Konfigurasi White Label</h3>
+                <p className="text-[9px] text-emerald-600 font-bold tracking-tight uppercase mt-0.5">Custom Domain & Identitas Mandiri</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold">Slug URL (Subdomain)</Label>
+                <Input
+                  value={form.slug || ""}
+                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
+                  placeholder="masjid-al-ikhlas"
+                  className="h-9 bg-white"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold">Custom Domain</Label>
+                <Input
+                  value={form.custom_domain || ""}
+                  onChange={(e) => setForm({ ...form, custom_domain: e.target.value })}
+                  placeholder="masjidkita.com"
+                  className="h-9 bg-white"
+                />
+              </div>
+            </div>
+            <p className="text-[9px] text-emerald-600/70 leading-relaxed italic border-t border-emerald-100/50 pt-3">
+              *Jika diisi, ekosistem masjid akan diakses melalui domain mandiri.
+            </p>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Paket Langganan</Label>
