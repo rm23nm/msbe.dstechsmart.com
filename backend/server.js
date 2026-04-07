@@ -632,11 +632,18 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
   if (!prismaModel || !prisma[prismaModel]) return res.status(404).json({ error: "Tabel tidak ditemukan" });
 
   try {
-    const { admin_password, ...data } = req.body;
+    const { admin_password, id: bodyId, ...data } = req.body;
+    
+    console.log(`[CRUD-UPDATE] Target Model: ${prismaModel}, ID: ${id}`);
+    console.log(`[CRUD-UPDATE] Sanity Check - Body ID: ${bodyId}, URL ID: ${id}`);
+    console.log(`[CRUD-UPDATE] Payload:`, JSON.stringify(data));
+
+    // Ensure we don't try to update fields that are not in the record or are immutable
     const result = await prisma[prismaModel].update({
       where: { id },
       data,
     });
+    console.log(`[CRUD-UPDATE] SUCCESS: ${id}`);
 
     // Update Admin Password if provided (specifically for Mosque edits)
     if (model.toLowerCase() === "mosque" && admin_password) {
