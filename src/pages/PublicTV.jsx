@@ -473,26 +473,24 @@ export default function PublicTV() {
       `}</style>
 
       {/* FULLSCREEN TOGGLE BUTTON (HIDDEN IN PWA/STANDALONE) */}
-      {!window.matchMedia('(display-mode: standalone)').matches && (
-        <button 
-          onClick={() => {
-            if (!document.fullscreenElement) {
-              containerRef.current.requestFullscreen().catch(err => {
-                toast.error(`Error attempting to enable fullscreen: ${err.message}`);
-              });
-            } else {
-              document.exitFullscreen();
-            }
-          }}
-          className="fixed bottom-10 right-10 z-[200] p-4 bg-black/40 hover:bg-emerald-600 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl transition-all duration-300 opacity-20 hover:opacity-100 group"
-        >
-          {isFullscreen ? (
-            <Minimize className="w-6 h-6 text-white group-hover:scale-110" />
-          ) : (
-            <Maximize className="w-6 h-6 text-white group-hover:scale-110" />
-          )}
-        </button>
-      )}
+      {/* FULLSCREEN TOGGLE BUTTON - PROMINENT FOR TV */}
+      <button 
+        onClick={() => {
+          if (!document.fullscreenElement) {
+            containerRef.current.requestFullscreen();
+          } else {
+            document.exitFullscreen();
+          }
+        }}
+        className="fixed bottom-12 right-12 z-[200] p-5 bg-emerald-600/60 hover:bg-emerald-500 backdrop-blur-3xl border-2 border-white/20 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] transition-all duration-300 group ring-4 ring-white/5"
+        title="Toggle Fullscreen"
+      >
+        {isFullscreen ? (
+          <Minimize className="w-8 h-8 text-white group-hover:scale-110 drop-shadow-md" />
+        ) : (
+          <Maximize className="w-8 h-8 text-white group-hover:scale-110 drop-shadow-md" />
+        )}
+      </button>
     </div>
   );
 }
