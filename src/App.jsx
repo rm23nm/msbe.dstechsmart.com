@@ -13,6 +13,8 @@ import Login from "@/pages/Login";
 import MosqueRegister from "@/pages/MosqueRegister";
 import Dashboard from "@/pages/Dashboard";
 import MosquePortfolio from "@/pages/MosquePortfolio";
+import MosqueLogin from "@/pages/MosqueLogin";
+import MosqueRegisterPerson from "@/pages/MosqueRegister";
 import PublicTV from "@/pages/PublicTV";
 import Pengaturan from "@/pages/Pengaturan";
 import Jamaah from "@/pages/Jamaah";
@@ -112,6 +114,8 @@ const AuthenticatedApp = () => {
     return (
       <Routes>
         <Route path="/" element={<MosquePortfolio mosque={customMosque} />} />
+        <Route path="/login" element={<MosqueLogin customMosque={customMosque} />} />
+        <Route path="/register" element={<MosqueRegisterPerson customMosque={customMosque} />} />
         <Route path="/tv" element={<PublicTV mosqueId={customMosque.id} />} />
         <Route path="/absensi/:activityId" element={<Absensi mosqueId={customMosque.id} />} />
         <Route path="*" element={<MosquePortfolio mosque={customMosque} />} />
@@ -131,6 +135,8 @@ const AuthenticatedApp = () => {
         <Route path="/quran" element={<QuranTafsir />} />
         <Route path="/paket" element={<SubscriptionPackage />} />
         <Route path="/masjid/:id" element={<ProtectedRoute isPublic feature="Portofolio Digital"><MosquePortfolio /></ProtectedRoute>} />
+        <Route path="/masjid/:id/login" element={<MosqueLogin />} />
+        <Route path="/masjid/:id/register" element={<MosqueRegisterPerson />} />
         <Route path="/donasi/:id" element={<ProtectedRoute isPublic feature="Donasi Online"><Donasi /></ProtectedRoute>} />
         <Route path="/tv/:mosqueId" element={<ProtectedRoute isPublic feature="Tampilan TV Masjid"><PublicTV /></ProtectedRoute>} />
         <Route path="/absensi/:activityId" element={<ProtectedRoute isPublic feature="Absensi QR"><AbsensiPublic /></ProtectedRoute>} />

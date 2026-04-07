@@ -5,8 +5,9 @@ import { smartApi } from '@/api/apiClient';
 import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
 import { Landmark } from "lucide-react";
 
-export default function MosqueRegister() {
+export default function MosqueRegister({ customMosque }) {
   const { id } = useParams();
+  const mosqueId = customMosque?.id || id;
   const [mosque, setMosque] = useState(null);
   const [loadingMosque, setLoadingMosque] = useState(true);
 
@@ -25,14 +26,19 @@ export default function MosqueRegister() {
 
   useEffect(() => {
     async function loadMosque() {
+      if (customMosque) {
+        setMosque(customMosque);
+        setLoadingMosque(false);
+        return;
+      }
       try {
         let mosqueData = null;
-        const bySlug = await smartApi.entities.Mosque.filter({ slug: id });
+        const bySlug = await smartApi.entities.Mosque.filter({ slug: mosqueId });
         if (bySlug?.length > 0) {
           mosqueData = bySlug[0];
         } else {
           try {
-            const byId = await smartApi.entities.Mosque.filter({ id: id });
+            const byId = await smartApi.entities.Mosque.filter({ id: mosqueId });
             if (byId?.length > 0) mosqueData = byId[0];
           } catch (_) {}
         }
@@ -44,7 +50,7 @@ export default function MosqueRegister() {
       }
     }
     loadMosque();
-  }, [id]);
+  }, [mosqueId, customMosque]);
 
   const handleRegister = async (e) => {
     e.preventDefault();
