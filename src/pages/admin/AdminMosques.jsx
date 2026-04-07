@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { smartApi } from "@/api/apiClient";
+import { smartApi, apiClient } from "@/api/apiClient";
 import { formatDate } from "@/lib/formatCurrency";
 import MosqueFormDialog from "../../components/admin/MosqueFormDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Plus, Building2, Search, Pencil, Trash2, ExternalLink, ShieldCheck, MapPin } from "lucide-react";
+import { Plus, Building2, Search, Pencil, Trash2, ExternalLink, ShieldCheck, MapPin, Database, Lock, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -21,7 +21,7 @@ export default function AdminMosques() {
   async function loadData() {
     setLoading(true);
     try {
-      const data = await smartApi.entities.Mosque.list('-created_date');
+      const data = await smartApi.entities.Mosque.filter({}, { sort: '-created_at', include: { licenses: true } });
       setMosques(data || []);
     } catch (e) {} finally { setLoading(false); }
   }
@@ -150,6 +150,24 @@ export default function AdminMosques() {
                    <Button size="icon" variant="ghost" onClick={() => { setEditItem(m); setShowForm(true); }} className="h-10 w-10 rounded-xl hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100 group/btn">
                       <Pencil className="h-4 w-4 group-hover/btn:scale-110" />
                    </Button>
+
+                   {m.licenses?.some(l => l.status === 'active') ? (
+                     <a href={`${apiClient.defaults.baseURL}/admin/mosques/export/${m.id}?token=${localStorage.getItem("token")}`} target="_blank" rel="noreferrer">
+                        <Button size="icon" variant="ghost" className="h-10 w-10 rounded-xl hover:bg-blue-50 text-slate-400 hover:text-blue-500 transition-all border border-transparent hover:border-blue-100 group/btn" title="Export Deployment Data">
+                           <Database className="h-4 w-4 group-hover/btn:scale-110" />
+                        </Button>
+                     </a>
+                   ) : (
+                     <Button 
+                       size="icon" 
+                       variant="ghost" 
+                       onClick={() => alert("Masjid ini tidak memiliki LISENSI aktif. Ekspor data ke hosting mandiri ditolak.")}
+                       className="h-10 w-10 rounded-xl bg-slate-100 text-slate-300 cursor-not-allowed border border-slate-200"
+                       title="Lisensi Diperlukan untuk Ekspor"
+                     >
+                        <Lock className="h-4 w-4" />
+                     </Button>
+                   )}
                    <Button size="icon" variant="ghost" onClick={() => handleDelete(m.id)} className="h-10 w-10 rounded-xl hover:bg-red-50 text-slate-400 hover:text-red-500 transition-all border border-transparent hover:border-red-100 group/btn">
                       <Trash2 className="h-4 w-4 group-hover/btn:scale-110" />
                    </Button>

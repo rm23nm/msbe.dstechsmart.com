@@ -92,7 +92,7 @@ const authenticateToken = (req, res, next) => {
   }
 
   const authHeader = req.headers["authorization"] || req.headers["Authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const token = (authHeader && authHeader.split(" ")[1]) || req.query.token;
   if (!token) {
     console.warn(`[AUTH] Unauthorized Access Attempt: ${req.method} ${url}`);
     return res.status(401).json({ error: "Unauthorized access" });
@@ -828,6 +828,70 @@ app.post("/api/users/invite", authenticateToken, async (req, res) => {
 
     res.json({ success: true, message: "Undangan berhasil dicatat (Dummy Email Sent)" });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+
+// EXPORT DATA MASJID (UNTUK PINDAH HOSTING)
+app.get("/api/admin/mosques/export/:id", authenticateToken, async (req, res) => {
+  if (req.user.role !== "superadmin") {
+    return res.status(403).json({ error: "Hanya Superadmin yang dapat mengekspor data entitas" });
+  }
+
+  const { id } = req.params;
+
+  try {
+    const mosque = await prisma.mosque.findUnique({ where: { id } });
+    if (!mosque) return res.status(404).json({ error: "Masjid tidak ditemukan" });
+
+    // VERIFIKASI LISENSI AKTIF (Proteksi Pemindahan Tanpa Izin)
+    const activeLicense = await prisma.license.findFirst({
+      where: { 
+        mosque_id: id,
+        status: "active"
+      }
+    });
+
+    if (!activeLicense) {
+      return res.status(403).json({ error: "Entitas ini tidak memiliki Lisensi aktif. Pemindahan/Ekspor ke hosting mandiri ditolak. Silakan daftarkan Lisensi terlebih dahulu." });
+    }
+
+    // Daftar Tabel yang perlu diekspor (filtered by mosque_id)
+    const tables = [
+      "mosqueMember", "transaction", "activity", "announcement", 
+      "donation", "mustahik", "aidDistribution", "qurbanAnimal", 
+      "qurbanParticipant", "asset", "assetMaintenance", "prayerTime", 
+      "jumatOfficer", "telegramSettings", "attendance", "auditLog", "rolePermission"
+    ];
+
+    const exportData = {
+      mosque: mosque,
+      entities: {}
+    };
+
+    // Ambil data untuk setiap tabel
+    for (const table of tables) {
+      if (prisma[table]) {
+        exportData.entities[table] = await prisma[table].findMany({
+          where: { mosque_id: id }
+        });
+      }
+    }
+
+    // Ambil data User yang terlibat (via MosqueMember)
+    const members = exportData.entities.mosqueMember || [];
+    const userEmails = members.map(m => m.user_email);
+    exportData.users = await prisma.user.findMany({
+      where: { email: { in: userEmails } }
+    });
+
+    // Set Header untuk Download File
+    res.setHeader('Content-disposition', `attachment; filename=export-smart-${mosque.slug || mosque.id}.json`);
+    res.setHeader('Content-type', 'application/json');
+    res.json(exportData);
+  } catch (err) {
+    console.error("[EXPORT ERROR]", err.message);
+    res.status(500).json({ error: "Gagal memproses ekspor data: " + err.message });
+  }
 });
 
 // Catch-all Frontend Routing
