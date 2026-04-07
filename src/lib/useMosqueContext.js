@@ -193,7 +193,20 @@ export function useMosqueContext() {
 
   const hasPermission = (menuId, action = "view") => {
     if (isSuperAdmin) return true;
-    return permissions[menuId]?.[action] === true;
+    const p = permissions[menuId];
+    if (!p) return false;
+    
+    // Support Object based: { view: true, ... }
+    if (typeof p === 'object' && !Array.isArray(p)) {
+      return p[action] === true;
+    }
+    
+    // Support legacy Array based: ["view", "edit"]
+    if (Array.isArray(p)) {
+      return p.includes(action);
+    }
+    
+    return false;
   };
 
   return {

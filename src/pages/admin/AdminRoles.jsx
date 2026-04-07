@@ -56,18 +56,20 @@ export default function AdminRoles() {
 
   // CONTEXT DETECTION BASED ON URL
   const isSystemContext = location.pathname.startsWith("/admin");
-  const displayedMenus = isSystemContext ? SYSTEM_MENUS : MOSQUE_MENUS;
+  
+  // SPECIAL CASE: admin_masjid role belongs to mosque menus even in admin context
+  const isMosqueRole = selectedRole?.role_name === 'admin_masjid' || !isSystemContext;
+  const displayedMenus = isMosqueRole ? MOSQUE_MENUS : SYSTEM_MENUS;
 
   useEffect(() => {
     if (rolePermissions) {
       // STRICT FILTERING
       const filtered = rolePermissions.filter(r => {
         if (isSystemContext) {
-          // Superadmin ONLY manages SYSTEM roles (Global and match system list)
+          // Superadmin manages ALL system roles (Superadmin AND Admin Masjid template)
           return r.mosque_id === null && SYSTEM_ROLES.includes(r.role_name);
         } else {
           // Mosque Admin ONLY manages LOCAL roles (specific to their mosque)
-          // Hide Superadmin/System roles from them
           return r.mosque_id === user?.current_mosque_id && !SYSTEM_ROLES.includes(r.role_name);
         }
       });
