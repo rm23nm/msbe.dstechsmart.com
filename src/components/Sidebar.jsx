@@ -26,6 +26,7 @@ function getAdminMenuItems(t) {
     { label: "Pengaturan Roles", path: "/admin/roles", icon: ShieldAlert },
     { label: "Broadcast Promo", path: "/admin/broadcast", icon: Megaphone },
     { label: "Lisensi & Sub-Produk", path: "/admin/licenses", icon: Key },
+    { label: "Riwayat Aktivitas", path: "/admin/audit-logs", icon: History },
   ];
 }
 
@@ -134,8 +135,12 @@ export default function Sidebar({ onClose }) {
         }
     }
 
-    // 4. Sembunyikan menu paket jika standalone
-    if (isStandalone && menuId === "paket") return false;
+    // 5. Khusus untuk Superadmin, sembunyikan menu log di bagian Masjid agar tidak dobel
+    if (user?.role === "superadmin") {
+      if (["audit-logs", "paket", "hak-akses", "pengaturan"].includes(menuId)) {
+        // Biarkan tetap ada tapi mungkin di Admin lebih prioritas
+      }
+    }
     
     return true;
   });

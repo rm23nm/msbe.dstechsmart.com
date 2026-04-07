@@ -11,9 +11,21 @@ const { PrismaClient } = require("@prisma/client");
 const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
 const telegramService = require("./telegram-bot");
-
 const prisma = new PrismaClient();
 const app = express();
+
+// MULTER CONFIGURATION FOR LOGO (Limited to 500KB)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, 'logo-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 500 * 1024 } // Max 500KB
+});
 
 // DEBUG: Log available models
 console.log("[Prisma] Rak Database Terdeteksi:", Object.keys(prisma).filter(k => !k.startsWith("_")));
@@ -26,6 +38,18 @@ const SECRET_KEY = (process.env.JWT_SECRET || "mesjidkusupersecret_091k2j3").rep
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// REQUEST LOGGER (Terminal Visibility)
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      console.log(`\x1b[36m[API-WRITE]\x1b[0m ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+    });
+  }
+  next();
+});
 
 // Ensure uploads directory exists
 if (!fs.existsSync(path.join(__dirname, "uploads"))) {
@@ -86,24 +110,45 @@ const authenticateToken = (req, res, next) => {
 
 // HELPER: Log Activity Smart Switch
 const logActivity = async (userId, userName, mosqueId, action, entity, entityId, description) => {
-  if (!userId || !mosqueId) return; // Skip if no user context
+  // Always log to terminal for transparency
+  const timestamp = new Date().toLocaleString('id-ID');
+  const terminalPrefix = mosqueId ? `\x1b[33m[AUDIT - MS:${mosqueId}]\x1b[0m` : `\x1b[35m[AUDIT - SYSTEM]\x1b[0m`;
+  console.log(`${terminalPrefix} ${action} on ${entity} by ${userName || 'System'}: ${description}`);
+
+  if (!userId) return; // Skip DB if no user context
   try {
     await prisma.auditLog.create({
       data: {
         user_id: userId,
         user_name: userName || "System",
-        mosque_id: mosqueId,
+        mosque_id: mosqueId || null,
         action,
         entity,
-        entityId: String(entityId),
+        entity_id: String(entityId),
         description
       }
     });
-    console.log(`[Audit] ${action} on ${entity} by ${userName}`);
   } catch (err) {
-    console.error("[AuditLog Error]", err.message);
+    console.error("\x1b[31m[AuditLog Error]\x1b[0m", err.message);
   }
 };
+
+/* ==================
+   INTEGRATIONS: UPLOAD (FOR LOGO ONLY)
+   ================== */
+app.post("/api/integrations/core/uploadfile", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Sertakan file untuk diunggah" });
+  try {
+    const protocol = req.protocol;
+    const host = req.get("host");
+    const file_url = `${protocol}://${host}/uploads/${req.file.filename}`;
+    console.log(`[UPLOAD] Logo received: ${req.file.filename} -> ${file_url}`);
+    res.json({ file_url });
+  } catch (err) {
+    console.error("[UPLOAD ERROR]", err.message);
+    res.status(500).json({ error: "Gagal memproses logo. Pastikan ukuran di bawah 500KB." });
+  }
+});
 
 /* ==================
    API ENDPOINTS
@@ -389,6 +434,9 @@ app.post("/api/auth/register", async (req, res) => {
       { expiresIn: "30d" }
     );
 
+    // CATAT AKTIVITAS: Registrasi Mandiri
+    await logActivity(user.id, user.full_name || user.email, user.current_mosque_id, "REGISTER", "User", user.id, `Pendaftaran mandiri masjid: ${name}`);
+
     res.json({ token, user });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -415,10 +463,18 @@ app.post("/api/entities/:model", authenticateToken, async (req, res) => {
       await prisma.mosqueMember.create({
         data: { user_email: data.email, user_name: `Admin ${data.name}`, mosque_id: result.id, role: "pengurus", status: "active" }
       });
+      
+      // LOG SISTEM: Registrasi Masjid Baru oleh Superadmin
+      await logActivity(req.user.id, req.user.full_name || req.user.email, null, "SYSTEM_ADD", "Mosque", result.id, `Mendaftarkan Masjid: ${data.name}`);
     }
     
+    // LOG SCOPE: Superadmin actions on system entities should be mosque_id: null
+    const logMosqueId = (req.user.role === 'superadmin' && ['mosque', 'planfeatures', 'appsettings', 'license', 'voucher', 'user'].includes(model.toLowerCase())) 
+      ? null 
+      : req.user.current_mosque_id;
+
     // CATAT AKTIVITAS
-    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "ADD", model, result.id, `Menambahkan data baru di ${model}`);
+    await logActivity(req.user.id, req.user.full_name || req.user.email, logMosqueId, "ADD", model, result.id, `Menambahkan data baru di ${model}`);
     
     res.json(result);
   } catch (e) {
@@ -432,7 +488,13 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
   if (!prismaModel || !prisma[prismaModel]) return res.status(404).json({ error: "Tabel tidak ditemukan" });
 
   try {
-    const filters = req.query.filter ? JSON.parse(req.query.filter) : {};
+    let filters = req.query.filter ? JSON.parse(req.query.filter) : {};
+    
+    // SECURITY: Enforce mosque_id filtering for Non-Superadmin on sensitive models
+    if (model.toLowerCase() === "auditlog" && req.user.role !== "superadmin") {
+      const mid = req.user.current_mosque_id || "MISSING";
+      filters.mosque_id = mid;
+    }
     let sort = req.query.sort || "-created_at"; // Default sort
     const limit = parseInt(req.query.limit) || 100;
     const include = req.query.include ? JSON.parse(req.query.include) : undefined;
@@ -451,8 +513,12 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
       const field = isDesc ? sort.substring(1) : sort;
       
       let targetField = field;
-      if (field.toLowerCase() === "createdat" || field.toLowerCase() === "created_at") {
+      if (field.toLowerCase() === "createdat" || field.toLowerCase() === "created_at" || field.toLowerCase() === "created_date") {
         targetField = hasNoDate ? "id" : (isSnake ? "created_at" : "createdAt");
+        
+        // Final override for specific known problematic models
+        if (model.toLowerCase() === "planfeatures") targetField = "created_at";
+        if (model.toLowerCase() === "donation" && !isSnake) targetField = "createdAt";
       }
       orderConfig[targetField] = isDesc ? "desc" : "asc";
     }
@@ -495,7 +561,8 @@ app.get("/api/entities/:model", authenticateToken, async (req, res) => {
       }
     }
   } catch (e) {
-    console.error("Critical Generic List Error:", e.message);
+    console.error(`[FATAL] 500 Error on Model: ${model}. Message:`, e.message);
+    if (e.code) console.error(`[Prisma Error Code]`, e.code);
     res.status(500).json({ error: e.message });
   }
 });
@@ -506,17 +573,72 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
   if (!prismaModel || !prisma[prismaModel]) return res.status(404).json({ error: "Tabel tidak ditemukan" });
 
   try {
-    const data = req.body;
+    const { admin_password, ...data } = req.body;
     const result = await prisma[prismaModel].update({
       where: { id },
       data,
     });
 
+    // Update Admin Password if provided (specifically for Mosque edits)
+    if (prismaModel === "mosque" && admin_password) {
+      const hash = await bcrypt.hash(admin_password, 10);
+      await prisma.user.updateMany({
+        where: { current_mosque_id: id, role: "admin_masjid" },
+        data: { password: hash }
+      });
+      console.log(`[AUTH] Admin password updated for Mosque: ${id}`);
+    }
+
+    // AUTO-SYNC PRAYER TIMES IF COORDINATES UPDATED
+    if (prismaModel === "mosque" && (data.latitude || data.longitude)) {
+      const lat = data.latitude || result.latitude;
+      const lng = data.longitude || result.longitude;
+      if (lat && lng) {
+        try {
+          const today = new Date().toISOString().split('T')[0];
+          const url = `http://api.aladhan.com/v1/timings?latitude=${lat}&longitude=${lng}&method=20`; // Method 20 = Kemenag RI
+          const axios = require('axios');
+          const pRes = await axios.get(url);
+          const timings = pRes.data.data.timings;
+          
+          await prisma.prayerTime.upsert({
+            where: { id: (await prisma.prayerTime.findFirst({ where: { mosque_id: id, created_date: today } }))?.id || "NEW" },
+            update: {
+              subuh: timings.Fajr,
+              dzuhur: timings.Dhuhr,
+              ashar: timings.Asr,
+              maghrib: timings.Maghrib,
+              isya: timings.Isha,
+            },
+            create: {
+              mosque_id: id,
+              created_date: today,
+              subuh: timings.Fajr,
+              dzuhur: timings.Dhuhr,
+              ashar: timings.Asr,
+              maghrib: timings.Maghrib,
+              isya: timings.Isha,
+            }
+          });
+          console.log(`[PRAYER] Auto-synced for Mosque: ${id} at ${lat}, ${lng}`);
+        } catch (syncErr) {
+          console.error("[PRAYER SYNC ERROR]", syncErr.message);
+        }
+      }
+    }
+
+    // LOG SCOPE: Superadmin actions on system entities should be mosque_id: null
+    const logMosqueId = (req.user.role === 'superadmin' && ['mosque', 'planfeatures', 'appsettings', 'license', 'voucher', 'user'].includes(model.toLowerCase())) 
+      ? null 
+      : req.user.current_mosque_id;
+
     // CATAT AKTIVITAS
-    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "EDIT", model, id, `Mengubah data di ${model}`);
+    await logActivity(req.user.id, req.user.full_name || req.user.email, logMosqueId, "EDIT", model, id, `Mengubah data di ${model}`);
 
     res.json(result);
   } catch (e) {
+    console.error(`[FATAL PATCH ERROR] Model: ${model}, ID: ${id}. Message:`, e.message);
+    if (e.code) console.error(`[Prisma Error Code]`, e.code);
     res.status(500).json({ error: e.message });
   }
 });
@@ -529,8 +651,13 @@ app.delete("/api/entities/:model/:id", authenticateToken, async (req, res) => {
   try {
     const result = await prisma[prismaModel].delete({ where: { id } });
     
+    // LOG SCOPE: Superadmin actions on system entities should be mosque_id: null
+    const logMosqueId = (req.user.role === 'superadmin' && ['mosque', 'planfeatures', 'appsettings', 'license', 'voucher', 'user'].includes(model.toLowerCase())) 
+      ? null 
+      : req.user.current_mosque_id;
+
     // CATAT AKTIVITAS
-    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "DELETE", model, id, `Menghapus data di ${model}`);
+    await logActivity(req.user.id, req.user.full_name || req.user.email, logMosqueId, "DELETE", model, id, `Menghapus data di ${model}`);
     
     res.json({ success: true, result });
   } catch (e) {
@@ -605,7 +732,12 @@ app.post("/api/auth/roles", authenticateToken, async (req, res) => {
       });
     }
     
+    
     console.log(`[ROLES] SUCCESS - ID: ${result.id}`);
+    
+    // CATAT AKTIVITAS
+    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, existing ? "EDIT" : "ADD", "Roles", result.id, `${existing ? 'Mengubah' : 'Menambah'} role ${role_name}`);
+    
     res.json(result);
   } catch (e) {
     console.error("[ROLES CRITICAL ERROR]", e);
@@ -634,6 +766,9 @@ app.delete("/api/auth/roles/:roleName", authenticateToken, async (req, res) => {
         where: { id: target.id }
       });
       console.log(`[ROLES] Deleted role ID: ${target.id}`);
+      
+      // CATAT AKTIVITAS
+      await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "DELETE", "Roles", target.id, `Menghapus role ${roleName}`);
     }
     
     res.json({ success: true });
@@ -644,6 +779,56 @@ app.delete("/api/auth/roles/:roleName", authenticateToken, async (req, res) => {
 });
 
 // Admin User Actions
+
+// Admin User Actions: Change Password
+app.post("/api/auth/admin-change-password", authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin_masjid') {
+    return res.status(403).json({ error: "Hanya Admin yang dapat mengubah password pengurus" });
+  }
+
+  const { userId, email, newPassword } = req.body;
+  try {
+    const hash = await bcrypt.hash(newPassword, 10);
+    const where = userId ? { id: userId } : { email: email.toLowerCase().trim() };
+    
+    // Find target user first to check mosque access
+    const target = await prisma.user.findUnique({ where });
+    if (!target) return res.status(404).json({ error: "User tidak ditemukan" });
+
+    // SECURITY: admin_masjid only can change users in their own mosque
+    if (req.user.role === 'admin_masjid' && target.current_mosque_id !== req.user.current_mosque_id) {
+       return res.status(403).json({ error: "Tidak memiliki akses ke user masjid lain" });
+    }
+
+    const result = await prisma.user.update({
+      where,
+      data: { password: hash }
+    });
+
+    // CATAT AKTIVITAS
+    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "EDIT", "UserPassword", target.id, `Reset password untuk ${target.email}`);
+
+    res.json({ success: true });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin User Actions: Invite
+app.post("/api/users/invite", authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin_masjid') {
+    return res.status(403).json({ error: "Unauthorized" });
+  }
+
+  const { email, role } = req.body;
+  try {
+    // In a real system, we'd send an email. For now, we ensure the user exists or create a placeholder
+    // Or we just log the invitation event for audit.
+    
+    // CATAT AKTIVITAS
+    await logActivity(req.user.id, req.user.full_name || req.user.email, req.user.current_mosque_id, "INVITE", "User", null, `Mengundang user baru: ${email} sebagai ${role}`);
+
+    res.json({ success: true, message: "Undangan berhasil dicatat (Dummy Email Sent)" });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 
 // Catch-all Frontend Routing
 app.use((req, res, next) => {

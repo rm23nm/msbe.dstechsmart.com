@@ -43,9 +43,10 @@ model RolePermission {
   id          String   @id @default(uuid())
   mosque_id   String?
   role_name   String
-  permissions String   @default("{}")
+  permission  String?  @db.Text
+  permissions String?  @db.Text
   created_at  DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now()) @updatedAt
 
   @@unique([mosque_id, role_name])
 }
@@ -167,6 +168,8 @@ model Activity {
   location    String?
   speaker     String?
   status      String   @default("upcoming")
+  image_url   String?
+  video_url   String?
   createdAt   DateTime @default(now())
 }
 

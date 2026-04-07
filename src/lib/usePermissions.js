@@ -6,13 +6,13 @@ let cachedPermissions = null;
 
 export function usePermissions(menuId) {
   const { user } = useAuth();
-  const [permissions, setPermissions] = useState({ view: true, edit: true, delete: true }); // Default optimistic
+  const [permissions, setPermissions] = useState({ view: false, edit: false, delete: false }); // Default strict (secure)
 
   useEffect(() => {
     if (!user || !user.role) return;
     
-    // Superadmin has full access by default
-    if (user.role === 'superadmin' || user.role === 'admin') {
+    // Superadmin and Mosque Admin have full access by default
+    if (user.role === 'superadmin' || user.role === 'admin_masjid') {
       setPermissions({ view: true, edit: true, delete: true });
       return;
     }
@@ -21,17 +21,25 @@ export function usePermissions(menuId) {
       try {
         if (!cachedPermissions) {
           const roles = await smartApi.entities.RolePermission.list();
-          // Cache to avoid fetching multiple times per page load
           cachedPermissions = roles;
         }
         
-        const myRole = cachedPermissions.find(r => r.role_name === user.role);
+        // Match role by Name AND (Global OR Current Mosque)
+        const myRole = cachedPermissions.find(r => 
+          r.role_name === user.role && 
+          (r.mosque_id === null || r.mosque_id === user.current_mosque_id)
+        );
+        
         if (myRole && myRole.permissions) {
-          const parsed = JSON.parse(myRole.permissions);
-          if (parsed[menuId]) {
-            setPermissions(parsed[menuId]);
-          } else {
-            // Default restrictive for unknown menus
+          try {
+            const parsed = typeof myRole.permissions === 'string' ? JSON.parse(myRole.permissions) : myRole.permissions;
+            if (parsed[menuId]) {
+              setPermissions(parsed[menuId]);
+            } else {
+              setPermissions({ view: false, edit: false, delete: false });
+            }
+          } catch(e) {
+            console.error("JSON Parse Error on Permissions", e);
             setPermissions({ view: false, edit: false, delete: false });
           }
         } else {

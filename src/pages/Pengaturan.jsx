@@ -16,7 +16,7 @@ import { Link } from "react-router-dom";
 
 export default function Pengaturan() {
   const { currentMosque, loading, isMosqueAdmin, isAdmin, reload } = useMosqueContext();
-  const { user, checkAppState } = useAuth();
+  const { user, checkAppState, updateUser } = useAuth();
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("info");
@@ -227,6 +227,54 @@ export default function Pengaturan() {
                 </div>
               </div>
 
+              <div className="space-y-4">
+                <Label>Logo Masjid</Label>
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-dashed">
+                  <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center border shadow-sm overflow-hidden">
+                    {form.logo_url ? (
+                      <img src={form.logo_url} alt="logo" className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground font-bold uppercase text-center px-1">Tanpa Logo</div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-2 w-full">
+                    <div className="flex gap-2">
+                       <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] hover:bg-emerald-700 transition-colors font-bold shadow-sm">
+                          <Upload className="h-3 w-3" /> UPLOAD LOGO (maks 500KB)
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async e => {
+                              const file = e.target.files[0];
+                              if (!file) return;
+                              if (file.size > 500 * 1024) return toast.error("Ukuran logo terlalu besar (Maks 500KB)");
+                              toast.loading("Mengunggah logo...");
+                              try {
+                                const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
+                                setForm(f => ({ ...f, logo_url: file_url }));
+                                toast.dismiss();
+                                toast.success("Logo berhasil diunggah!");
+                              } catch (err) {
+                                toast.dismiss();
+                                toast.error("Gagal upload: " + err.message);
+                              }
+                            }}
+                          />
+                       </label>
+                    </div>
+                    <Input 
+                      value={form.logo_url || ""} 
+                      onChange={e => setForm({ ...form, logo_url: e.target.value })} 
+                      disabled={!canEdit} 
+                      placeholder="Atau tempel Link Foto Logo di sini..." 
+                      className="h-8 text-xs bg-white"
+                    />
+                    <p className="text-[10px] text-muted-foreground italic">Khusus logo diperbolehkan upload. Ukuran akan dibatasi.</p>
+                  </div>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Nama Masjid</Label>
                 <Input value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} disabled={!canEdit} />
@@ -265,13 +313,6 @@ export default function Pengaturan() {
                   <Input value={form.established_year || ""} onChange={e => setForm({ ...form, established_year: e.target.value })} disabled={!canEdit} placeholder="1985" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Logo Masjid</Label>
-                <div className="flex gap-2 items-center">
-                  {form.logo_url && <img src={form.logo_url} alt="logo" className="w-12 h-12 rounded-lg object-cover border" />}
-                  <Input value={form.logo_url || ""} onChange={e => setForm({ ...form, logo_url: e.target.value })} disabled={!canEdit} placeholder="https://..." />
-                </div>
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Warna Utama</Label>
@@ -300,54 +341,7 @@ export default function Pengaturan() {
           <JadwalShalatManager mosque={currentMosque} canEdit={canEdit} />
         )}
 
-        {/* LAYAR TV */}
-        {activeTab === "layar_tv" && (
-          <div className="bg-card border rounded-2xl p-6 shadow-sm space-y-6">
-            <div className="flex items-center gap-3 border-b pb-4">
-              <KeyRound className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Konfigurasi Layar TV (Digital Signage)</h3>
-            </div>
-              <div className="space-y-4 pt-4 border-t">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-emerald-500" />
-                    <div>
-                      <Label className="font-bold">Mode Live (CCTV / Streaming)</Label>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 italic">Aktifkan untuk menampilkan Live Kamera (Khatib) di TV.</p>
-                    </div>
-                  </div>
-                  <Switch checked={form.tv_live_mode} onCheckedChange={v => setForm({...form, tv_live_mode: v})} />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label className="text-xs">URL Video / Live Streaming</Label>
-                  <Input 
-                    value={form.tv_video_url || ""} 
-                    onChange={e => setForm({...form, tv_video_url: e.target.value})} 
-                    placeholder="Contoh: https://www.youtube.com/watch?v=..." 
-                  />
-                  <p className="text-[9px] text-muted-foreground leading-relaxed">
-                    *Gunakan link YouTube Live masjid Anda atau link streaming lain yang didukung sistem (seperti HLS/Embed).
-                  </p>
-                </div>
-                
-                <hr className="border-emerald-100" />
 
-                <div className="flex items-center justify-between">
-                  <Label>Tampilkan Petugas Jumat</Label>
-                <Switch checked={form.tv_show_jumat} onCheckedChange={v => setForm({...form, tv_show_jumat: v})} />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label>Tampilkan Keuangan</Label>
-                <Switch checked={form.tv_show_finance} onCheckedChange={v => setForm({...form, tv_show_finance: v})} />
-              </div>
-              <div className="space-y-2">
-                <Label>Durasi Overlay Shalat (Menit)</Label>
-                <Input type="number" value={form.tv_prayer_overlay_duration} onChange={e => setForm({...form, tv_prayer_overlay_duration: parseInt(e.target.value)})} />
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* PORTFOLIO TAB */}
         {activeTab === "portfolio" && (
@@ -368,13 +362,52 @@ export default function Pengaturan() {
             <div className="bg-card rounded-xl border p-6 space-y-4">
               <h3 className="font-semibold">Konfigurasi Halaman Publik</h3>
 
-              <div className="space-y-2">
-                <Label>Slug URL (opsional)</Label>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground text-sm">/masjid/</span>
-                  <Input value={form.slug || ""} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} disabled={!canEdit} placeholder="al-ikhlas-jakarta" />
+              <div className="space-y-4 pt-4 border-t">
+                <h4 className="font-bold text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-500" /> Tampilan Halaman Depan
+                </h4>
+                
+                <div className="space-y-3">
+                  <Label>Foto Banner Utama (Hero Image)</Label>
+                  <p className="text-[10px] text-muted-foreground italic">Foto ini akan menjadi latar belakang paling atas di halaman publik masjid Bapak.</p>
+                  <div className="flex flex-col gap-3">
+                    {form.cover_image_url && (
+                        <div className="relative w-full h-32 rounded-xl overflow-hidden border">
+                          <img src={form.cover_image_url} alt="Cover" className="w-full h-full object-cover" />
+                        </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Input 
+                        value={form.cover_image_url || ""} 
+                        onChange={e => setForm({ ...form, cover_image_url: e.target.value })} 
+                        placeholder="Tempel Link Foto Banner di sini (Contoh: Google Drive / Postimages)" 
+                        className="h-9 text-xs bg-white"
+                      />
+                      <p className="text-[10px] text-muted-foreground italic leading-relaxed">
+                        <b>Tips:</b> Upload foto Bapak ke <a href="https://postimages.org" target="_blank" className="text-emerald-600 underline">postimages.org</a> lalu tempel "Direct Link"-nya di sini untuk performa terbaik.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Jika diisi, halaman bisa diakses via /masjid/[slug]</p>
+
+                <div className="space-y-3 pt-4 border-t">
+                  <Label>Link Video Intro (YouTube)</Label>
+                  <Input 
+                    value={form.tv_video_url || ""} 
+                    onChange={e => setForm({ ...form, tv_video_url: e.target.value })} 
+                    placeholder="https://youtube.com/watch?v=..." 
+                  />
+                  <p className="text-[10px] text-muted-foreground">Video ini akan diputar sebagai perkenalan di halaman publik.</p>
+                </div>
+
+                <div className="space-y-2 pt-4 border-t">
+                  <Label>Slug URL (opsional)</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground text-sm">/masjid/</span>
+                    <Input value={form.slug || ""} onChange={e => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })} disabled={!canEdit} placeholder="al-ikhlas-jakarta" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">Jika diisi, halaman bisa diakses via /masjid/[slug]</p>
+                </div>
               </div>
 
               <div className="space-y-4 pt-4 border-t">
@@ -523,176 +556,187 @@ export default function Pengaturan() {
 
         {/* TV DISPLAY TAB */}
         {activeTab === "layar_tv" && (
-          <div className="bg-card rounded-xl border p-6 space-y-4">
-            <h3 className="font-semibold flex items-center gap-2 mb-4">
-              <Settings className="h-5 w-5 text-primary" /> Konfigurasi Layar TV
-            </h3>
+          <div className="bg-card rounded-2xl border p-6 shadow-sm space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+              <div className="flex items-center gap-3">
+                <Settings className="h-5 w-5 text-emerald-600" />
+                <h3 className="font-bold text-lg">Konfigurasi Layar TV (Digital Signage)</h3>
+              </div>
+              <div className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100">
+                <span className="text-[10px] font-bold text-emerald-700 uppercase">Link Layar TV:</span>
+                <code className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border">/tv/{currentMosque.slug || currentMosque.id}</code>
+                <Link to={`/tv/${currentMosque.slug || currentMosque.id}`} target="_blank">
+                  <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-emerald-100 text-emerald-600">
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
             
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Tampilkan Laporan Keuangan</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Munculkan total saldo dan pemasukan bulan ini</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* LEFT COLUMN: Toggles & Live Mode */}
+              <div className="space-y-6">
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-[1.5rem] p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-emerald-500" />
+                      <div>
+                        <Label className="font-black text-xs uppercase tracking-wider">Mode Live (CCTV / Streaming)</Label>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 italic leading-relaxed">Tampilkan Live Kamera (Khatib) di layar TV.</p>
+                      </div>
+                    </div>
+                    <Switch checked={form.tv_live_mode} onCheckedChange={v => setForm({...form, tv_live_mode: v})} disabled={!canEdit} />
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <Label className="text-[11px] font-bold">URL Video / Live Streaming</Label>
+                    <Input 
+                      value={form.tv_video_url || ""} 
+                      onChange={e => setForm({...form, tv_video_url: e.target.value})} 
+                      placeholder="Contoh: https://www.youtube.com/watch?v=..." 
+                      className="h-9 bg-white"
+                      disabled={!canEdit}
+                    />
+                    <p className="text-[9px] text-muted-foreground leading-relaxed">
+                      *Mendukung Link YouTube Live atau Direct Stream (HLS/MP4).
+                    </p>
+                  </div>
                 </div>
-                <Switch checked={form.tv_show_finance} onCheckedChange={v => setForm({ ...form, tv_show_finance: v })} disabled={!canEdit} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Tampilkan Petugas Jumat</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Munculkan area petugas Jumat terdekat</p>
-                </div>
-                <Switch checked={form.tv_show_jumat} onCheckedChange={v => setForm({ ...form, tv_show_jumat: v })} disabled={!canEdit} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Tampilkan Kegiatan</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Munculkan jadwal kegiatan mendatang</p>
-                </div>
-                <Switch checked={form.tv_show_activities} onCheckedChange={v => setForm({ ...form, tv_show_activities: v })} disabled={!canEdit} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Tampilkan Pengumuman</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Munculkan pesan pengumuman publik</p>
-                </div>
-                <Switch checked={form.tv_show_announcements} onCheckedChange={v => setForm({ ...form, tv_show_announcements: v })} disabled={!canEdit} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Tampilkan Barcode Donasi QRIS</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Tampilkan QRCode di pojok layar TV</p>
-                </div>
-                <Switch checked={form.tv_show_qrcode} onCheckedChange={v => setForm({ ...form, tv_show_qrcode: v })} disabled={!canEdit} />
-              </div>
-            </div>
 
-            <div className="space-y-2 pt-4 border-t">
-              <Label>Slide Gambar / Banner TV (Link URL)</Label>
-              <Textarea 
-                value={form.tv_slideshow_urls || ""} 
-                onChange={e => setForm({ ...form, tv_slideshow_urls: e.target.value })} 
-                disabled={!canEdit} 
-                rows={3} 
-                placeholder="https://example.com/banner1.jpg, https://example.com/banner2.png" 
-              />
-              <p className="text-xs text-muted-foreground">Pisahkan link gambar dengan koma (,). Kami menyarankan menggunakan link (contoh Google Drive atau Postimages) untuk menghemat storage.</p>
-            </div>
-
-            <div className="space-y-2 pt-2">
-              <Label>Video Rekaman (Link YouTube MP4)</Label>
-              <Input 
-                value={form.tv_video_url || ""} 
-                onChange={e => setForm({ ...form, tv_video_url: e.target.value })} 
-                disabled={!canEdit} 
-                placeholder="https://youtube.com/watch?v=..." 
-              />
-              <p className="text-xs text-muted-foreground">URL YouTube untuk diputar otomatis di TV saat tidak ada slide.</p>
-            </div>
-
-            <div className="space-y-4 pt-4 border-t">
-              <h4 className="font-semibold text-sm">Mode Saat Waktu Shalat Tiba</h4>
-              <p className="text-xs text-muted-foreground mb-2">Seluruh layar TV akan tertutup pesan ini dan jadwal shalat saat waktu adzan tiba, menyembunyikan laporan atau kegiatan secara otomatis.</p>
-              
-              <div className="space-y-2">
-                <Label>Pesan Himbauan (Fullscreen)</Label>
-                <Input 
-                  value={form.tv_prayer_overlay_text || ""} 
-                  onChange={e => setForm({ ...form, tv_prayer_overlay_text: e.target.value })} 
-                  disabled={!canEdit} 
-                  placeholder="Mohon matikan handphone. Luruskan dan rapatkan shaf." 
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Durasi Layar Penuh (Menit)</Label>
-                <Input 
-                  type="number"
-                  value={form.tv_prayer_overlay_duration || ""} 
-                  onChange={e => setForm({ ...form, tv_prayer_overlay_duration: parseInt(e.target.value) || 0 })} 
-                  disabled={!canEdit} 
-                />
-                <p className="text-xs text-muted-foreground">Setelah durasi ini habis, layar TV akan kembali normal ke tampilan awal.</p>
-              </div>
-            </div>
-
-            {/* Background TV Photo */}
-            <div className="space-y-3 pt-4 border-t">
-              <div>
-                <h4 className="font-semibold text-sm">🖼️ Foto Background Layar TV</h4>
-                <p className="text-xs text-muted-foreground mt-1">Atur foto masjid sebagai latar belakang layar TV. Jika tidak diisi, tampilan default (gradien gelap) akan digunakan.</p>
-              </div>
-
-              {/* Preview */}
-              {form.tv_background_url ? (
-                <div className="relative rounded-xl overflow-hidden border border-muted group">
-                  <img
-                    src={form.tv_background_url}
-                    alt="Background TV"
-                    className="w-full h-40 object-cover"
-                    onError={e => { e.target.style.display = 'none'; }}
-                  />
-                  {/* Preview overlay simulasi TV */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/50 to-black/75 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <div className="text-3xl mb-1">📺</div>
-                      <p className="text-xs font-semibold opacity-80">Preview Background TV</p>
-                      <p className="text-xs opacity-50">Overlay gelap otomatis diterapkan</p>
+                <div className="space-y-4">
+                  <h4 className="font-bold text-sm flex items-center gap-2 px-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Kontrol Visibilitas Informasi
+                  </h4>
+                  <div className="bg-slate-50/50 rounded-2xl border p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold">Laporan Keuangan</Label>
+                        <p className="text-[10px] text-muted-foreground">Saldo & Infaq bulanan</p>
+                      </div>
+                      <Switch checked={form.tv_show_finance} onCheckedChange={v => setForm({ ...form, tv_show_finance: v })} disabled={!canEdit} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold">Petugas Jumat</Label>
+                        <p className="text-[10px] text-muted-foreground">Khatib, Imam & Bilal</p>
+                      </div>
+                      <Switch checked={form.tv_show_jumat} onCheckedChange={v => setForm({ ...form, tv_show_jumat: v })} disabled={!canEdit} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold">Jadwal Kegiatan & Absensi</Label>
+                        <p className="text-[10px] text-muted-foreground">Kiosk absensi otomatis</p>
+                      </div>
+                      <Switch checked={form.tv_show_activities} onCheckedChange={v => setForm({ ...form, tv_show_activities: v })} disabled={!canEdit} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold">Pengumuman Digital</Label>
+                        <p className="text-[10px] text-muted-foreground">Running text & maklumat</p>
+                      </div>
+                      <Switch checked={form.tv_show_announcements} onCheckedChange={v => setForm({ ...form, tv_show_announcements: v })} disabled={!canEdit} />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-semibold">Barcode Donasi (QRIS)</Label>
+                        <p className="text-[10px] text-muted-foreground">QR Code di pojok layar</p>
+                      </div>
+                      <Switch checked={form.tv_show_qrcode} onCheckedChange={v => setForm({ ...form, tv_show_qrcode: v })} disabled={!canEdit} />
                     </div>
                   </div>
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={() => setForm({ ...form, tv_background_url: "" })}
-                      className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white text-xs px-2.5 py-1 rounded-lg font-semibold opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      ✕ Hapus Foto
-                    </button>
-                  )}
                 </div>
-              ) : (
-                <div className="w-full h-28 rounded-xl border border-dashed border-muted-foreground/30 flex items-center justify-center bg-muted/20">
-                  <div className="text-center text-muted-foreground">
-                    <div className="text-2xl mb-1">🌙</div>
-                    <p className="text-xs">Menggunakan background default (gradien gelap)</p>
+              </div>
+
+              {/* RIGHT COLUMN: Media & Overlay */}
+              <div className="space-y-6">
+                <div className="space-y-3">
+                  <h4 className="font-bold text-sm flex items-center gap-2 px-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Slide & Banner TV
+                  </h4>
+                  <div className="space-y-2">
+                    <Textarea 
+                      value={form.tv_slideshow_urls || ""} 
+                      onChange={e => setForm({ ...form, tv_slideshow_urls: e.target.value })} 
+                      disabled={!canEdit} 
+                      rows={3} 
+                      className="bg-white text-xs rounded-xl"
+                      placeholder="https://example.com/banner1.jpg, https://example.com/banner2.png" 
+                    />
+                    <p className="text-[10px] text-muted-foreground leading-relaxed italic">Pisahkan link gambar dengan koma (,).</p>
                   </div>
                 </div>
-              )}
 
-              {/* Upload atau URL */}
-              {canEdit && (
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm hover:bg-muted transition-colors font-medium flex-shrink-0">
-                      <Upload className="h-4 w-4" /> Upload Foto
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async e => {
+                <div className="space-y-4 pt-2">
+                  <h4 className="font-bold text-sm flex items-center gap-2 px-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500" /> Mode Waktu Shalat (Full Overlay)
+                  </h4>
+                  <div className="bg-slate-50/50 rounded-2xl border p-5 space-y-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold">Pesan Himbauan</Label>
+                      <Input 
+                        value={form.tv_prayer_overlay_text || ""} 
+                        onChange={e => setForm({ ...form, tv_prayer_overlay_text: e.target.value })} 
+                        disabled={!canEdit} 
+                        className="h-9 bg-white"
+                        placeholder="Mohon matikan handphone. Luruskan dan rapatkan shaf." 
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-[11px] font-bold">Durasi Layar Penuh (Menit)</Label>
+                      <Input 
+                        type="number"
+                        value={form.tv_prayer_overlay_duration || ""} 
+                        onChange={e => setForm({ ...form, tv_prayer_overlay_duration: parseInt(e.target.value) || 0 })} 
+                        disabled={!canEdit} 
+                        className="h-9 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-2">
+                  <h4 className="font-bold text-sm flex items-center gap-2 px-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" /> Background Layar TV
+                  </h4>
+                  <div className="space-y-3">
+                    {form.tv_background_url ? (
+                      <div className="relative rounded-[1.5rem] overflow-hidden border group aspect-video bg-black shadow-lg">
+                        <img src={form.tv_background_url} alt="BG TV" className="w-full h-full object-cover opacity-60 transition-opacity group-hover:opacity-40" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <p className="text-white text-[10px] font-bold uppercase tracking-widest bg-black/40 px-3 py-1.5 rounded-full backdrop-blur-md">Preview Background</p>
+                        </div>
+                        {canEdit && (
+                          <button type="button" onClick={() => setForm({ ...form, tv_background_url: "" })}
+                            className="absolute top-3 right-3 bg-red-500 text-white w-8 h-8 flex items-center justify-center rounded-full shadow-lg hover:bg-red-600 transition-colors z-10">✕</button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-full aspect-video rounded-[1.5rem] border border-dashed flex flex-col items-center justify-center bg-slate-50 text-muted-foreground border-slate-300">
+                        <Sparkles className="h-8 w-8 mb-2 opacity-20" />
+                        <p className="text-[10px] font-bold uppercase tracking-wider opacity-60">Background Default (Gradien Gelap)</p>
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-[10px] hover:bg-slate-100 transition-colors font-black uppercase bg-white shadow-sm shrink-0">
+                        <Upload className="h-3.5 w-3.5" /> Upload
+                        <input type="file" accept="image/*" className="hidden" onChange={async e => {
                           const file = e.target.files[0];
                           if (!file) return;
+                          toast.loading("Mengunggah Background...");
                           try {
                             const { file_url } = await smartApi.integrations.Core.UploadFile({ file });
                             setForm(f => ({ ...f, tv_background_url: file_url }));
-                            toast.success("Foto background berhasil diunggah");
-                          } catch (err) {
-                            toast.error("Gagal upload: " + err.message);
-                          }
-                        }}
-                      />
-                    </label>
-                    <Input
-                      value={form.tv_background_url || ""}
-                      onChange={e => setForm({ ...form, tv_background_url: e.target.value })}
-                      placeholder="Atau paste URL foto masjid..."
-                      className="flex-1"
-                    />
+                            toast.dismiss(); toast.success("Background diperbarui!");
+                          } catch (err) { toast.dismiss(); toast.error(err.message); }
+                        }} />
+                      </label>
+                      <Input value={form.tv_background_url || ""} onChange={e => setForm({ ...form, tv_background_url: e.target.value })}
+                        placeholder="Atau tempel Link URL Foto..." className="h-10 bg-white text-xs rounded-xl shadow-sm" />
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Rekomendasi: foto eksterior/interior masjid, resolusi minimal 1920×1080px (Full HD). Foto akan diberi overlay gelap otomatis agar teks info tetap terbaca.</p>
                 </div>
-              )}
+              </div>
             </div>
-
           </div>
         )}
 

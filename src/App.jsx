@@ -164,11 +164,13 @@ const AuthenticatedApp = () => {
         <Route path="/admin/roles" element={<ProtectedRoute isAdminOnly><AdminRoles /></ProtectedRoute>} />
         <Route path="/admin/broadcast" element={<ProtectedRoute isAdminOnly><AdminBroadcast /></ProtectedRoute>} />
         <Route path="/admin/licenses" element={<ProtectedRoute isAdminOnly><AdminLicenses /></ProtectedRoute>} />
+        <Route path="/admin/audit-logs" element={<ProtectedRoute isAdminOnly><AuditLogs /></ProtectedRoute>} />
 
         {/* Mosque Functional Routes - Protected by Permissions */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/audit-logs" element={<ProtectedRoute isAdminOnly><AuditLogs /></ProtectedRoute>} />
+        <Route path="/audit-logs" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>} />
         <Route path="/pengaturan" element={<ProtectedRoute><Pengaturan /></ProtectedRoute>} />
+        <Route path="/hak-akses" element={<ProtectedRoute><AdminRoles /></ProtectedRoute>} />
         
         <Route path="/jamaah" element={<ProtectedRoute permission="jamaah"><Jamaah /></ProtectedRoute>} />
         <Route path="/keuangan" element={<ProtectedRoute permission="keuangan"><Keuangan /></ProtectedRoute>} />

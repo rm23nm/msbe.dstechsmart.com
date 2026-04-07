@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
 import PageHeader from "@/components/PageHeader";
 import { ShieldAlert, Save, Plus, Trash2 } from "lucide-react";
@@ -9,49 +10,69 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { useMosqueContext } from "@/lib/useMosqueContext";
 
-const AVAILABLE_MENUS = [
-  // Mosque Menus
+const SYSTEM_MENUS = [
+  { id: "admin", label: "Dashboard Pusat" },
+  { id: "admin-mosques", label: "Kelola Masjid" },
+  { id: "admin-users", label: "Pengguna" },
+  { id: "admin-billing", label: "Billing & Transaksi" },
+  { id: "admin-packages", label: "Paket & Fitur" },
+  { id: "admin-reports", label: "Laporan Pusat" },
+  { id: "admin-settings", label: "Pengaturan Aplikasi" },
+  { id: "admin-roles", label: "Hak Akses Role Pusat" }
+];
+
+const MOSQUE_MENUS = [
   { id: "dashboard", label: "Dashboard Masjid" },
   { id: "keuangan", label: "Keuangan" },
   { id: "laporan-keuangan", label: "Laporan Keuangan" },
   { id: "kegiatan", label: "Kegiatan" },
   { id: "aset", label: "Aset Masjid" },
-  { id: "jamaah", label: "Jamaah" },
+  { id: "jamaah", label: "Jamaah & Database" },
   { id: "jamaah-dashboard", label: "Portal Jamaah" },
   { id: "analitik", label: "Analitik" },
   { id: "ai-analitik", label: "AI Analitik" },
   { id: "donasi-masjid", label: "Donasi Masjid" },
-  { id: "absensi", label: "Absensi" },
+  { id: "absensi", label: "Absensi & Kehadiran" },
   { id: "pengumuman", label: "Pengumuman" },
   { id: "info-publik", label: "Info Publik" },
   { id: "telegram", label: "Integrasi Telegram" },
   { id: "portfolio", label: "Portofolio Digital" },
   { id: "tv", label: "TV Masjid Smart" },
   { id: "pengaturan", label: "Pengaturan Masjid" },
-  
-  // Superadmin Menus
-  { id: "admin", label: "Superadmin: Dashboard" },
-  { id: "admin-mosques", label: "Superadmin: Kelola Masjid" },
-  { id: "admin-users", label: "Superadmin: Pengguna" },
-  { id: "admin-billing", label: "Superadmin: Billing" },
-  { id: "admin-packages", label: "Superadmin: Paket & Fitur" },
-  { id: "admin-reports", label: "Superadmin: Laporan" },
-  { id: "admin-settings", label: "Superadmin: Pengatura Aplikasi" },
-  { id: "admin-roles", label: "Superadmin: Hak Akses Role" }
+  { id: "hak-akses", label: "Hak Akses" }
 ];
 
-const DEFAULT_ROLES = ["superadmin", "admin_masjid", "bendahara", "pengurus", "user", "jamaah", "ketua_dkm", "sekretaris", "imam", "marbot", "amil", "humas"];
+const SYSTEM_ROLES = ["superadmin", "admin_masjid"];
+const PROTECTED_ROLES = ["superadmin", "admin_masjid"];
 
 export default function AdminRoles() {
-  const { rolePermissions, hasPermission, reload } = useMosqueContext();
+  const location = useLocation();
+  const { user } = useMosqueContext();
+  const { rolePermissions, reload } = useMosqueContext();
   const [localRoles, setLocalRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
   const [editingPermissions, setEditingPermissions] = useState({});
   const [loading, setLoading] = useState(false);
 
+  // CONTEXT DETECTION BASED ON URL
+  const isSystemContext = location.pathname.startsWith("/admin");
+  const displayedMenus = isSystemContext ? SYSTEM_MENUS : MOSQUE_MENUS;
+
   useEffect(() => {
     if (rolePermissions) {
-      setLocalRoles(rolePermissions);
+      // STRICT FILTERING
+      const filtered = rolePermissions.filter(r => {
+        if (isSystemContext) {
+          // Superadmin ONLY manages SYSTEM roles (Global and match system list)
+          return r.mosque_id === null && SYSTEM_ROLES.includes(r.role_name);
+        } else {
+          // Mosque Admin ONLY manages LOCAL roles (specific to their mosque)
+          // Hide Superadmin/System roles from them
+          return r.mosque_id === user?.current_mosque_id && !SYSTEM_ROLES.includes(r.role_name);
+        }
+      });
+      
+      setLocalRoles(filtered);
       // If we have a selected role, update its permissions from the fresh list
       if (selectedRole) {
         const fresh = rolePermissions.find(r => r.role_name === selectedRole.role_name && r.mosque_id === selectedRole.mosque_id);
@@ -80,6 +101,8 @@ export default function AdminRoles() {
     try {
        const newRp = await smartApi.auth.saveRole({
          role_name: roleKey,
+         mosque_id: isSystemContext ? null : user?.current_mosque_id,
+         is_local: !isSystemContext, // Tell backend this is a local mosque role
          permissions: "{}"
        });
        toast.success(`Role ${roleKey} berhasil dibuat.`);
@@ -90,12 +113,13 @@ export default function AdminRoles() {
   };
 
   const handleDeleteRole = async (id, name) => {
-    if (DEFAULT_ROLES.includes(name)) return toast.error("Role sistem tidak bisa dihapus.");
+    if (PROTECTED_ROLES.includes(name)) return toast.error("Role sistem utama ini tidak bisa dihapus.");
     if (!confirm(`Hapus role "${name}"? Reset hak akses ke role ini tidak bisa dibatalkan.`)) return;
     
     try {
-      await smartApi.auth.deleteRole(name, false); // Admin deletes non-local (global) by default if they are superadmin
-      toast.success(`Role ${name} dihapus`);
+      setLoading(true);
+      await smartApi.auth.deleteRole(name, !isSystemContext); 
+      toast.success(`Role ${name} berhasil dihapus`);
       setSelectedRole(null);
       if (reload) reload();
     } catch (e) {
@@ -137,7 +161,7 @@ export default function AdminRoles() {
     try {
       await smartApi.auth.saveRole({
         role_name: selectedRole.role_name,
-        mosque_id: selectedRole.mosque_id || null,
+        mosque_id: isSystemContext ? null : user?.current_mosque_id,
         permissions: JSON.stringify(editingPermissions || {})
       });
       
@@ -159,41 +183,56 @@ export default function AdminRoles() {
   return (
     <div className="space-y-6">
       <PageHeader 
-        title="Pengaturan Hak Akses (Role)" 
-        description="Atur modul apa saja yang bisa dilihat, diubah, atau dihapus oleh setiap role (Superadmin, Jamaah, dsb)." 
+        title={isSystemContext ? "Pusat Hak Akses Sistem" : "Pengaturan Hak Akses Staff"} 
+        description={isSystemContext ? "Kelola role utama yang berlaku global di seluruh sistem." : "Atur hak akses departemen atau petugas di masjid Anda."} 
       />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-card rounded-xl border p-4 space-y-4">
           <div className="space-y-4">
             <div className="space-y-2">
-              <h3 className="font-semibold text-sm text-muted-foreground uppercase">Role Utama Sistem</h3>
+              <h3 className="font-semibold text-xs text-muted-foreground uppercase opacity-70">
+                {isSystemContext ? "Role Sistem Pusat" : "Role Pengurus Masjid"}
+              </h3>
               <div className="space-y-1">
                 {localRoles.map(rp => (
-                  <button 
+                  <div 
                     key={`${rp.mosque_id}-${rp.role_name}`}
                     onClick={() => handleSelectRole(rp)}
-                    className={`w-full flex items-center justify-between p-3 rounded-lg text-sm font-medium transition-colors ${selectedRole?.role_name === rp.role_name && selectedRole?.mosque_id === rp.mosque_id ? 'bg-primary/10 text-primary border border-primary/20' : 'hover:bg-muted text-foreground'}`}
+                    className={`group w-full flex items-center justify-between p-3 rounded-lg text-sm font-medium transition-all cursor-pointer border ${selectedRole?.role_name === rp.role_name && selectedRole?.mosque_id === rp.mosque_id ? 'bg-primary/10 text-primary border-primary/30 shadow-sm' : 'bg-white hover:bg-muted/50 border-transparent'}`}
                   >
-                    <span className="capitalize">{rp.role_name}</span>
-                    {!DEFAULT_ROLES.includes(rp.role_name) && (
-                      <Trash2 
-                        className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteRole(rp.id, rp.role_name); }}
-                      />
+                    <span className="capitalize">{rp.role_name.replace(/_/g, ' ')}</span>
+                    {!PROTECTED_ROLES.includes(rp.role_name) && (
+                      <div
+                        className="p-1.5 rounded-md hover:bg-destructive hover:text-white text-muted-foreground transition-all ml-2"
+                        onClick={(e) => { 
+                          e.preventDefault();
+                          e.stopPropagation(); 
+                          handleDeleteRole(rp.id, rp.role_name); 
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </div>
                     )}
-                  </button>
+                  </div>
                 ))}
+                {localRoles.length === 0 && (
+                   <p className="text-[10px] text-muted-foreground p-2">Belum ada role kustom.</p>
+                )}
               </div>
             </div>
-
-            <Button variant="outline" className="w-full gap-2 border-dashed" onClick={handleAddNewRole}>
-               <Plus className="h-4 w-4" /> Tambah Role Kustom
-            </Button>
+            
+            <div className="pt-2">
+              <Button variant="outline" size="sm" className="w-full gap-2 border-dashed h-9 justify-start px-3" onClick={handleAddNewRole}>
+                 <Plus className="h-4 w-4" /> Tambah Role Baru
+              </Button>
+            </div>
           </div>
           
           <div className="text-[10px] text-muted-foreground pt-4 border-t leading-relaxed">
-            Role <b>superadmin</b> memiliki akses penuh. Role <b>jamaah</b> sebaiknya hanya memiliki akses View ke Dashboard Jamaah / Info Publik.
+            {isSystemContext ? 
+              "Mengelola Role Sistem (Pusat)." : 
+              "Mengelola Role Operasional Masjid."}
           </div>
         </div>
 
@@ -220,11 +259,14 @@ export default function AdminRoles() {
                     </tr>
                   </thead>
                   <tbody>
-                    {AVAILABLE_MENUS.map(menu => {
+                    {displayedMenus.map(menu => {
                       const perms = (editingPermissions && editingPermissions[menu.id]) || { view: false, edit: false, delete: false };
                       return (
-                        <tr key={menu.id} className="border-b last:border-0 hover:bg-muted/20">
-                          <td className="p-4 font-medium">{menu.label}</td>
+                        <tr key={menu.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <div className="font-medium">{menu.label}</div>
+                            <div className="text-[10px] text-muted-foreground uppercase">{menu.id}</div>
+                          </td>
                           <td className="p-4 text-center">
                             <Checkbox 
                               checked={!!perms.view}

@@ -9,6 +9,7 @@ import RecentTransactions from "../components/dashboard/RecentTransactions";
 import UpcomingActivities from "../components/dashboard/UpcomingActivities";
 import FinancialChart from "../components/dashboard/FinancialChart";
 import AnnouncementsList from "../components/dashboard/AnnouncementsList";
+import RecentActivity from "../components/dashboard/RecentActivity";
 import { TrendingUp, TrendingDown, PiggyBank, Calendar, Landmark, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -219,6 +220,16 @@ export default function Dashboard() {
       >
         <RecentTransactions transactions={transactions.slice(0, 5)} />
         <UpcomingActivities activities={activities.filter(a => a.status === 'upcoming').slice(0, 5)} />
+      </motion.div>
+
+      {/* Audit Log / Recent Activity - LOCKED to mosque */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+        className="grid grid-cols-1 gap-6"
+      >
+         <RecentActivity mosqueId={currentMosque.id} limit={5} showFilter={false} />
       </motion.div>
     </motion.div>
   );

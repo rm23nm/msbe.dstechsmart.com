@@ -34,7 +34,8 @@ export default function ActivityForm({ item, onSave, onCancel }) {
     location: item?.location || "",
     imam: item?.imam || "",
     muadzin: item?.muadzin || "",
-    status: item?.status || "upcoming",
+    image_url: item?.image_url || "",
+    video_url: item?.video_url || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -46,7 +47,7 @@ export default function ActivityForm({ item, onSave, onCancel }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
       <div className="space-y-2">
         <Label>Judul Kegiatan</Label>
         <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required placeholder="Nama kegiatan" />
@@ -74,6 +75,35 @@ export default function ActivityForm({ item, onSave, onCancel }) {
             </SelectContent>
           </Select>
         </div>
+      </div>
+
+      {/* MEDIA SECTION */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30 p-3 rounded-lg border border-dashed">
+         <div className="space-y-2">
+            <Label className="text-xs">Link Foto Dokumentasi</Label>
+            <div className="flex flex-col gap-2">
+               {form.image_url && (
+                 <img src={form.image_url} alt="Preview" className="w-full h-20 object-cover rounded border" />
+               )}
+               <Input 
+                 value={form.image_url} 
+                 onChange={(e) => setForm({ ...form, image_url: e.target.value })} 
+                 placeholder="Tempel Link Foto (Postimages/Imgur/dll)" 
+                 className="h-8 text-[10px] bg-white"
+               />
+               <p className="text-[9px] text-muted-foreground italic">Tempel Direct Link foto kegiatan dari layanan eksternal.</p>
+            </div>
+         </div>
+         <div className="space-y-2">
+            <Label className="text-xs">Link Video (YouTube)</Label>
+            <Input 
+              value={form.video_url} 
+              onChange={(e) => setForm({ ...form, video_url: e.target.value })} 
+              placeholder="https://..." 
+              className="h-8 text-[10px]"
+            />
+            <p className="text-[9px] text-muted-foreground mt-1">Sertakan link video YouTube dokumentasi kegiatan.</p>
+         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

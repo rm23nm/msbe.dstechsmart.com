@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { smartApi } from "@/api/apiClient";
+import { useAuth } from "@/lib/AuthContext";
 import { useMosqueContext } from "@/lib/useMosqueContext";
+import { useLocation } from "react-router-dom";
 import PageHeader from "@/components/PageHeader";
 import { 
   Table, 
@@ -28,20 +30,44 @@ import { id } from "date-fns/locale";
 
 export default function AuditLogs() {
   const { currentMosque } = useMosqueContext();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [mosques, setMosques] = useState([]); 
+  const [selectedMosqueId, setSelectedMosqueId] = useState(""); 
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  
+  const { user } = useAuth();
+  const location = useLocation();
+  const isSuper = user?.role === "superadmin";
+  const isAdminView = location.pathname.startsWith("/admin");
+  const isMosqueView = location.pathname === "/audit-logs";
 
   useEffect(() => {
-    if (currentMosque) loadLogs();
-  }, [currentMosque]);
+    if (isAdminView && isSuper) {
+      loadMosques();
+      loadLogs(selectedMosqueId);
+    } else if (currentMosque) {
+      // Locked to current mosque
+      loadLogs(currentMosque.id);
+    }
+  }, [currentMosque, isAdminView, isSuper, selectedMosqueId]);
 
-  async function loadLogs() {
+  async function loadMosques() {
+    try {
+      const data = await smartApi.entities.Mosque.list();
+      setMosques(data);
+    } catch (e) {
+      console.error("Gagal memuat daftar masjid:", e);
+    }
+  }
+
+  async function loadLogs(mosqueId) {
     setLoading(true);
     try {
-      // Mengambil histori khusus untuk masjid ini
+      // Mengambil histori berdasarkan filter masjid (khusus 'SYSTEM' untuk log pusat tanpa mosque_id)
+      const filter = mosqueId === "SYSTEM" ? { mosque_id: null } : mosqueId ? { mosque_id: mosqueId } : {};
       const data = await smartApi.entities.AuditLog.filter(
-        { mosque_id: currentMosque.id }, 
+        filter, 
         '-createdAt', 
         500
       );
@@ -84,8 +110,8 @@ export default function AuditLogs() {
         description="Pantau setiap aksi penambahan, perubahan, dan penghapusan data masjid Bapak."
       />
 
-      <div className="flex items-center gap-4 bg-card p-4 rounded-2xl border shadow-sm">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex flex-wrap items-center gap-4 bg-card p-4 rounded-2xl border shadow-sm">
+        <div className="relative flex-1 min-w-[200px] max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Cari pengurus atau aktivitas..." 
@@ -94,7 +120,29 @@ export default function AuditLogs() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="text-xs text-muted-foreground font-medium">
+
+        {isAdminView && isSuper && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-500 uppercase">Filter Masjid:</span>
+            <select 
+              className="px-4 py-2 rounded-xl border border-slate-200 bg-emerald-50 text-emerald-900 text-sm font-bold focus:ring-2 focus:ring-primary/20 outline-none min-w-[240px]"
+              value={selectedMosqueId}
+              onChange={(e) => setSelectedMosqueId(e.target.value)}
+            >
+              <option value="">Seluruh Masjid & Sistem</option>
+              <option value="SYSTEM" className="font-black italic">⭐ Aktivitas Pusat (Sistem)</option>
+              {mosques.length > 0 && (
+                <optgroup label="Daftar Masjid">
+                  {mosques.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+        )}
+
+        <div className="text-xs text-muted-foreground font-medium ml-auto">
           Menampilkan {filteredLogs.length} jejak aktivitas terbaru
         </div>
       </div>
@@ -140,12 +188,15 @@ export default function AuditLogs() {
                       {format(new Date(log.createdAt), "d MMM yyyy, HH:mm", { locale: id })}
                     </div>
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
                         {log.user_name?.[0] || <User className="h-3 w-3" />}
                       </div>
-                      <span className="font-bold text-sm text-slate-900">{log.user_name}</span>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-sm text-slate-900">{log.user_name}</span>
+                        {!log.mosque_id && <span className="text-[9px] font-black text-emerald-600 uppercase italic leading-none mt-0.5">Admin Pusat</span>}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -159,8 +210,15 @@ export default function AuditLogs() {
                       {log.entity}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-sm text-slate-700 font-medium">
-                    {log.description}
+                   <TableCell className="text-sm text-slate-700 font-medium">
+                    <div className="flex flex-col gap-1">
+                      {log.description}
+                      {log.mosque_id && isSuper && (
+                        <span className="text-[9px] text-slate-400 font-bold uppercase italic">
+                          Mosque ID: {log.mosque_id.slice(0, 8)}...
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

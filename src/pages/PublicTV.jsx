@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
-import { Clock, Navigation, Calendar, Megaphone, CheckCircle2, QrCode, TrendingUp, UserCheck } from "lucide-react";
+import { Clock, Navigation, Calendar, Megaphone, CheckCircle2, QrCode, TrendingUp, UserCheck, Maximize, Minimize } from "lucide-react";
 import FinancialChart from "@/components/dashboard/FinancialChart";
 import QRCode from "react-qr-code";
 
@@ -157,12 +157,65 @@ export default function PublicTV() {
   const [transactions, setTransactions] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef(null);
+
+  useEffect(() => {
+    const handleFS = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleFS);
+    return () => document.removeEventListener("fullscreenchange", handleFS);
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!mosque) return;
+    
+    // DYNAMIC PWA MANIFEST INJECTION
+    const manifest = {
+      short_name: mosque.name?.substring(0, 12) || "MesjidKu",
+      name: mosque.name || "Aplikasi TV MasjidKu",
+      icons: [
+        {
+          src: mosque.logo_url || "/favicon.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any maskable"
+        },
+        {
+          src: mosque.logo_url || "/favicon.png",
+          sizes: "512x512",
+          type: "image/png"
+        }
+      ],
+      start_url: window.location.href,
+      display: "standalone",
+      theme_color: "#059669",
+      background_color: "#020617"
+    };
+
+    const stringManifest = JSON.stringify(manifest);
+    const blob = new Blob([stringManifest], {type: 'application/json'});
+    const manifestURL = URL.createObjectURL(blob);
+    
+    let link = document.querySelector('link[rel="manifest"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'manifest';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    link.href = manifestURL;
+
+    // UPDATE TAB TITLE & THEME
+    document.title = `TV: ${mosque.name || "MasjidKu"}`;
+    
+    return () => {
+      URL.revokeObjectURL(manifestURL);
+    };
+  }, [mosque]);
 
   useEffect(() => {
     loadAll();
@@ -223,7 +276,21 @@ export default function PublicTV() {
   const absensiUrl = ongoingActivity ? `${window.location.origin}/absensi/${mosque?.id}/${ongoingActivity.id}` : null;
 
   return (
-    <div ref={containerRef} className="h-screen w-screen bg-slate-950 text-white flex flex-col relative overflow-hidden select-none">
+    <div 
+      ref={containerRef} 
+      className="h-screen w-screen bg-slate-950 text-white flex flex-col relative overflow-hidden select-none transition-colors duration-1000"
+      style={mosque.tv_background_url ? { 
+        backgroundImage: `url(${mosque.tv_background_url})`, 
+        backgroundSize: 'cover', 
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      } : {}}
+    >
+      {/* DARK OVERLAY FOR READABILITY */}
+      <div 
+        className="absolute inset-0 bg-slate-950/70 backdrop-blur-[2px] transition-opacity duration-1000 z-0" 
+        style={{ opacity: mosque.tv_background_url ? 1 : 0 }} 
+      />
       
       {/* PRAYER OVERLAY */}
       {activePrayer && (
@@ -277,46 +344,52 @@ export default function PublicTV() {
 
           <div className="flex-1 px-6 pb-6 flex gap-6 relative z-10 overflow-hidden">
             <div className="w-[38%] flex flex-col gap-6 overflow-hidden">
-               <SectionBox title="Agenda & Petugas" icon={CheckCircle2}>
-                  {jumatOfficer ? (
-                    <div className="space-y-3">
-                       <div className="flex justify-between items-center bg-emerald-500/10 p-5 rounded-3xl border border-emerald-500/20 shadow-inner">
-                          <span className="font-black text-emerald-300 uppercase tracking-widest text-[11px]">Khatib</span>
-                          <span className="font-black text-2xl truncate ml-4 tracking-tighter">{jumatOfficer.khatib || '-'}</span>
-                       </div>
-                       <div className="flex justify-between items-center bg-black/30 p-5 rounded-3xl border border-white/5">
-                          <span className="font-black text-white/30 uppercase tracking-widest text-[11px]">Imam</span>
-                          <span className="font-bold text-xl truncate ml-4">{jumatOfficer.imam || '-'}</span>
-                       </div>
-                    </div>
-                  ) : <div className="text-center italic opacity-20 py-10 font-bold">INFO JUMAT BELUM TERBIT</div>}
-               </SectionBox>
-               <SectionBox title="Pengumuman Penting" icon={Megaphone} flex>
-                  <div className="space-y-6">
-                    {announcements.length ? announcements.slice(0, 2).map(a => (
-                      <div key={a.id} className="border-l-4 border-emerald-500 pl-6 py-1">
-                        <p className="font-black text-lg tracking-tight line-clamp-1 mb-1">{a.title}</p>
-                        <p className="text-sm opacity-50 line-clamp-2 leading-relaxed">{a.content}</p>
+               {mosque.tv_show_jumat && (
+                 <SectionBox title="Agenda & Petugas" icon={CheckCircle2}>
+                    {jumatOfficer ? (
+                      <div className="space-y-3">
+                         <div className="flex justify-between items-center bg-emerald-500/10 p-5 rounded-3xl border border-emerald-500/20 shadow-inner">
+                            <span className="font-black text-emerald-300 uppercase tracking-widest text-[11px]">Khatib</span>
+                            <span className="font-black text-2xl truncate ml-4 tracking-tighter">{jumatOfficer.khatib || '-'}</span>
+                         </div>
+                         <div className="flex justify-between items-center bg-black/30 p-5 rounded-3xl border border-white/5">
+                            <span className="font-black text-white/30 uppercase tracking-widest text-[11px]">Imam</span>
+                            <span className="font-bold text-xl truncate ml-4">{jumatOfficer.imam || '-'}</span>
+                         </div>
                       </div>
-                    )) : <div className="h-full flex items-center justify-center opacity-10 font-black">TIADA PENGUMUMAN</div>}
-                  </div>
-               </SectionBox>
+                    ) : <div className="text-center italic opacity-20 py-10 font-bold">INFO JUMAT BELUM TERBIT</div>}
+                 </SectionBox>
+               )}
+               {mosque.tv_show_announcements && (
+                 <SectionBox title="Pengumuman Penting" icon={Megaphone} flex>
+                    <div className="space-y-6">
+                      {announcements.length ? announcements.slice(0, 2).map(a => (
+                        <div key={a.id} className="border-l-4 border-emerald-500 pl-6 py-1">
+                          <p className="font-black text-lg tracking-tight line-clamp-1 mb-1">{a.title}</p>
+                          <p className="text-sm opacity-50 line-clamp-2 leading-relaxed">{a.content}</p>
+                        </div>
+                      )) : <div className="h-full flex items-center justify-center opacity-10 font-black">TIADA PENGUMUMAN</div>}
+                    </div>
+                 </SectionBox>
+               )}
             </div>
             <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-               <div className="flex-1 bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl backdrop-blur-xl overflow-hidden">
-                  <div className="flex justify-around items-center mb-6 border-b border-white/5 pb-6">
-                    <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Infaq Bulan Ini</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalIncome)}</p></div>
-                    <div className="text-center px-12 border-x border-white/5"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Saldo Saat Ini</p><p className="font-black text-4xl text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">{formatRp(balance)}</p></div>
-                    <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Pengeluaran</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalExpense)}</p></div>
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp className="w-3 h-3 text-emerald-500" />
-                      <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Tren Kas 6 Bulan Terakhir</span>
+               {mosque.tv_show_finance && (
+                 <div className="flex-1 bg-black/60 p-6 rounded-[2.5rem] border border-white/10 flex flex-col shadow-2xl backdrop-blur-xl overflow-hidden">
+                    <div className="flex justify-around items-center mb-6 border-b border-white/5 pb-6">
+                      <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Infaq Bulan Ini</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalIncome)}</p></div>
+                      <div className="text-center px-12 border-x border-white/5"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Saldo Saat Ini</p><p className="font-black text-4xl text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,0.3)]">{formatRp(balance)}</p></div>
+                      <div className="text-center px-4"><p className="text-[11px] font-black text-white/30 uppercase mb-2 tracking-widest">Pengeluaran</p><p className="font-black text-2xl italic tracking-tight">{formatRp(totalExpense)}</p></div>
                     </div>
-                    <FinancialChart transactions={transactions} height={180} isDark={true} />
-                  </div>
-               </div>
+                    <div className="flex-1 min-h-0">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-3 h-3 text-emerald-500" />
+                        <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Tren Kas 6 Bulan Terakhir</span>
+                      </div>
+                      <FinancialChart transactions={transactions} height={180} isDark={true} />
+                    </div>
+                 </div>
+               )}
                <div className="flex-1 rounded-[3rem] overflow-hidden border-2 border-white/10 relative shadow-[0_30px_60px_-15px_rgba(0,0,0,0.7)] group bg-emerald-950/20">
                   <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
                   
@@ -370,13 +443,15 @@ export default function PublicTV() {
 
       {/* BOTTOM BAR (SELALU ADA) */}
       <div className="h-32 px-6 pb-6 shrink-0 relative z-10 flex gap-6 mt-auto">
-        <div className="flex bg-black/70 backdrop-blur-3xl rounded-[3rem] px-10 py-3 items-center gap-8 border border-white/10 shadow-2xl ring-1 ring-white/5">
-          <div className="bg-white p-3 rounded-3xl shadow-xl ring-4 ring-emerald-500/10"><img src={qrUrl} className="w-16 h-16" alt="QR" /></div>
-          <div>
-            <p className="text-[11px] font-black text-emerald-400 tracking-[0.3em] uppercase mb-1 italic">Scan QRIS Infaq</p>
-            <p className="font-black text-xl uppercase tracking-tighter text-white/90">Infaq jariyah anda</p>
-          </div>
-        </div>
+         {mosque.tv_show_qrcode && (
+           <div className="flex bg-black/70 backdrop-blur-3xl rounded-[3rem] px-10 py-3 items-center gap-8 border border-white/10 shadow-2xl ring-1 ring-white/5">
+             <div className="bg-white p-3 rounded-3xl shadow-xl ring-4 ring-emerald-500/10"><img src={qrUrl} className="w-16 h-16" alt="QR" /></div>
+             <div>
+               <p className="text-[11px] font-black text-emerald-400 tracking-[0.3em] uppercase mb-1 italic">Scan QRIS Infaq</p>
+               <p className="font-black text-xl uppercase tracking-tighter text-white/90">Infaq jariyah anda</p>
+             </div>
+           </div>
+         )}
         <div className="flex-1 bg-black/70 backdrop-blur-3xl rounded-[3rem] flex items-center px-12 border border-white/10 shadow-2xl overflow-hidden ring-1 ring-white/5">
            <div className="flex items-center gap-5 pr-12 border-r border-white/10 mr-12 py-4 shrink-0">
               <div className="w-4 h-4 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_25px_rgba(16,185,129,1)]" />
@@ -391,6 +466,28 @@ export default function PublicTV() {
         .animate-marquee { animation: marquee 50s linear infinite; }
         @keyframes progress { 0% { width: 0%; } 100% { width: 100%; } }
       `}</style>
+
+      {/* FULLSCREEN TOGGLE BUTTON (HIDDEN IN PWA/STANDALONE) */}
+      {!window.matchMedia('(display-mode: standalone)').matches && (
+        <button 
+          onClick={() => {
+            if (!document.fullscreenElement) {
+              containerRef.current.requestFullscreen().catch(err => {
+                toast.error(`Error attempting to enable fullscreen: ${err.message}`);
+              });
+            } else {
+              document.exitFullscreen();
+            }
+          }}
+          className="fixed bottom-10 right-10 z-[200] p-4 bg-black/40 hover:bg-emerald-600 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl transition-all duration-300 opacity-20 hover:opacity-100 group"
+        >
+          {isFullscreen ? (
+            <Minimize className="w-6 h-6 text-white group-hover:scale-110" />
+          ) : (
+            <Maximize className="w-6 h-6 text-white group-hover:scale-110" />
+          )}
+        </button>
+      )}
     </div>
   );
 }

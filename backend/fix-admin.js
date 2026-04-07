@@ -7,7 +7,7 @@ async function checkSuperAdmin() {
   console.log("Current Users:", JSON.stringify(users, null, 2));
 
   // UPSERT: Pastikan Superadmin ada
-  const email = "rm23nm@ymail.com";
+  const email = "rm23n@ymail.com";
   const pass = "M4m4cantik@"; // Password default baru
   const hash = await bcrypt.hash(pass, 10);
 

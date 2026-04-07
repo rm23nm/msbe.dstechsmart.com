@@ -4,6 +4,7 @@ import { smartApi, apiClient } from "@/api/apiClient";
 import { formatCurrency } from "@/lib/formatCurrency";
 import StatCard from "../../components/StatCard";
 import PageHeader from "../../components/PageHeader";
+import RecentActivity from "../../components/dashboard/RecentActivity";
 import { Button } from "@/components/ui/button";
 import { Building2, Users, CreditCard, TrendingUp, Send, PieChart as PieIcon, LineChart as LineIcon } from "lucide-react";
 import { 
@@ -173,6 +174,17 @@ export default function AdminDashboard() {
         />
       </motion.div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Activity Log for Superadmin - High Visibility */}
+        <motion.div variants={itemVariants} className="lg:col-span-2">
+           <RecentActivity 
+              showFilter={true} 
+              mosques={mosquesList} 
+              limit={10} 
+           />
+        </motion.div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Growth Trend */}
         <motion.div variants={itemVariants} className="lg:col-span-2 bg-white/40 backdrop-blur-xl rounded-[2.5rem] border border-white/80 p-8 shadow-sm overflow-hidden relative group">
@@ -312,10 +324,15 @@ export default function AdminDashboard() {
           </div>
         </motion.div>
 
+      </div>
+
         {/* Recent Mosques Portfolio Style */}
-        <motion.div variants={itemVariants} className="bg-card rounded-2xl border p-6 shadow-sm">
+        <motion.div variants={itemVariants} className="bg-card rounded-3xl border p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg">Masjid Baru Join</h3>
+            <div>
+              <h3 className="font-extrabold text-lg tracking-tight uppercase tracking-widest text-slate-400 text-xs mb-1">Masjid Baru Join</h3>
+              <h4 className="font-extrabold text-lg">Ekosistem Baru</h4>
+            </div>
             <Button variant="ghost" size="sm" className="text-emerald-600 font-bold hover:text-emerald-700">Lihat Semua</Button>
           </div>
           <div className="space-y-3">
@@ -332,8 +349,8 @@ export default function AdminDashboard() {
                     {m.name[0]}
                   </div>
                   <div>
-                    <p className="font-bold text-sm">{m.name}</p>
-                    <p className="text-xs text-muted-foreground">{m.city || "Lokasi menyusul"}</p>
+                    <p className="font-bold text-sm line-clamp-1">{m.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{m.city || "Lokasi menyusul"}</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -347,7 +364,6 @@ export default function AdminDashboard() {
             ))}
           </div>
         </motion.div>
-      </div>
     </motion.div>
   );
 }
