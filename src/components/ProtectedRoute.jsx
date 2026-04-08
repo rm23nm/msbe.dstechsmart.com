@@ -5,7 +5,7 @@ import { useMosqueContext } from "@/lib/useMosqueContext";
 
 const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdminOnly = false }) => {
   const { user, isAuthenticated, isLoadingAuth } = useAuth();
-  const { hasPermission, currentMosque, loading: isLoadingMosque } = useMosqueContext();
+  const { hasPermission, currentMosque, loading: isLoadingMosque, permissions } = useMosqueContext();
   const location = useLocation();
 
   const isPublicPath =
