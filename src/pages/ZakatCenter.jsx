@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Calculator, HeartHandshake, History, TrendingUp, 
-  Coins, Wallet, Landmark, Plus, ArrowRightLeft, UserCheck 
+  Coins, Wallet, Building2, Plus, ArrowRightLeft, UserCheck 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -132,7 +132,7 @@ export default function ZakatCenter() {
       </PageHeader>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <StatCard title="Saldo Zakat Tersedia" value={formatCurrency(balance)} icon={Landmark} />
+        <StatCard title="Saldo Zakat Tersedia" value={formatCurrency(balance)} icon={Building2} />
         <StatCard title="Total Penerimaan" value={formatCurrency(totalCollected)} icon={TrendingUp} trendUp />
         <StatCard title="Total Penyaluran" value={formatCurrency(totalDistributed)} icon={HeartHandshake} />
       </div>

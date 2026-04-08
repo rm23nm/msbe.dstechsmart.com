@@ -5,7 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Landmark } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 export default function MosqueSwitcher({ mosques, currentMosque, onSwitch }) {
   const isStandalone = import.meta.env.VITE_SINGLE_MOSQUE_MODE === 'true';
@@ -16,7 +16,7 @@ export default function MosqueSwitcher({ mosques, currentMosque, onSwitch }) {
     <Select value={currentMosque?.id} onValueChange={onSwitch}>
       <SelectTrigger className="w-[200px]">
         <div className="flex items-center gap-2">
-          <Landmark className="h-4 w-4 text-primary" />
+          <Building2 className="h-4 w-4 text-primary" />
           <SelectValue placeholder="Pilih Masjid" />
         </div>
       </SelectTrigger>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { smartApi } from '@/api/apiClient';
 import { useLocation, useParams, useNavigate, Link } from 'react-router-dom';
-import { Landmark } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 export default function MosqueRegister({ customMosque }) {
   const { id } = useParams();
@@ -103,7 +103,7 @@ export default function MosqueRegister({ customMosque }) {
             <img src={mosque.logo_url} alt="Logo" className="w-14 h-14 rounded-xl object-cover shadow-sm mb-4" />
           ) : (
             <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4 text-primary">
-              <Landmark className="h-7 w-7" />
+              <Building2 className="h-7 w-7" />
             </div>
           )}
           <h1 className="text-xl font-bold text-slate-800">Pendaftaran Jamaah Baru</h1>

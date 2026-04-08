@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import QRCode from 'react-qr-code';
-import { ShieldCheck, Calendar, User, Landmark, Sparkles } from 'lucide-react';
+import { ShieldCheck, Calendar, User, Building2, Sparkles } from 'lucide-react';
 
 export default function DigitalMembershipCard({ member, mosque, isElite = false }) {
   if (!member) return null;
@@ -54,6 +54,7 @@ export default function DigitalMembershipCard({ member, mosque, isElite = false 
                 {memberName}
               </h3>
             </div>
+            <Building2 className="w-5 h-5 text-[#c5a059]" />
             
             <div className="flex gap-6">
               <div>

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { smartApi } from '@/api/apiClient';
 import { useLocation, Link } from 'react-router-dom';
-import { Users, Landmark, Search, ShieldCheck } from "lucide-react";
+import { Users, Building2, Search, ShieldCheck } from "lucide-react";
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -208,7 +208,7 @@ export default function Login() {
             <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-100/50 hover:bg-emerald-50 transition-colors">
               <div className="flex items-start gap-3">
                 <div className="bg-emerald-100 text-emerald-600 p-2 rounded-lg flex-shrink-0">
-                  <Landmark className="w-4 h-4" />
+                  <Building2 className="w-4 h-4" />
                 </div>
                 <div className="flex-1">
                   <h4 className="text-sm font-semibold text-emerald-900">Daftarkan Masjid Baru</h4>

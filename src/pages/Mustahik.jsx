@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { 
   Users, Plus, Pencil, Trash2, Heart, ShieldCheck, Search, HandHelping, 
-  Landmark, History, Upload, Image as ImageIcon, CheckCircle2, X 
+  Building2, History, Upload, Image as ImageIcon, CheckCircle2, X 
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -193,7 +193,7 @@ export default function Mustahik() {
 
               <div className="space-y-2 mb-6">
                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <Landmark className="h-3 w-3" />
+                    <Building2 className="h-3 w-3" />
                     <span>{m.address || "Alamat tidak tersedia"}</span>
                  </div>
                  <div className="flex items-center gap-2 text-xs text-slate-500">

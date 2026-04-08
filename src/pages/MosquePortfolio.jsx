@@ -6,7 +6,7 @@ import { useMosqueContext } from "@/lib/useMosqueContext";
 import QRCode from "react-qr-code";
 import { 
   Building2, Calendar, Users, MapPin, Phone, Instagram, Facebook, Youtube, Share2, Globe, Heart, 
-  ArrowRight, Landmark, Clock, MessageSquare, Megaphone, TrendingUp, TrendingDown, ClipboardCheck, BarChart3,
+  ArrowRight, Building2, Clock, MessageSquare, Megaphone, TrendingUp, TrendingDown, ClipboardCheck, BarChart3,
   Wallet, ArrowUpRight, ArrowDownRight, UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
   Info, Images, DollarSign, Users as UsersIcon, BookOpen, Home, Mail, Smartphone
 } from "lucide-react";
@@ -61,7 +61,7 @@ function HeroSlider({ slides, mosque }) {
       {/* Background */}
       {!slide && (
         <div className="absolute inset-0 flex items-center justify-center opacity-10">
-          <Landmark className="h-48 w-48 text-white" />
+          <Building2 className="h-48 w-48 text-white" />
         </div>
       )}
       {slide?.type === 'photo' && (
@@ -118,7 +118,7 @@ function HeroSlider({ slides, mosque }) {
           <div className="flex items-end gap-4">
             {mosque.logo_url
               ? <img src={mosque.logo_url} alt="Logo" className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-cover border-2 border-white/40 shadow-2xl bg-white flex-shrink-0" />
-              : <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-white/30 shadow-2xl flex-shrink-0"><Landmark className="h-8 w-8 text-white" /></div>
+              : <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/20 flex items-center justify-center border-2 border-white/30 shadow-2xl flex-shrink-0"><Building2 className="h-8 w-8 text-white" /></div>
             }
             <div className="text-white">
               <h1 className="text-2xl md:text-4xl font-bold drop-shadow-lg leading-tight">{mosque.name}</h1>
@@ -417,7 +417,7 @@ export default function MosquePortfolio({ mosque: initialMosque }) {
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="text-center"><div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-3" /><p className="text-muted-foreground text-sm">Memuat halaman masjid...</p></div></div>;
-  if (notFound) return <div className="min-h-screen flex items-center justify-center"><div className="text-center space-y-3"><Landmark className="h-16 w-16 text-muted-foreground mx-auto" /><h1 className="text-2xl font-bold">Masjid Tidak Ditemukan</h1><Link to="/" className="text-primary hover:underline text-sm">Kembali ke Beranda</Link></div></div>;
+  if (notFound) return <div className="min-h-screen flex items-center justify-center"><div className="text-center space-y-3"><Building2 className="h-16 w-16 text-muted-foreground mx-auto" /><h1 className="text-2xl font-bold">Masjid Tidak Ditemukan</h1><Link to="/" className="text-primary hover:underline text-sm">Kembali ke Beranda</Link></div></div>;
 
   const totalIn = transactions.filter(t => t.type === 'income').reduce((s,t) => s+(t.amount||0), 0);
   const totalOut = transactions.filter(t => t.type === 'expense').reduce((s,t) => s+(t.amount||0), 0);
@@ -502,7 +502,7 @@ export default function MosquePortfolio({ mosque: initialMosque }) {
 
             {/* About summary */}
             <div className="bg-card rounded-2xl border p-6">
-              <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Landmark className="h-5 w-5 text-primary" />Tentang {mosque.name}</h2>
+              <h2 className="font-semibold text-lg mb-3 flex items-center gap-2"><Building2 className="h-5 w-5 text-primary" />Tentang {mosque.name}</h2>
               <p className="text-muted-foreground text-sm leading-relaxed">{mosque.about || `${mosque.name} berlokasi di ${mosque.address}, ${mosque.city}. Melayani jamaah dengan berbagai kegiatan ibadah dan sosial kemasyarakatan.`}</p>
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-4 w-4 text-primary flex-shrink-0" />{mosque.address}, {mosque.city}</div>
@@ -806,7 +806,7 @@ export default function MosquePortfolio({ mosque: initialMosque }) {
               {/* Mosque Info */}
               <div className="md:col-span-2">
                 <div className="flex items-center gap-3 mb-4">
-                  {mosque.logo_url ? <img src={mosque.logo_url} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white/20"/> : <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center"><Landmark className="h-6 w-6 text-white"/></div>}
+                  {mosque.logo_url ? <img src={mosque.logo_url} alt="Logo" className="w-12 h-12 rounded-xl object-cover border-2 border-white/20"/> : <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center"><Building2 className="h-6 w-6 text-white"/></div>}
                   <div><h3 className="font-bold text-lg">{mosque.name}</h3><p className="text-white/60 text-sm">{mosque.city}{mosque.province?`, ${mosque.province}`:''}</p></div>
                 </div>
                 <p className="text-white/70 text-sm leading-relaxed mb-5">{mosque.about||`${mosque.name} berkomitmen melayani jamaah dengan sepenuh hati.`}</p>

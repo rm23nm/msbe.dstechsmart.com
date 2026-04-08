@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
-import { Search, MapPin, Phone, Mail, Globe, Users, ArrowRight, Landmark, ChevronLeft } from "lucide-react";
+import { Search, MapPin, Phone, Mail, Globe, Users, ArrowRight, Building2, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function CariMasjid() {
@@ -112,7 +112,7 @@ export default function CariMasjid() {
         {/* Empty */}
         {!loading && filtered.length === 0 && (
           <div className="text-center py-16 bg-white rounded-2xl border">
-            <Landmark className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <Building2 className="h-12 w-12 text-slate-300 mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-slate-700 mb-2">Masjid Tidak Ditemukan</h3>
             <p className="text-slate-500 text-sm max-w-sm mx-auto mb-6">
               {query
