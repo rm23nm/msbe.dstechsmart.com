@@ -63,7 +63,7 @@ export default function InfoPublik() {
     const [txns, acts, anns, prayers, jumat] = await Promise.all([
       smartApi.entities.Transaction.filter({ mosque_id: currentMosque.id }, '-date', 100),
       smartApi.entities.Activity.filter({ mosque_id: currentMosque.id }, '-date', 5),
-      smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id, status: 'published' }, '-created_date', 3),
+      smartApi.entities.Announcement.filter({ mosque_id: currentMosque.id, status: 'published' }, '-created_date', 20),
       smartApi.entities.PrayerTime.filter({ mosque_id: currentMosque.id }, '-created_date', 1),
       smartApi.entities.JumatOfficer.filter({ mosque_id: currentMosque.id }, '-jumat_date', 1),
     ]);
@@ -177,73 +177,90 @@ export default function InfoPublik() {
           </div>
         )}
 
-        {/* Paid features only */}
-        {isPaid && (
-          <>
-            {/* Financial Summary */}
-            {currentMosque.show_financial && (
-              <div className="px-6 md:px-10 pb-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                    <p className="text-xs text-primary-foreground/70">Saldo Kas</p>
-                    <p className="text-xl font-bold mt-1">{formatCurrency(balance)}</p>
-                  </div>
-                  <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                    <p className="text-xs text-primary-foreground/70">Total Pemasukan</p>
-                    <p className="text-xl font-bold mt-1 flex items-center gap-1"><ArrowUpRight className="h-4 w-4" /> {formatCurrency(totalIncome)}</p>
-                  </div>
-                  <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-                    <p className="text-xs text-primary-foreground/70">Total Pengeluaran</p>
-                    <p className="text-xl font-bold mt-1 flex items-center gap-1"><ArrowDownRight className="h-4 w-4" /> {formatCurrency(totalExpense)}</p>
-                  </div>
-                </div>
+        {/* Core Public Information Section (Financial & Communications) - AVAILABLE FOR ALL */}
+        <div className="space-y-4">
+          {/* Financial Summary */}
+          <div className="px-6 md:px-10 pb-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <p className="text-xs text-primary-foreground/70">Saldo Kas</p>
+                <p className="text-xl font-bold mt-1">{formatCurrency(balance)}</p>
               </div>
-            )}
-
-            {/* Activities & Announcements */}
-            <div className="px-6 md:px-10 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white/10 rounded-xl p-5 backdrop-blur-sm">
-                <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm"><Calendar className="h-4 w-4" /> Kegiatan Mendatang</h3>
-                {activities.length === 0 ? <p className="text-sm text-primary-foreground/60">Tidak ada kegiatan terjadwal</p> : (
-                  <div className="space-y-3">
-                    {activities.map(a => (
-                      <div key={a.id} className="flex items-center gap-3">
-                        <div className="w-1 h-8 bg-accent rounded-full" />
-                        <div>
-                          <p className="font-medium text-sm">{a.title}</p>
-                          <p className="text-xs text-primary-foreground/60">{formatDate(a.date)} {a.time_start ? `• ${a.time_start}` : ''}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <p className="text-xs text-primary-foreground/70">Pemasukan</p>
+                <p className="text-xl font-bold mt-1 flex items-center gap-1">
+                  <ArrowUpRight className="h-4 w-4" /> {formatCurrency(totalIncome)}
+                </p>
               </div>
-              <div className="bg-white/10 rounded-xl p-5 backdrop-blur-sm">
-                <h3 className="font-semibold mb-3 text-sm">📢 Pengumuman</h3>
-                {announcements.length === 0 ? <p className="text-sm text-primary-foreground/60">Tidak ada pengumuman</p> : (
-                  <div className="space-y-3">
-                    {announcements.map(a => (
-                      <div key={a.id}>
-                        <p className="font-medium text-sm">{a.title}</p>
-                        <p className="text-xs text-primary-foreground/60 line-clamp-2">{a.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                <p className="text-xs text-primary-foreground/70">Pengeluaran</p>
+                <p className="text-xl font-bold mt-1 flex items-center gap-1">
+                  <ArrowDownRight className="h-4 w-4" /> {formatCurrency(totalExpense)}
+                </p>
               </div>
             </div>
+          </div>
 
+          {/* Activities & Announcements */}
+          <div className="px-6 md:px-10 pb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white/10 rounded-xl p-5 backdrop-blur-sm">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4" /> Kegiatan Mendatang
+              </h3>
+              {activities.length === 0 ? (
+                <p className="text-sm text-primary-foreground/60">Tidak ada kegiatan terjadwal</p>
+              ) : (
+                <div className="space-y-3">
+                  {activities.map((a) => (
+                    <div key={a.id} className="flex items-center gap-3">
+                      <div className="w-1 h-8 bg-accent rounded-full" />
+                      <div>
+                        <p className="font-medium text-sm">{a.title}</p>
+                        <p className="text-xs text-primary-foreground/60">
+                          {formatDate(a.date)} {a.time_start ? `• ${a.time_start}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="bg-white/10 rounded-xl p-5 backdrop-blur-sm">
+              <h3 className="font-semibold mb-3 text-sm flex items-center gap-2">
+                <span>📢</span> Pengumuman Terbaru
+              </h3>
+              {announcements.length === 0 ? (
+                <p className="text-sm text-primary-foreground/60">Tidak ada pengumuman</p>
+              ) : (
+                <div className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                  {announcements.map((a) => (
+                    <div key={a.id} className="border-b border-white/5 pb-3 last:border-0 mb-2 group">
+                      <p className="font-bold text-sm text-accent group-hover:text-white transition-colors">{a.title}</p>
+                      <p className="text-[11px] text-primary-foreground/70 line-clamp-4 leading-relaxed mt-1">
+                        {a.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Paid features only (Marketing/Secondary) */}
+        {isPaid && (
+          <>
             {/* Slideshow Foto Kegiatan */}
             {photoUrls.length > 0 && (
               <div className="px-6 md:px-10 pb-4">
-                <div className="relative rounded-xl overflow-hidden aspect-video max-h-56">
+                <div className="relative rounded-xl overflow-hidden aspect-video max-h-56 shadow-2xl border border-white/10">
                   <img src={photoUrls[slideIndex]} alt="" className="w-full h-full object-cover transition-opacity duration-700" />
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
                     {photoUrls.map((_, i) => (
-                      <button key={i} onClick={() => setSlideIndex(i)} className={`w-2 h-2 rounded-full transition-all ${i === slideIndex ? 'bg-white' : 'bg-white/40'}`} />
+                      <button key={i} onClick={() => setSlideIndex(i)} className={`w-2 h-2 rounded-full transition-all ${i === slideIndex ? 'bg-white w-4' : 'bg-white/40'}`} />
                     ))}
                   </div>
-                  <div className="absolute top-2 left-3 text-xs bg-black/40 text-white px-2 py-0.5 rounded-full">📸 Foto Kegiatan</div>
+                  <div className="absolute top-2 left-3 text-[10px] uppercase font-black tracking-widest bg-black/40 backdrop-blur-md text-white px-3 py-1 rounded-full">📸 Gallery Masjid</div>
                 </div>
               </div>
             )}
@@ -251,13 +268,13 @@ export default function InfoPublik() {
             {/* Video YouTube */}
             {currentMosque.youtube && (
               <div className="px-6 md:px-10 pb-4">
-                <div className="bg-white/10 rounded-xl p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center shrink-0">
-                    <span className="text-white text-xs font-bold">▶</span>
+                <div className="bg-white/10 rounded-xl p-4 flex items-center gap-4 hover:bg-white/20 transition-all cursor-pointer">
+                  <div className="w-10 h-10 rounded-full bg-red-600 flex items-center justify-center shrink-0 shadow-lg">
+                    <span className="text-white text-xs font-bold ml-0.5">▶</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm">Tonton Video Kajian</p>
-                    <a href={currentMosque.youtube} target="_blank" rel="noreferrer" className="text-xs text-primary-foreground/60 truncate block hover:underline">{currentMosque.youtube}</a>
+                    <p className="font-bold text-sm">Streaming / Video Kajian</p>
+                    <a href={currentMosque.youtube} target="_blank" rel="noreferrer" className="text-[10px] text-primary-foreground/60 truncate block hover:underline italic">{currentMosque.youtube}</a>
                   </div>
                 </div>
               </div>
@@ -265,26 +282,19 @@ export default function InfoPublik() {
 
             {/* Donation QR Banner */}
             <div className="px-6 md:px-10 pb-6">
-              <div className="bg-accent/20 border border-accent/40 rounded-xl p-4 flex items-center gap-4">
-                <QrCode className="h-12 w-12 text-accent shrink-0" />
+              <div className="bg-accent/20 border border-accent/40 rounded-2xl p-5 flex items-center gap-5 shadow-xl">
+                <div className="bg-white p-2 rounded-xl shadow-lg">
+                  <QrCode className="h-10 w-10 text-emerald-900 shrink-0" />
+                </div>
                 <div>
-                  <p className="font-bold">Donasi via QR Code</p>
-                  <p className="text-sm text-primary-foreground/70">Scan QR untuk berdonasi langsung ke kas masjid. Donasi Anda langsung tercatat otomatis.</p>
+                  <p className="font-black uppercase tracking-tighter text-lg italic">Infaq via QRIS / QR Code</p>
+                  <p className="text-xs text-primary-foreground/75 leading-relaxed">Pindai kode QR untuk berdonasi. Transaksi Anda akan tercatat secara transparan dan otomatis di sistem laporan keuangan.</p>
                 </div>
               </div>
             </div>
           </>
         )}
-
-        {!isPaid && (
-          <div className="px-6 md:px-10 pb-6">
-            <div className="bg-white/10 rounded-xl p-4 text-center">
-              <p className="text-sm text-primary-foreground/70">🔒 Upgrade ke paket berbayar untuk menampilkan kegiatan, pengumuman, keuangan, dan fitur donasi QR</p>
-            </div>
-          </div>
-        )}
       </div>
-
     </div>
   );
 }
