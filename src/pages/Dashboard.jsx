@@ -10,7 +10,7 @@ import UpcomingActivities from "../components/dashboard/UpcomingActivities";
 import FinancialChart from "../components/dashboard/FinancialChart";
 import AnnouncementsList from "../components/dashboard/AnnouncementsList";
 import RecentActivity from "../components/dashboard/RecentActivity";
-import { TrendingUp, TrendingDown, PiggyBank, Calendar, Landmark, Sparkles } from "lucide-react";
+import { TrendingUp, TrendingDown, PiggyBank, Calendar, Building2, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 
@@ -94,7 +94,7 @@ export default function Dashboard() {
         className="flex flex-col items-center justify-center py-12 text-center h-[60vh]"
       >
         <div className="bg-primary/10 p-5 rounded-3xl mb-4 text-primary animate-bounce shadow-xl shadow-primary/10">
-          <Landmark className="w-12 h-12" />
+          <Building2 className="w-12 h-12" />
         </div>
         <h3 className="text-2xl font-bold mb-2">Belum Memilih Masjid</h3>
         <p className="text-muted-foreground mb-8 max-w-sm">
@@ -155,12 +155,12 @@ export default function Dashboard() {
         >
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
             <Sparkles className="absolute top-10 right-10 w-40 h-40 rotate-12" />
-            <Landmark className="absolute bottom-10 left-10 w-60 h-60 -rotate-12" />
+            <Building2 className="absolute bottom-10 left-10 w-60 h-60 -rotate-12" />
           </div>
 
           <div className="relative z-10 max-w-2xl mx-auto space-y-8">
             <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mx-auto text-red-500 animate-pulse border-2 border-red-500/30">
-              <Landmark className="w-12 h-12" />
+              <Building2 className="w-12 h-12" />
             </div>
             <div className="space-y-4">
               <h2 className="text-5xl font-black italic tracking-tighter uppercase">Layanan Non-Aktif</h2>
@@ -213,7 +213,7 @@ export default function Dashboard() {
           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
             <Sparkles className="w-24 h-24 rotate-12" />
           </div>
-          <Landmark className="h-8 w-8 shrink-0" />
+          <Building2 className="h-8 w-8 shrink-0" />
           <div className="flex-1 text-sm font-bold">
             Masa aktif paket <span className="underline">{currentMosque?.subscription_plan}</span> telah habis. 
             <p className="font-normal opacity-80">Akses fitur manajemen dibatasi sementara.</p>

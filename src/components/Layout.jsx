@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useState } from "react";
-import { Menu, Sparkles, Landmark } from "lucide-react";
+import { Menu, Sparkles, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "./NotificationBell";
 import { useMosqueContext } from "@/lib/useMosqueContext";
@@ -33,7 +33,7 @@ export default function Layout() {
         {theme.showWatermark && (
           <div className="absolute bottom-10 right-10 w-[400px] h-[400px] opacity-[0.04] grayscale select-none pointer-events-none transition-all duration-1000">
              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-                <Landmark className="h-6 w-6 text-white" />
+                <Building2 className="h-6 w-6 text-white" />
              </div>
           </div>
         )}
