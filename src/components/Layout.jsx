@@ -1,7 +1,7 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { useState } from "react";
-import { Menu, Sparkles } from "lucide-react";
+import { Menu, Sparkles, Landmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "./NotificationBell";
 import { useMosqueContext } from "@/lib/useMosqueContext";
@@ -22,11 +22,11 @@ export default function Layout() {
         {/* Dynamic Gradients */}
         <div 
           className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full opacity-20 blur-[120px]"
-          style={{ background: `radial-gradient(circle, ${theme.primaryColor} 0%, transparent 70%)` }}
+          style={{ background: `radial-gradient(circle, ${theme?.primaryColor || "#065f46"} 0%, transparent 70%)` }}
         />
         <div 
           className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full opacity-10 blur-[100px]"
-          style={{ background: `radial-gradient(circle, ${theme.accentColor} 0%, transparent 70%)` }}
+          style={{ background: `radial-gradient(circle, ${theme?.accentColor || "#c5a059"} 0%, transparent 70%)` }}
         />
         
         {/* Premium Watermark */}

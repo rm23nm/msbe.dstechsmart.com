@@ -41,7 +41,9 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
     return false;
   };
 
-  if (isExpired() && user?.role !== 'superadmin' && !location.pathname.startsWith('/quran') && !location.pathname.startsWith('/dashboard')) {
+  const isSystemAdmin = user?.role === 'superadmin' || user?.role === 'admin';
+
+  if (isExpired() && !isSystemAdmin && !location.pathname.startsWith('/quran') && !location.pathname.startsWith('/dashboard')) {
      return (
        <div className="flex flex-col items-center justify-center min-h-screen text-center p-8 bg-[#1e293b] text-white">
           <div className="w-24 h-24 bg-red-500/20 rounded-full flex items-center justify-center mb-8 text-red-500 animate-pulse">
@@ -67,7 +69,7 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
   // 1. Feature Gate (Subscription Plan)
   const hasFeature = (featName) => {
     if (!featName) return true;
-    if (user?.role === "superadmin") return true; 
+    if (isSystemAdmin) return true; 
     
     // For public paths (TV, Portfolio, etc.), we allow access regardless of individual feature toggles
     // during the active subscription period (managed by isExpired above).
@@ -115,16 +117,18 @@ const ProtectedRoute = ({ children, permission, feature, isPublic = false, isAdm
   }
 
   // 3. Admin Only Gate
-  if (isAdminOnly && user?.role !== "superadmin") {
+  if (isAdminOnly && !isSystemAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
   // 4. Permission Gate (RBAC)
-  if (user?.role === "superadmin") {
-    return children;
-  }
-
   if (permission && !hasPermission(permission)) {
+    // If it's a superadmin and NO permission is explicitly set yet, allow them
+    // (backward compatibility: older superadmin templates might be empty)
+    if (user?.role === 'superadmin' && permissions?.[permission] === undefined) {
+        return children;
+    }
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-6 bg-card rounded-3xl border m-4 shadow-sm animate-in fade-in zoom-in duration-500">
         <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-4 text-destructive">

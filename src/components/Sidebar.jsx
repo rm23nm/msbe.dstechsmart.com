@@ -68,12 +68,13 @@ export default function Sidebar({ onClose }) {
 
   const adminMenuItems = getAdminMenuItems(t);
   const mosqueMenuItems = getMosqueMenuItems(t);
-  const isAdmin = user?.role === "superadmin" || user?.role === "admin";
+  const isSuperAdmin = user?.role === "superadmin" || user?.role === "admin";
+  const isAdmin = isSuperAdmin;
   const isMosqueAdmin = isAdmin || user?.role === "mosque_admin" || user?.role === "pengurus" || user?.role === "admin_masjid";
   
   const isExpired = currentMosque?.subscription_end && new Date(currentMosque.subscription_end) < new Date();
   const isStandalone = import.meta.env.VITE_SINGLE_MOSQUE_MODE === 'true';
-  const roleLabel = user?.role === "superadmin" ? "Super Admin" : user?.role === "mosque_admin" ? "Pengurus" : user?.role === "user" ? "Jamaah" : (user?.role || "...");
+  const roleLabel = isSuperAdmin ? "Super Admin" : user?.role === "mosque_admin" ? "Pengurus" : user?.role === "user" ? "Jamaah" : (user?.role || "...");
 
   const planFeatures = currentMosque?.plan_features || [];
 
@@ -147,7 +148,7 @@ export default function Sidebar({ onClose }) {
 
   // Branding Logic - Prio for Superadmin: Global Branding
   const { isWhiteLabel } = useMosqueContext();
-  const isSuperAdmin = user?.role === "superadmin";
+  // isSuperAdmin already defined above line 72
   
   // White Label Check: If Elite, strictly use Mosque branding, no fallback to platform strings
   const appNameRaw = isSuperAdmin ? "MasjidKu Smart" : (currentMosque?.name || "MasjidKu");

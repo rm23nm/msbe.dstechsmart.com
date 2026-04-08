@@ -172,27 +172,50 @@ export function useMosqueContext() {
 
   // Dynamic Role-based Permissions Logic
   const permissions = (() => {
-    if (isSuperAdmin) return { FULL_ACCESS: true };
-    if (!membership?.role || !allPermissionsTemplate) return {};
+    // Superadmin logic: allow individual module restrictions while keeping system access default
+    if (isSuperAdmin) {
+      const global = allPermissionsTemplate.find(r => r && r.role_name === "superadmin" && (r.mosque_id === null || r.mosque_id === undefined));
+      if (!global || !global.permissions) return { FULL_ACCESS: true };
+      try {
+        const p = global.permissions;
+        return typeof p === 'string' ? JSON.parse(p) : (p || {});
+      } catch (e) { return { FULL_ACCESS: true }; }
+    }
+
+    if (!membership?.role || !Array.isArray(allPermissionsTemplate)) return {};
     
     const roleName = membership.role;
     // Prio: Local Override first, then Global Template
-    const local = allPermissionsTemplate.find(r => r.role_name === roleName && r.mosque_id === currentMosque?.id);
-    const global = allPermissionsTemplate.find(r => r.role_name === roleName && r.mosque_id === null);
+    const local = allPermissionsTemplate.find(r => r && r.role_name === roleName && r.mosque_id === currentMosque?.id);
+    const global = allPermissionsTemplate.find(r => r && r.role_name === roleName && (r.mosque_id === null || r.mosque_id === undefined));
     
     const activeRp = local || global;
-    if (!activeRp) return {};
+    if (!activeRp || !activeRp.permissions) return {};
     
     try {
-      return typeof activeRp.permissions === 'string' ? JSON.parse(activeRp.permissions) : activeRp.permissions;
-    } catch {
+      const p = activeRp.permissions;
+      if (!p) return {};
+      if (typeof p === 'string' && (p.startsWith('{') || p.startsWith('['))) {
+        return JSON.parse(p);
+      }
+      return typeof p === 'object' ? p : {};
+    } catch (e) {
+      console.error("Permission parse error:", e);
       return {};
     }
   })();
 
   const hasPermission = (menuId, action = "view") => {
-    if (isSuperAdmin) return true;
     const p = permissions[menuId];
+    
+    if (isSuperAdmin) {
+      // Allow Superadmin to restrict themselves by unchecking boxes
+      // If it exists in JSON and is explicitly false, return false
+      if (p && typeof p === 'object' && p[action] === false) return false;
+      // Default to true for Superadmin
+      return true;
+    }
+
     if (!p) return false;
     
     // Support Object based: { view: true, ... }

@@ -645,8 +645,19 @@ app.patch("/api/entities/:model/:id", authenticateToken, async (req, res) => {
   if (!prismaModel || !prisma[prismaModel]) return res.status(404).json({ error: "Tabel tidak ditemukan" });
 
   try {
-    const { admin_password, id: bodyId, ...data } = req.body;
+    const { admin_password, id: bodyId, ...rawData } = req.body;
     
+    // DEFENSIVE: Filter only fields that exist in the target model schema to prevent Prisma crashes
+    const modelFields = Object.keys(prisma[prismaModel].fields || {});
+    const data = {};
+    Object.keys(rawData).forEach(key => {
+        if (modelFields.includes(key)) {
+            data[key] = rawData[key];
+        } else {
+            console.warn(`[CRUD-UPDATE] Filtering out unknown field '${key}' for model '${prismaModel}'`);
+        }
+    });
+
     console.log(`[CRUD-UPDATE] Target Model: ${prismaModel}, ID: ${id}`);
     console.log(`[CRUD-UPDATE] Sanity Check - Body ID: ${bodyId}, URL ID: ${id}`);
     console.log(`[CRUD-UPDATE] Payload:`, JSON.stringify(data));

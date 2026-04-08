@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import { smartApi } from "@/api/apiClient";
 import PageHeader from "@/components/PageHeader";
@@ -57,9 +57,10 @@ export default function AdminRoles() {
   // CONTEXT DETECTION BASED ON URL
   const isSystemContext = location.pathname.startsWith("/admin");
   
-  // SPECIAL CASE: admin_masjid role belongs to mosque menus even in admin context
+  // SPECIAL CASE: superadmin can manage both system and mosque menus to restrict themselves if needed
+  const isSuperAdminRole = selectedRole?.role_name === 'superadmin';
   const isMosqueRole = selectedRole?.role_name === 'admin_masjid' || !isSystemContext;
-  const displayedMenus = isMosqueRole ? MOSQUE_MENUS : SYSTEM_MENUS;
+  const displayedMenus = isSuperAdminRole ? [...SYSTEM_MENUS, ...MOSQUE_MENUS] : (isMosqueRole ? MOSQUE_MENUS : SYSTEM_MENUS);
 
   useEffect(() => {
     if (rolePermissions) {
@@ -261,10 +262,22 @@ export default function AdminRoles() {
                     </tr>
                   </thead>
                   <tbody>
-                    {displayedMenus.map(menu => {
+                    {displayedMenus.map((menu, idx) => {
                       const perms = (editingPermissions && editingPermissions[menu.id]) || { view: false, edit: false, delete: false };
+                      const isNewSection = idx > 0 && 
+                                           SYSTEM_MENUS.some(m => m.id === displayedMenus[idx-1].id) && 
+                                           MOSQUE_MENUS.some(m => m.id === menu.id);
+                      
                       return (
-                        <tr key={menu.id} className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
+                        <React.Fragment key={menu.id}>
+                          {isNewSection && (
+                            <tr className="bg-primary/5">
+                              <td colSpan={4} className="p-2 px-4 text-[10px] font-bold text-primary uppercase tracking-widest border-y">
+                                Hak Akses Operasional Masjid (Local Mosque Scope)
+                              </td>
+                            </tr>
+                          )}
+                          <tr className="border-b last:border-0 hover:bg-slate-50/50 transition-colors">
                           <td className="p-4">
                             <div className="font-medium">{menu.label}</div>
                             <div className="text-[10px] text-muted-foreground uppercase">{menu.id}</div>
@@ -287,7 +300,8 @@ export default function AdminRoles() {
                               onCheckedChange={() => togglePermission(menu.id, 'delete')}
                             />
                           </td>
-                        </tr>
+                          </tr>
+                        </React.Fragment>
                       );
                     })}
                   </tbody>

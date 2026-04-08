@@ -153,6 +153,10 @@ export default function Pengaturan() {
     if (cleanForm.logo_url?.startsWith('data:')) cleanForm.logo_url = currentMosque.logo_url || '';
     if (cleanForm.cover_image_url?.startsWith('data:')) cleanForm.cover_image_url = currentMosque.cover_image_url || '';
     
+    // Filter fields that belong to User, not Mosque to prevent Prisma unknown argument errors
+    const userFields = ["pin", "currentPassword", "newPassword", "confirmPassword"];
+    userFields.forEach(field => delete cleanForm[field]);
+
     try {
       await smartApi.entities.Mosque.update(currentMosque.id, cleanForm);
       toast.success("Pengaturan berhasil disimpan");
@@ -180,6 +184,7 @@ export default function Pengaturan() {
     { key: "portfolio", label: "Halaman Publik" },
     { key: "layar_tv", label: "Layar TV" },
     { key: "jadwal", label: "Jadwal Shalat" },
+    { key: "jumat", label: "Petugas Jumat" },
     ...(isMosqueAdmin || isAdmin ? [{ key: "pembayaran", label: "Pembayaran" }] : []),
     { key: "notifikasi", label: "Notifikasi" },
     { key: "subscription", label: "Langganan" },
@@ -193,7 +198,7 @@ export default function Pengaturan() {
       {/* Tabs */}
       <div className="flex gap-1 bg-muted p-1 rounded-xl w-full md:w-fit overflow-x-auto no-scrollbar">
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
+          <button key={t.key} type="button" onClick={() => setActiveTab(t.key)}
             className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${activeTab === t.key ? 'bg-card shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
             {t.label}
           </button>
@@ -385,6 +390,11 @@ export default function Pengaturan() {
         {/* JADWAL SHALAT */}
         {activeTab === "jadwal" && (
           <JadwalShalatManager mosque={currentMosque} canEdit={canEdit} />
+        )}
+
+        {/* PETUGAS JUMAT */}
+        {activeTab === "jumat" && (
+          <JumatOfficerManager mosque={currentMosque} canEdit={canEdit} />
         )}
 
 
@@ -975,6 +985,7 @@ export default function Pengaturan() {
                 </div>
                 
                 <Button 
+                  type="button"
                   variant="outline"
                   onClick={async () => {
                     if (!form.pin || form.pin.length < 4) {
@@ -1216,4 +1227,83 @@ function JadwalShalatManager({ mosque, canEdit }) {
       </div>
     </div>
   );
+}
+
+function getNextFriday() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = (5 - day + 7) % 7 || 7;
+  const next = new Date(d);
+  next.setDate(d.getDate() + diff);
+  return next.toISOString().split('T')[0];
+}
+
+function JumatOfficerManager({ mosque, canEdit }) {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({ imam: '', khatib: '', muadzin: '', bilal: '', notes: '', jumat_date: getNextFriday() });
+  const [saving, setSaving] = useState(false);
+  const [id, setId] = useState(null);
+
+  useEffect(() => { loadData(); }, [mosque.id]);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const list = await smartApi.entities.JumatOfficer.filter({ mosque_id: mosque.id }, '-jumat_date', 1);
+      if (list.length > 0) {
+        setData(list[0]);
+        setId(list[0].id);
+      }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }
+
+  async function handleSave() {
+    if (!canEdit) return;
+    setSaving(true);
+    try {
+      if (id) await smartApi.entities.JumatOfficer.update(id, { ...data, mosque_id: mosque.id });
+      else {
+        const res = await smartApi.entities.JumatOfficer.create({ ...data, mosque_id: mosque.id });
+        setId(res.id);
+      }
+      toast.success("Petugas Jumat berhasil disimpan");
+    } catch (e) { toast.error("Gagal menyimpan"); }
+    finally { setSaving(false); }
+  }
+
+  if (loading) return <div className="text-center py-10 opacity-50"><div className="w-6 h-6 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-2" />Memuat Petugas...</div>;
+
+  return (
+    <div className="bg-card border rounded-2xl p-6 shadow-sm space-y-6">
+      <div className="flex items-center gap-3 border-b pb-4">
+        <Users className="h-5 w-5 text-emerald-600" />
+        <h3 className="font-bold">Pengaturan Petugas Shalat Jumat</h3>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="md:col-span-2 space-y-2">
+            <Label>Tanggal Hari Jumat</Label>
+            <Input type="date" value={data.jumat_date?.split('T')[0] || ""} onChange={e => setData({...data, jumat_date: e.target.value})} disabled={!canEdit} />
+        </div>
+        {[
+          { key: 'imam', label: 'Imam' },
+          { key: 'khatib', label: 'Khatib' },
+          { key: 'muadzin', label: 'Muadzin' },
+          { key: 'bilal', label: 'Bilal' }
+        ].map(off => (
+          <div key={off.key} className="space-y-2">
+            <Label>{off.label}</Label>
+            <Input value={data[off.key] || ""} onChange={e => setData({...data, [off.key]: e.target.value})} placeholder={`Nama ${off.label}`} disabled={!canEdit} />
+          </div>
+        ))}
+        <div className="md:col-span-2 space-y-2">
+            <Label>Catatan / Maklumat</Label>
+            <Textarea value={data.notes || ""} onChange={e => setData({...data, notes: e.target.value})} placeholder="Catatan untuk petugas atau pengumuman jumat..." disabled={!canEdit} />
+        </div>
+      </div>
+
+      {canEdit && <Button type="button" onClick={handleSave} disabled={saving} className="w-full bg-emerald-600 hover:bg-emerald-700 font-bold italic tracking-tighter uppercase h-12 shadow-lg shadow-emerald-500/20">{saving ? "Menyimpan..." : "SIMPAN DATA PETUGAS"}</Button>}
+    </div>
+  )
 }

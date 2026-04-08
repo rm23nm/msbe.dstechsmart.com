@@ -39,12 +39,6 @@ export default function InfoPublik() {
   const [jumatOfficer, setJumatOfficer] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [slideIndex, setSlideIndex] = useState(0);
-  const [showPrayerForm, setShowPrayerForm] = useState(false);
-  const [showJumatForm, setShowJumatForm] = useState(false);
-  const [prayerForm, setPrayerForm] = useState({ subuh: '', dzuhur: '', ashar: '', maghrib: '', isya: '', jumat: '' });
-  const [jumatForm, setJumatForm] = useState({ imam: '', khatib: '', muadzin: '', bilal: '', notes: '', jumat_date: getNextFriday() });
-  const [prayerTimesId, setPrayerTimesId] = useState(null);
-  const [jumatOfficerId, setJumatOfficerId] = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -76,8 +70,8 @@ export default function InfoPublik() {
     setTransactions(txns);
     setActivities(acts.filter(a => a.status === 'upcoming'));
     setAnnouncements(anns);
-    if (prayers.length > 0) { setPrayerTimes(prayers[0]); setPrayerTimesId(prayers[0].id); setPrayerForm(prayers[0]); }
-    if (jumat.length > 0) { setJumatOfficer(jumat[0]); setJumatOfficerId(jumat[0].id); setJumatForm(jumat[0]); }
+    if (prayers.length > 0) { setPrayerTimes(prayers[0]); }
+    if (jumat.length > 0) { setJumatOfficer(jumat[0]); }
   }
 
   function toggleFullscreen() {
@@ -85,21 +79,6 @@ export default function InfoPublik() {
     else { document.exitFullscreen(); setFullscreen(false); }
   }
 
-  async function savePrayerTimes() {
-    if (prayerTimesId) await smartApi.entities.PrayerTime.update(prayerTimesId, { ...prayerForm, mosque_id: currentMosque.id });
-    else { const c = await smartApi.entities.PrayerTime.create({ ...prayerForm, mosque_id: currentMosque.id }); setPrayerTimesId(c.id); }
-    setPrayerTimes(prayerForm);
-    setShowPrayerForm(false);
-    toast.success("Jadwal shalat disimpan!");
-  }
-
-  async function saveJumatOfficer() {
-    if (jumatOfficerId) await smartApi.entities.JumatOfficer.update(jumatOfficerId, { ...jumatForm, mosque_id: currentMosque.id });
-    else { const c = await smartApi.entities.JumatOfficer.create({ ...jumatForm, mosque_id: currentMosque.id }); setJumatOfficerId(c.id); }
-    setJumatOfficer(jumatForm);
-    setShowJumatForm(false);
-    toast.success("Petugas Jumat disimpan!");
-  }
 
   if (loading || !currentMosque) return <div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>;
 
@@ -118,16 +97,12 @@ export default function InfoPublik() {
     <div className="space-y-4">
       <PageHeader title="Info Publik" description="Mode tampilan untuk layar TV masjid">
         <div className="flex gap-2">
-          {isPengurus && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setShowPrayerForm(true)} className="gap-1">
-                <Settings className="h-4 w-4" /> Jadwal Shalat
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setShowJumatForm(true)} className="gap-1">
-                <Settings className="h-4 w-4" /> Petugas Jumat
-              </Button>
-            </>
-          )}
+          <Button variant="outline" size="sm" onClick={() => {
+            const url = `${window.location.origin}/masjid/${currentMosque.slug || currentMosque.id}`;
+            window.open(url, "_blank");
+          }} className="gap-1 bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
+            <ArrowUpRight className="h-4 w-4" /> Link Portofolio
+          </Button>
           <Link to={`/tv/${currentMosque.slug || currentMosque.id}`} target="_blank">
             <Button variant="default" className="gap-2">
               <Tv className="h-4 w-4" /> Buka Tampilan TV
@@ -310,50 +285,6 @@ export default function InfoPublik() {
         )}
       </div>
 
-      {/* Manage Forms */}
-      <Dialog open={showPrayerForm} onOpenChange={setShowPrayerForm}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Atur Jadwal Waktu Shalat</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            {PRAYER_LABELS.map(p => (
-              <div key={p.key}>
-                <label className="text-sm font-medium">{p.label}</label>
-                <Input type="time" value={prayerForm[p.key] || ''} onChange={e => setPrayerForm(prev => ({ ...prev, [p.key]: e.target.value }))} className="mt-1" />
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2 justify-end mt-2">
-            <Button variant="outline" onClick={() => setShowPrayerForm(false)}>Batal</Button>
-            <Button onClick={savePrayerTimes}>Simpan</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showJumatForm} onOpenChange={setShowJumatForm}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Petugas Shalat Jum'at</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
-              <label className="text-sm font-medium">Tanggal Jum'at</label>
-              <Input type="date" value={jumatForm.jumat_date || ''} onChange={e => setJumatForm(p => ({ ...p, jumat_date: e.target.value }))} className="mt-1" />
-            </div>
-            {[['imam', 'Imam'], ['khatib', 'Khatib'], ['muadzin', 'Muadzin'], ['bilal', 'Bilal']].map(([k, l]) => (
-              <div key={k}>
-                <label className="text-sm font-medium">{l}</label>
-                <Input value={jumatForm[k] || ''} onChange={e => setJumatForm(p => ({ ...p, [k]: e.target.value }))} className="mt-1" placeholder={`Nama ${l}`} />
-              </div>
-            ))}
-            <div className="col-span-2">
-              <label className="text-sm font-medium">Catatan</label>
-              <Input value={jumatForm.notes || ''} onChange={e => setJumatForm(p => ({ ...p, notes: e.target.value }))} className="mt-1" />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end mt-2">
-            <Button variant="outline" onClick={() => setShowJumatForm(false)}>Batal</Button>
-            <Button onClick={saveJumatOfficer}>Simpan</Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -57,8 +57,16 @@ import AdminLicenses from "@/pages/admin/AdminLicenses";
 import MosqueRoles from "@/pages/MosqueRoles";
 import BuyStandalone from "@/pages/BuyStandalone";
 import Layout from "@/components/Layout";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
-const queryClientInstance = new QueryClient();
+const queryClientInstance = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function isPublicPath(pathname) {
   const publicSegments = ["/", "/login", "/register", "/forgot-password", "/reset-password", "/cari-masjid", "/quran", "/paket", "/beli-mandiri"];
@@ -209,17 +217,19 @@ const AuthenticatedApp = () => {
 const App = () => {
   return (
     <AuthProvider>
-      <LanguageProvider>
-        <ThemeProvider>
-          <QueryClientProvider client={queryClientInstance}>
-            <Router>
-              <AuthenticatedApp />
-              <InstallPWA />
-            </Router>
-            <Toaster />
-          </QueryClientProvider>
-        </ThemeProvider>
-      </LanguageProvider>
+      <ErrorBoundary>
+        <LanguageProvider>
+          <ThemeProvider>
+            <QueryClientProvider client={queryClientInstance}>
+              <Router>
+                <AuthenticatedApp />
+                <InstallPWA />
+              </Router>
+              <Toaster position="top-center" richColors />
+            </QueryClientProvider>
+          </ThemeProvider>
+        </LanguageProvider>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }

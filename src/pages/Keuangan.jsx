@@ -47,6 +47,10 @@ export default function Keuangan() {
   async function executeSave(directData = null) {
     const dataToSave = directData || pendingFormData;
     if (!dataToSave) return;
+    if (!currentMosque?.id) {
+      toast.error("❌ Pilih masjid terlebih dahulu");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -54,7 +58,10 @@ export default function Keuangan() {
         await smartApi.entities.Transaction.update(editItem.id, dataToSave);
         toast.success("✅ Transaksi berhasil diperbarui");
       } else {
-        await smartApi.entities.Transaction.create({ ...dataToSave, mosque_id: currentMosque.id });
+        await smartApi.entities.Transaction.create({ 
+          ...dataToSave, 
+          mosque_id: currentMosque.id 
+        });
         toast.success("✅ Transaksi baru berhasil dicatat");
       }
       setShowForm(false);
@@ -63,7 +70,8 @@ export default function Keuangan() {
       setShowConfirmSave(false);
       loadData();
     } catch (e) {
-      toast.error("Gagal menyimpan transaksi: " + e.message);
+      console.error("Save Error:", e);
+      toast.error("Gagal simpan: " + (e.response?.data?.error || e.message));
     } finally {
       setSaving(false);
     }
