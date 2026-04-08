@@ -6,7 +6,7 @@ import { useMosqueContext } from "@/lib/useMosqueContext";
 import QRCode from "react-qr-code";
 import { 
   Building2, Calendar, Users, MapPin, Phone, Instagram, Facebook, Youtube, Share2, Globe, Heart, 
-  ArrowRight, Building2, Clock, MessageSquare, Megaphone, TrendingUp, TrendingDown, ClipboardCheck, BarChart3,
+  ArrowRight, Clock, MessageSquare, Megaphone, TrendingUp, TrendingDown, ClipboardCheck, BarChart3,
   Wallet, ArrowUpRight, ArrowDownRight, UserPlus, Play, ChevronLeft, ChevronRight, Bot, X, Send, ChevronDown,
   Info, Images, DollarSign, Users as UsersIcon, BookOpen, Home, Mail, Smartphone
 } from "lucide-react";
